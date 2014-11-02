@@ -1,0 +1,10 @@
+// type-error: cannot redefine a schema
+schema x {
+	a = 1;
+}
+schema x {
+	a = true;
+}
+main {
+	c isa x { }
+}

@@ -1,0 +1,9 @@
+main {
+	x = 1;
+	y = 2;
+	global x = 1;
+}
+
+global y = 2;
+
+#always y != 3;

@@ -1,0 +1,7 @@
+main {
+	a = true;
+	global {
+		a;
+		not a;
+	}
+}

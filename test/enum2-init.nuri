@@ -1,0 +1,13 @@
+include "enum2-model.nuri";
+main {
+  s1 isa Machine {
+    web isa Service { }
+  }
+  s2 extends s1, {
+    web.running = State.stopped;
+  }
+  pc1 isa Client {
+    refer = s1.web;
+  }
+  pc2 := pc1;
+}

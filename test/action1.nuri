@@ -1,0 +1,18 @@
+main {
+	a = 1;
+	b = a;
+
+	def act (p: X) {
+		cost = 1;
+		conditions {
+			a = 1;
+		}
+		effects {
+			b = 2;
+		}
+	}
+}
+
+global {
+	a != 2;
+}

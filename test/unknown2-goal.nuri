@@ -1,0 +1,11 @@
+main {
+	a = 2;
+	b : bool = unknown;
+
+	def set_two {
+		effects { a = 2; }
+	}
+	def set_unknown {
+		effects { b = unknown; }
+	}
+}

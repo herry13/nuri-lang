@@ -1,0 +1,7 @@
+// this should be error because 'c' has a value of
+// reference of another reference (i.e. 'b')
+main {
+	a = 1;
+	c = b;
+	b = a;
+}

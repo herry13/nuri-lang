@@ -1,0 +1,16 @@
+a = 3;
+x = this.a;
+main {
+	a = 1;
+	b {
+		a = 2;
+		d = this.parent.a;
+		e = this.root.a;
+	}
+	d {
+		c = a;
+	}
+	e {
+		c = root.a;
+	}
+}

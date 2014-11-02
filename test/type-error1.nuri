@@ -1,0 +1,6 @@
+// schema 'x' is not exist, thus
+// a not-well-typed error should arise
+main {
+	a = 1;
+	b : *x = null;
+}

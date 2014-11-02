@@ -1,0 +1,15 @@
+main {
+	a = 1;
+	b = a;
+	c = [1, 2, 3];
+    d = 0;
+    e = 2;
+}
+
+global {
+    b = a;
+    a > d;
+    a < e;
+}
+
+global a != 2;

@@ -1,0 +1,9 @@
+schema A {
+	b = 2;
+	c = [1, 2];
+	def x { effect { b = 1; } }
+	def y { effect { c = [2, 3]; } }
+}
+main {
+	a isa A { }
+}

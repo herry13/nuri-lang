@@ -1,0 +1,7 @@
+include "primitive1.nuri";
+
+main.a {
+	#include "primitive1.nuri";
+}
+
+x = 1;

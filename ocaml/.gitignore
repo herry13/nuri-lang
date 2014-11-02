@@ -1,0 +1,16 @@
+*.swp
+*.o
+parser.mli
+lexer.mli
+*.cmo
+*.cmi
+csf
+csfp
+sfp
+lexer.ml
+parser.ml
+.paths
+.project
+.settings
+dist/linux/downward
+dist/linux/preprocess

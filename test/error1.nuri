@@ -1,0 +1,7 @@
+schema X {
+	a = 1;
+}
+schema Y extends X { }
+
+a { }
+schema Z extends a { }

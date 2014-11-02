@@ -1,0 +1,6 @@
+main {
+	a = 1;
+	global a = 1.0;
+	global a != 2;
+	global a in [1.0];
+}

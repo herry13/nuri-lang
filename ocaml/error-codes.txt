@@ -1,0 +1,17 @@
+These are the error codes used in every module: 
+1xx - sfp.ml
+2xx - common.ml
+3xx - syntax.ml
+4xx - type.ml
+5xx - domain.ml
+6xx - variable.ml
+7xx - constraint.ml
+8xx - action.ml
+9xx - fdr.ml
+10xx - helper.ml
+11xx - valuation.ml
+12xx - plan.ml
+13xx - json.ml
+14xx - yaml.ml
+15xx - parser.mly, parser_helper.ml
+16xx - lexer.mll

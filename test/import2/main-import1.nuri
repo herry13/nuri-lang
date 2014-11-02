@@ -1,0 +1,4 @@
+import "import1";
+
+main.y = true;
+

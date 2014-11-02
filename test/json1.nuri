@@ -1,0 +1,30 @@
+schema X { }
+main {
+	a = 1;
+	b = 1.0;
+	c = "a string";
+	d = true;
+	e : *object = null;
+	f = a;
+	g : int = unknown;
+	h : int = nothing;
+	//h2 : int = TBD;
+	i {
+		j = 2;
+	}
+	j = [1,2,3];
+	m isa X { }
+	n isa X { }
+	o isa X extends m, n, { b = 1; }
+	global a = 1;
+	def act (a : X) {
+		cost = 10;
+		conditions {
+			a = 1;
+			this.b = 2;
+		}
+		effects {
+			this.b = 3;
+		}
+	}
+}
