@@ -10,7 +10,8 @@
 3. [Usage](#usage)
 
 
-## Introduction <a name="intro"></a>
+<a name="intro"></a>
+## Introduction
 
 The Nuri language serves two objectives:
 
@@ -31,7 +32,8 @@ This compiler can:
 This compiler is used by the [Nuri](https://github.com/nurilabs/nuri) configuration management tool.
 
 
-## To Build <a name="build"></a>
+<a name="build"></a>
+## To Build
 
 Requirements:
 - OCaml version >= 3.12.1
@@ -47,7 +49,8 @@ make
 The above commands generates file `nuric`. Notes that in default the codes are compiled into static-native binary file. However, we can compile it into OCaml bytecodes by setting variable `NATIVE=0` in `Makefile`.
 
 
-## Usage <a name="usage"></a>
+<a name="usage"></a>
+## Usage
 
 The simplest way is:
 
