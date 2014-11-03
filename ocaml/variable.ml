@@ -225,6 +225,7 @@ let make_ts typeEnvInit flatStoreInit typeEnvGoal flatStoreGoal typeValues =
                            "that can have TBD value at the goal state.")
             else
                 type1
+        | type1, Syntax.TUndefined -> type1
         | _, _ -> error 602 "incompatible type between initial & goal states"
     in
     let accumulator = {
@@ -241,8 +242,7 @@ let make_ts typeEnvInit flatStoreInit typeEnvGoal flatStoreGoal typeValues =
                 | Syntax.TGlobal -> acc
                 | t when Type.subtype t typeObject ->
                     let value = static_object in
-                    let variable = make r acc.nextVariableIndex [|value|] value value
-                    in
+                    let variable = make r acc.nextVariableIndex [|value|] value value in
                     {
                         _map              = MapRef.add r variable acc._map;
                         _list             = variable :: acc._list;
@@ -253,10 +253,11 @@ let make_ts typeEnvInit flatStoreInit typeEnvGoal flatStoreGoal typeValues =
                         (Type.values_of t typeValues))
                     in
                     let init = MapRef.find r flatStoreInit in
-                    let goal = MapRef.find r flatStoreGoal in
-                    let variable = make r acc.nextVariableIndex values init
-                        goal
+                    let goal =
+                        if MapRef.mem r flatStoreGoal then MapRef.find r flatStoreGoal
+                        else TBD
                     in
+                    let variable = make r acc.nextVariableIndex values init goal in
                     {
                         _map              = MapRef.add r variable acc._map;
                         _list             = variable :: acc._list;
