@@ -206,9 +206,14 @@ and check_error e lexstack =
 ;;
 
 let ast_of_file file =
+    (* create a dummy lexing buffer *)
 	let dummy_lexbuf = Lexing.from_string "" in
+    (* create a lexing stack *)
 	let lexstack = create file Lexer.token in
+    (* reset imported files list *)
+    imported_files := [];
 	try
+        (* parse the file and then return the AST *)
 		Parser.nuri (get_token lexstack) dummy_lexbuf
 	with
 	| e -> check_error e lexstack
