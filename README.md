@@ -8,6 +8,9 @@
 1. [Introduction](#intro)
 2. [To Build](#build)
 3. [Usage](#usage)
+4. [Nuri Language](#nuri-language)
+5. [Planning](#planning)
+6. [License](#license)
 
 
 <a name="intro"></a>
@@ -65,3 +68,22 @@ Other options:
 - `-g` : do not evaluate the global constraints
 - `-p` : solve a reconfiguration (planning) problem
 
+TODO: explain every option.
+
+
+<a name="nuri-language"></a>
+## Nuri Language
+
+TODO
+
+
+<a name="planning"></a>
+## Planning
+
+TODO
+
+
+<a name="license"></a>
+## License
+
+[Apache License 2.0](https://github.com/nurilabs/nuri-lang/blob/master/LICENSE).
