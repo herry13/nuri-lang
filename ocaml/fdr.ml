@@ -288,59 +288,62 @@ let convert_fdr_to_nuri_plan fdr_plan data removeDummy =
     in
     let result =
         List.fold_left (fun acc line ->
-            let line = String.sub line 1 ((String.length line)-1) in
-            let parts = Str.bounded_split space line 3 in
-            let index = int_of_string (List.hd parts) in
-            if removeDummy then
-                if (List.hd (List.tl parts)).[3] = '!' then
-                    (* a dummy action: "$.!global" *)
-                    if acc.dummy = dummy then
-                        {
-                            plan = acc.plan;
-                            dummy = actions.(index)
-                        }
-                    else
-                        (* merge the preconditions of the previous dummy
-                           action with the current one *)
-                        let a = actions.(index) in
-                        let pre = merge (A.preconditions acc.dummy)
-                            (A.preconditions a)
-                        in
-                        let a1 = A.make (A.name a) (A.parameters a)
-                            (A.cost a) pre (A.effects a)
-                        in
-                        {
-                            plan = acc.plan;
-                            dummy = a1
-                        }
-                else
-                    (* not a dummy operator *)
-                    if acc.dummy = dummy then
-                        {
-                            plan = actions.(index) :: acc.plan;
-                            dummy = dummy
-                        }
-                    else
-                        (* merge previous dummy operator with the
-                           current one *)
-                        let pre_dummy = A.preconditions acc.dummy in
-                        let a = actions.(index) in
-                        let pre = A.preconditions a in
-                        let eff =
-                            MapRef.remove Variable.r_dummy (A.effects a)
-                        in
-                        let a1 = A.make (A.name a) (A.parameters a)
-                            (A.cost a) (merge pre_dummy pre) eff
-                        in
-                        {
-                            plan = a1 :: acc.plan;
-                            dummy = dummy
-                        }
+            if (String.get line 0) = ';' then
+                acc
             else
-                {
-                    plan = actions.(index) :: acc.plan;
-                    dummy = acc.dummy
-                }
+                let line = String.sub line 1 ((String.length line)-1) in
+                let parts = Str.bounded_split space line 3 in
+                let index = int_of_string (List.hd parts) in
+                if removeDummy then
+                    if (List.hd (List.tl parts)).[3] = '!' then
+                        (* a dummy action: "$.!global" *)
+                        if acc.dummy = dummy then
+                            {
+                                plan = acc.plan;
+                                dummy = actions.(index)
+                            }
+                        else
+                            (* merge the preconditions of the previous dummy
+                               action with the current one *)
+                            let a = actions.(index) in
+                            let pre = merge (A.preconditions acc.dummy)
+                                (A.preconditions a)
+                            in
+                            let a1 = A.make (A.name a) (A.parameters a)
+                                (A.cost a) pre (A.effects a)
+                            in
+                            {
+                                plan = acc.plan;
+                                dummy = a1
+                            }
+                    else
+                        (* not a dummy operator *)
+                        if acc.dummy = dummy then
+                            {
+                                plan = actions.(index) :: acc.plan;
+                                dummy = dummy
+                            }
+                        else
+                            (* merge previous dummy operator with the
+                               current one *)
+                            let pre_dummy = A.preconditions acc.dummy in
+                            let a = actions.(index) in
+                            let pre = A.preconditions a in
+                            let eff =
+                                MapRef.remove Variable.r_dummy (A.effects a)
+                            in
+                            let a1 = A.make (A.name a) (A.parameters a)
+                                (A.cost a) (merge pre_dummy pre) eff
+                            in
+                            {
+                                plan = a1 :: acc.plan;
+                                dummy = dummy
+                            }
+                else
+                    {
+                        plan = actions.(index) :: acc.plan;
+                        dummy = acc.dummy
+                    }
         ) accumulator fdr_actions
     in
     Array.of_list (List.rev result.plan)
