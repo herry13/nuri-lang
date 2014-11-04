@@ -65,6 +65,7 @@ Other options:
 - `-x` : perform only syntax-checking
 - `-t` : perform syntax and type-checking
 - `-m` : return `root` instead of object `main`
+- `-i` : specification from standard input (STDIN)
 - `-g` : do not evaluate the global constraints
 - `-p` : solve a reconfiguration (planning) problem
 
