@@ -1,0 +1,68 @@
+def name
+  @name ||= 'nuric'
+end
+
+def version
+  @version ||= File.read('../VERSION').strip
+end
+
+def date
+  @today ||= Date.today.to_s
+end
+
+def gem_file
+  @gem_file ||= "#{name}-#{version}.gem"
+end
+
+def home
+  @home ||= File.dirname(__FILE__)
+end
+
+def nuric
+  "#{share_dir}/nuric"
+end
+
+def share_dir
+  "#{home}/share"
+end
+
+def test_dir
+  "#{home}/../test"
+end
+
+def bin_dir
+  "#{home}/bin"
+end
+
+def lib_dir
+  "#{home}/lib/nuric"
+end
+
+def ocaml_dir
+  "#{home}/../ocaml"
+end
+
+def testfiles
+  File.read("#{home}/../test/good-test-files.txt").
+    split("\n")
+end
+
+task :default => :build
+
+task :build do
+  # build
+  Dir.chdir ocaml_dir
+  sh 'make NATIVE=1 STACK_TRACE=0'
+  FileUtils.cp name, share_dir
+
+  # test
+  Dir.chdir test_dir
+  testfiles.each do |file|
+  	sh "#{nuric} #{file} 1>/dev/null"
+  end
+end
+
+task :clean do
+  FileUtils.rm nuric if File.exists?(nuric)
+  FileUtils.rm gem_file if File.exists?(gem_file)
+end
