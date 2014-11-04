@@ -45,6 +45,15 @@ let create top_filename lexer_function =
 		lexfunc = lexer_function
 	}
 
+let create_stdin lexer_function =
+    {
+        stack = [];
+        filename = "<STDIN>";
+        chan = stdin;
+        lexbuf = Lexing.from_channel stdin;
+        lexfunc = lexer_function
+    }
+
 (** Get the current lexeme. **)
 let lexeme ls = Lexing.lexeme ls.lexbuf
 
@@ -209,7 +218,10 @@ let ast_of_file file =
     (* create a dummy lexing buffer *)
 	let dummy_lexbuf = Lexing.from_string "" in
     (* create a lexing stack *)
-	let lexstack = create file Lexer.token in
+	let lexstack = 
+        if file <> "" then create file Lexer.token
+        else create_stdin Lexer.token
+    in
     (* reset imported files list *)
     imported_files := [];
 	try
@@ -217,3 +229,4 @@ let ast_of_file file =
 		Parser.nuri (get_token lexstack) dummy_lexbuf
 	with
 	| e -> check_error e lexstack
+;;

@@ -21,6 +21,7 @@ let opt_no_main = ref false ;;
 let opt_fdr = ref false ;;
 let opt_planning = ref false ;;
 let opt_not_eval_global_constraints = ref false ;;
+let opt_stdin = ref false ;;
 
 let files : string list ref = ref [] ;;
 
@@ -42,12 +43,12 @@ let evaluate_global_constraints store =
     | _ -> false
 ;;
 
-let generate_json file =
+let generate_json ast =
     let mainReference =
         if !opt_no_main then []
         else ["main"]
     in
-    let ast = Parser_helper.ast_of_file file in
+    (* let ast = Parser_helper.ast_of_file file in *)
     let types = Type.nuriSpecification ~main:mainReference ast in
     let store = Valuation.nuriSpecification ~main:mainReference ast in
     if not !opt_not_eval_global_constraints &&
@@ -58,13 +59,13 @@ let generate_json file =
     print_endline (Json.of_store types store)
 ;;
 
-let check_type file =
+let check_type ast =
     let mainReference =
         if !opt_no_main then []
         else ["main"]
     in
     print_endline (Type.string_of_map (Type.nuriSpecification
-        ~main:mainReference (Parser_helper.ast_of_file file)))
+        ~main:mainReference ast))
 ;;
 
 let fd_plan initFile goalFile =
@@ -156,6 +157,8 @@ let main =
             "    Do not extract main object.");
         ("-g", Arg.Set opt_not_eval_global_constraints,
             "    Do not evaluate global constraints.");
+        ("-i", Arg.Set opt_stdin,
+            "    Read from standard input (STDIN).");
         ("-d", Arg.Set opt_fdr,
             "    Generate Finite Domain Representation.");
         ("-p", Arg.Set opt_planning,
@@ -168,12 +171,20 @@ let main =
         set_library_paths;
 
         if !opt_check_syntax then
-            List.iter (fun f ->
-                let _ = Parser_helper.ast_of_file f in
-                ()
-            ) !files
+            if !opt_stdin then
+                let _ = Parser_helper.ast_of_file "" in ()
+            else
+                List.iter (fun f ->
+                    let _ = Parser_helper.ast_of_file f in
+                    ()
+                ) !files
         else if !opt_check_type then (
-            List.iter (fun f -> check_type f) !files
+            if !opt_stdin then
+                check_type (Parser_helper.ast_of_file "")
+            else
+                List.iter (fun f ->
+                    check_type (Parser_helper.ast_of_file f)
+                ) !files
         )
         else if !opt_fdr then (
             match !files with
@@ -186,9 +197,12 @@ let main =
             | _                          -> prerr_endline "Usage: nuri -p <initial_file> <goal_file>"
         )
         else (
-            match !files with
-            | [] -> prerr_endline usage_msg
-            | _  -> List.iter (fun f -> generate_json f) !files
+            match !opt_stdin, !files with
+            | true, _ -> generate_json (Parser_helper.ast_of_file "")
+            | _, []   -> prerr_endline usage_msg
+            | _       -> List.iter (fun f ->
+                             generate_json (Parser_helper.ast_of_file f)
+                         ) !files
         )
     with
     | Parser_helper.ParseError (f, l, p, t) -> (
