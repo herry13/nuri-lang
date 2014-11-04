@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+
+def nuric
+  @nuric ||= "#{File.dirname(__FILE__)}/../lib/nuric/nuric"
+end
+
+system "#{nuric} #{ARGV.join(' ')}"
