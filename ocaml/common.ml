@@ -21,7 +21,7 @@ end )
 let read_file file =
 	let channel = open_in file in
 	let n       = in_channel_length channel in
-	let s       = Bytes.create n in
+	let s       = String.create n in
 	really_input channel s 0 n;
 	close_in channel;
 	s
