@@ -1,0 +1,58 @@
+def name
+  @name ||= Dir['*.gemspec'].first.split('.').first
+end
+
+def version
+  File.read('../VERSION').strip
+end
+
+def date
+  Date.today.to_s
+end
+
+def gem_file
+  "#{name}-#{version}.gem"
+end
+
+def nuric
+  "#{File.dirname(__FILE__)}/bin/nuric"
+end
+
+def test_dir
+  "#{File.dirname(__FILE__)}/../test"
+end
+
+def bin_dir
+  "#{File.dirname(__FILE__)}/bin"
+end
+
+def ocaml_dir
+  "#{File.dirname(__FILE__)}/../ocaml"
+end
+
+def testfiles
+  File.read("#{File.dirname(__FILE__)}/../test/good-test-files.txt").
+    split("\n")
+end
+
+task :default => :build
+
+task :build do
+  puts name
+  # build
+  Dir.chdir ocaml_dir
+  sh 'make'
+  FileUtils.mkdir bin_dir unless Dir.exists?(bin_dir)
+  FileUtils.cp name, nuric
+
+  # test
+  Dir.chdir test_dir
+  testfiles.each do |file|
+  	sh "#{nuric} #{file} 1>/dev/null"
+  end
+end
+
+task :clean do
+  FileUtils.rm_r bin_dir if Dir.exists?(bin_dir)
+  FileUtils.rm gem_file if File.exists?(gem_file)
+end
