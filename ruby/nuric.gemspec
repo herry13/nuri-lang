@@ -10,7 +10,7 @@ Gem::Specification.new do |s|
   s.executables << 'nuric'
 
   s.files = `git ls-files`.split("\n")
-  s.files << 'lib/nuric/nuric'
+  s.files << 'share/nuric'
 
   s.require_paths = ['lib']
   s.license = 'Apache-2.0'

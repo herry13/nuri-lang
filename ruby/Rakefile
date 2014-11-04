@@ -19,7 +19,11 @@ def home
 end
 
 def nuric
-  "#{lib_dir}/nuric"
+  "#{share_dir}/nuric"
+end
+
+def share_dir
+  "#{home}/share"
 end
 
 def test_dir
