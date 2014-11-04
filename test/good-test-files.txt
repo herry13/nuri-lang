@@ -29,7 +29,7 @@ numeric2-init.nuri
 numeric2-goal.nuri
 numeric3-init.nuri
 numeric3-goal.nuri
-system1-current.nuri
+system1-init.nuri
 system1-goal.nuri
 tbd-current.nuri
 tbd1.nuri
