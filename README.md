@@ -54,9 +54,9 @@ cd ocaml
 make
 ```
 
-The above commands generates file `nuric`. Notes that in default the codes are compiled into static-native binary file. However, we can compile it into OCaml bytecodes by setting variable `NATIVE=0`:
+The above commands generates file `nuric`. Notes that in default the codes are compiled into OCaml byte-codes. However, we can compile it into native by setting variable `NATIVE=1`:
 ```bash
-make NATIVE=0
+make NATIVE=1
 ```
 
 
