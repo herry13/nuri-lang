@@ -40,25 +40,34 @@ This compiler is used by the [Nuri](https://github.com/nurilabs/nuri) configurat
 
 Requirements:
 - OCaml version >= 3.12.1
+- m4 (required by ocamlfind)
 - OPAM version >= 1.0.0
-- Yojson version >= 1.1.8
+- ocamlfind (install via opam)
+- Yojson version >= 1.1.8 (install via opam)
 
 Compilation:
 ```bash
+sudo apt-get install ocaml m4 opam
+opam init
+opam install ocamlfind yojson
 cd ocaml
 make
 ```
 
-The above commands generates file `nuric`. Notes that in default the codes are compiled into static-native binary file. However, we can compile it into OCaml bytecodes by setting variable `NATIVE=0` in `Makefile`.
+The above commands generates file `nuric`. Notes that in default the codes are compiled into static-native binary file. However, we can compile it into OCaml bytecodes by setting variable `NATIVE=0`:
+```bash
+make NATIVE=0
+```
 
 
 <a name="usage"></a>
 ## Usage
 
 The simplest way is:
+```bash
+nuric spec.nuri
+```
 
-    $ nuric spec.nuri
-    
 This will parse the specification in file `spec.nuri`, perform the type-checking, evaluate the global constraints, and finally generate a compilation result in JSON.
 
 Other options:
