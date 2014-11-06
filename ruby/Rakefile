@@ -60,6 +60,8 @@ task :build do
   testfiles.each do |file|
   	sh "#{nuric} #{file} 1>/dev/null"
   end
+  Dir.chdir "#{home}/test"
+  sh './test.rb 1>/dev/null'
 end
 
 task :clean do

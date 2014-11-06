@@ -9,7 +9,7 @@ Gem::Specification.new do |s|
 
   s.executables << 'nuric'
 
-  s.files = `git ls-files`.split("\n")
+  s.files = `git ls-files`.split("\n").select { |f| !(f =~ /^test/) }
   s.files << 'share/nuric'
 
   s.require_paths = ['lib']
