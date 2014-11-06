@@ -74,6 +74,8 @@ task :build do
   	sh "#{nuric} #{file} 1>/dev/null"
   end
   Dir.chdir "#{home}/test"
+
+  sh "gem build #{name}.gemspec"
 end
 
 task :clean do
