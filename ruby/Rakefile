@@ -75,6 +75,7 @@ task :build do
   end
   Dir.chdir "#{home}/test"
 
+  Dir.chdir home
   sh "gem build #{name}.gemspec"
 end
 
