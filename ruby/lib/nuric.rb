@@ -5,7 +5,7 @@ module Nuri
   # Ruby wrapper for Nuri language compiler.
   class Compiler
     def nuric
-      @nuric ||= "#{home}/share/nuric"
+      @nuric ||= "#{home}/share/nuric#{suffix}"
     end
 
     # :file => file that contains the specification
@@ -35,10 +35,6 @@ module Nuri
     end
 
     private
-
-    def home
-      @home ||= "#{File.dirname(__FILE__)}/.."
-    end
 
     def compile_file(file, lib)
       IO.popen("export NURI_LIB=\"#{lib}\" && #{nuric} #{file}",
@@ -79,6 +75,27 @@ module Nuri
     ensure
       FileUtils.rm_f temp_init
       FileUtils.rm_f temp_goal
+    end
+
+    def home
+      @home ||= "#{File.dirname(__FILE__)}/.."
+    end
+
+    def suffix
+      (platform ? ".#{platform}" : '')
+    end
+
+    def platform
+      @platform ||= case RUBY_PLATFORM
+        when /.*linux.*/
+          'linux'
+        when /.*darwin.*/
+          'osx'
+        when /.*(cygwin|mswin|mingw|bccwin|wince|emx).*/
+          'win'
+        else
+          ''
+        end
     end
   end
 end
