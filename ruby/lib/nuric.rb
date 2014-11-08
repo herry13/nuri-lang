@@ -5,7 +5,7 @@ module Nuri
   # Ruby wrapper for Nuri language compiler.
   class Compiler
     def nuric
-      @nuric ||= "#{home}/share/nuric#{suffix}"
+      @nuric ||= "#{home}/share/#{platform}/nuric"
     end
 
     # :file => file that contains the specification
@@ -79,10 +79,6 @@ module Nuri
 
     def home
       @home ||= "#{File.dirname(__FILE__)}/.."
-    end
-
-    def suffix
-      (platform ? ".#{platform}" : '')
     end
 
     def platform

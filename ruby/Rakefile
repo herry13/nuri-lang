@@ -54,7 +54,7 @@ end
 
 def nuric
   if platform
-    "#{share_dir}/#{name}.#{platform}"
+    "#{share_dir}/#{platform}/#{name}"
   else
     "#{share_dir}/#{name}"
   end
@@ -66,6 +66,8 @@ task :build do
   # build
   Dir.chdir ocaml_dir
   sh 'make NATIVE=1 STACK_TRACE=0'
+  FileUtils.mkdir "#{share_dir}/#{platform}" unless
+    Dir.exist?("#{share_dir}/#{platform}")
   FileUtils.cp name, nuric
 
   # test

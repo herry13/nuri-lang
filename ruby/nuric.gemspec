@@ -11,7 +11,7 @@ Gem::Specification.new do |s|
 
   s.files = `git ls-files`.split("\n").select { |f| !(f =~ /^test/) }
 
-  Dir['share/nuric.*'].each { |f| s.files << f }
+  Dir['share/*/*'].each { |f| s.files << f }
   s.files << 'share/nuric' if File.exist?('share/nuric')
 
   s.require_paths = ['lib']
