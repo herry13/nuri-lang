@@ -68,81 +68,34 @@ let check_type ast =
         ~main:mainReference ast))
 ;;
 
-let fd_plan initFile goalFile =
-    let fd_preprocessor = "FD_PREPROCESS" in
-    let fd_search       = "FD_SEARCH" in
-    let fd_option       = "FD_OPTIONS" in
-    let fd_debug        = "FD_DEBUG" in
-    let sas_file        = "output.sas" in
-    let plan_file       = "sas_plan" in
-    let default_search_options = "--search \"lazy_greedy(ff())\"" in
-    let out_files =
-        [sas_file; "plan_numbers_and_cost"; "output"; "output.log"; plan_file]
+let home = String.sub Sys.executable_name 0 ((String.length Sys.executable_name) - 5) ;;
+
+let plan initFile goalFile =
+    (* generate FDR *)
+    let fdr = Fdr.of_nuri (Parser_helper.ast_of_file initFile)
+                          (Parser_helper.ast_of_file goalFile)
     in
-    try
-        let preprocessor   = Sys.getenv fd_preprocessor in
-        let search         = Sys.getenv fd_search in
-        let search_options =
-            try
-                Sys.getenv fd_option
-            with
-            | e -> default_search_options
-        in
-        let debug =
-            try
-                let _ = Sys.getenv fd_debug in
-                true
-            with
-            | e -> false
-        in
-        if not (Sys.file_exists preprocessor) then (
-            prerr_string ("[err1200] " ^ preprocessor ^ " is not exist!\n\n");
-            exit 1200
-        );
-        if not (Sys.file_exists search) then (
-            prerr_string ("[err1201] " ^ search ^ " is not exist!\n\n");
-            exit 1201
-        );
-        (* generate FDR *)
-        let fdr = Fdr.of_nuri (Parser_helper.ast_of_file initFile)
-                              (Parser_helper.ast_of_file goalFile)
-        in
-        (* save FDR to sas_file *)
-        write_file sas_file (Fdr.string_of fdr);
-        (* invoke preprocessor *)
-        let cmd = if !opt_verbose then preprocessor ^ "<" ^ sas_file
-                  else preprocessor ^ "<" ^ sas_file ^ ">>output.log"
-        in
-        if not ((Sys.command cmd) = 0) then (
-            prerr_string "[err1202] Preprocessor failed\n\n";
-            exit 1202
-        );
-        (* invoke search *)
-        let cmd =
-            if !opt_verbose then search ^ " " ^ search_options ^ "<output"
-            else search ^ " " ^ search_options ^ "<output>>output.log"
-        in
-        if not ((Sys.command cmd) = 0) then (
-            prerr_string "[err1203] Search failed\n\n";
-            exit 1203
-        );
-        (* read 'plan_file' *)
-        let plan = if Sys.file_exists plan_file then read_file plan_file
-                   else "null"
-        in
-        let plan = Plan.json_of_parallel (Plan.parallel_of (Fdr.to_nuri_plan plan fdr))
-        in
-        if not debug then (
-            try
-                List.iter (fun f -> Sys.remove f) out_files
-            with _ -> ()
-        );
-        plan
-    with
-        Not_found ->
-            prerr_string ("[err1204] Environment variable FD_PREPROCESS" ^
-                " or FD_SEARCH is not defined.\n\n");
-            exit 1204
+    (* save FDR to sas_file *)
+    let fdr_file = "output.fdr" in
+    write_file fdr_file (Fdr.string_of fdr);
+    (* run the planner *)
+    let command = home ^ "planner " ^ fdr_file in
+    if not ((Sys.command command) = 0) then (
+        prerr_string "[err1201] Planning failed\n\n";
+        exit 1201
+    );
+    (* read 'plan_file' *)
+    let plan_file = "solution_plan" in
+    let plan = if Sys.file_exists plan_file then read_file plan_file
+               else "null"
+    in
+    (
+        try
+            Sys.remove fdr_file;
+            Sys.remove plan_file
+        with _ -> ()
+    );
+    Plan.json_of_parallel (Plan.parallel_of (Fdr.to_nuri_plan plan fdr))
 ;;
 
 
@@ -193,7 +146,7 @@ let main =
         )
         else if !opt_planning then (
             match !files with
-            | goalFile :: initFile :: [] -> print_endline (fd_plan initFile goalFile)
+            | goalFile :: initFile :: [] -> print_endline (plan initFile goalFile)
             | _                          -> prerr_endline "Usage: nuri -p <initial_file> <goal_file>"
         )
         else (
