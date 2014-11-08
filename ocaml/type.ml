@@ -34,6 +34,7 @@ let rec (@==) reference1 reference2 =
 
 (* alias of functions from module Domain *)
 let (@++)  = Domain.(@++) ;;
+let (@+.)  = Domain.(@+.) ;;
 let (@--)  = Domain.(@--) ;;
 let prefix = Domain.prefix ;;
 let (@<=)  = Domain.(@<=) ;;
@@ -199,7 +200,7 @@ let bind env var t =
 let assign env var t tValue =
     match (find env var), t, tValue with
     | NotFound, TUndefined, TAny ->
-        error 405 (!^var ^ " cannot assign Any to an undefined variable")
+        error 490 ("An explicit type of " ^ !^var ^ " is required.")
     | NotFound, TUndefined, _ ->                                 (* (Assign1) *)
         bind env var tValue
     | NotFound, _, _ when tValue <: t ->                  (* (Assign3) *)
@@ -549,6 +550,7 @@ and sfValue v : reference -> reference -> t -> environment ->
             )
             | _ -> t
         in
+        let r_name = r @+. "name" in
         match v with
         | TBD -> assign e r t TAny
         | Unknown -> assign e r t TAny
@@ -563,20 +565,26 @@ and sfValue v : reference -> reference -> t -> environment ->
             )
         | Action a -> assign e r t TAction
         | Prototype (schema, proto) ->
-            match schema with
-            | SID sid ->
-                (
-                    match find e [sid] with
-                    | NotFound  -> error 424 ("schema " ^ sid ^ " is not exist")
-                    | Type TSchema TUserSchema (sid, super)
-                      when (TSchema super) <: (TSchema TRootSchema) ->
-                          let t_sid = object_of_schema (TSchema (TUserSchema (sid, super))) in
-                          let e1 = inherit_env e ns [sid] r in
-                          sfPrototype proto true t_sid ns r e1
-                    | _ ->
-                        error 425 (sid ^ " is not a schema")
-                )
-            | EmptySchema -> sfPrototype proto true TUndefined ns r e
+            (
+                let e = match schema with
+                    | SID sid ->
+                        (
+                            match find e [sid] with
+                            | NotFound  -> error 424 ("schema " ^ sid ^ " is not exist")
+                            | Type TSchema TUserSchema (sid, super)
+                              when (TSchema super) <: (TSchema TRootSchema) ->
+                                  let t_sid = object_of_schema (TSchema (TUserSchema (sid, super))) in
+                                  let e1 = inherit_env e ns [sid] r in
+                                  sfPrototype proto true t_sid ns r e1
+                            | _ ->
+                                error 425 (sid ^ " is not a schema")
+                        )
+                    | EmptySchema -> sfPrototype proto true TUndefined ns r e
+                in
+                match find e r_name with
+                | NotFound -> assign e r_name TUndefined TString
+                | _ -> e
+            )
 
 and sfAssignment (r, t, v) : reference -> environment -> environment =
     (**

@@ -55,16 +55,30 @@ let rec sfPrototype prototypes =
         | EmptyPrototype -> s
 
 and sfValue v =
+    let eval_name (r: Domain.reference) (s: Domain.store) =
+        let r_name = Domain.(@+.) r "name" in
+        let rec get_name r = match r with
+            | [] -> "root"
+            | id :: [] -> id
+            | _ :: rs -> get_name rs
+        in
+        match Domain.find s r_name with
+        | Domain.Undefined
+        | Domain.Val Domain.TBD -> Domain.bind s r_name (Domain.Basic (Domain.String (get_name r)))
+        | _ -> s
+    in
     fun ns r s ->
         match v with
         | Basic value -> Domain.bind s r (Domain.Basic (sfBasicValue value))
         | Link link   -> Domain.bind s r (sfLinkReference link r)
         | Prototype (EmptySchema, p) ->
-            sfPrototype p ns r (Domain.bind s r (Domain.Store []))
+            eval_name r (sfPrototype p ns r (Domain.bind s r (Domain.Store [])))
         | Prototype (SID sid, p) ->
-            let s1 = Domain.bind s r (Domain.Store []) in
-            let s2 = Domain.inherit_proto s1 [] [sid] r in
-            sfPrototype p ns r s2
+            (
+                let s1 = Domain.bind s r (Domain.Store []) in
+                let s2 = Domain.inherit_proto s1 [] [sid] r in
+                eval_name r (sfPrototype p ns r s2)
+            )
         | Action a -> nuriAction a ns r s
         | TBD      -> Domain.bind s r Domain.TBD
         | Unknown  -> Domain.bind s r Domain.Unknown
