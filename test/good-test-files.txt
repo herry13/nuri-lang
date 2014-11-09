@@ -14,8 +14,8 @@ global2.nuri
 action1.nuri
 action2.nuri
 reference1.nuri
-clouddeploy-current.nuri
-clouddeploy-desired.nuri
+clouddeploy-init.nuri
+clouddeploy-goal.nuri
 global1.nuri
 global2.nuri
 global3.nuri
