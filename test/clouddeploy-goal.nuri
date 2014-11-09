@@ -1,0 +1,59 @@
+import "clouddeploy-model";
+main {
+	cloud0 isa Cloud { }
+	vm0 isa VM {
+	  in_cloud = cloud0;
+      running = true;
+	  lb isa MainAppService { installed = true; running = true; }
+	}
+	vm0_0 isa VM {
+	  in_cloud = cloud0;
+      running = true;
+	  app isa AppService { installed = true; running = true; }
+	}
+	vm0_1 extends vm0_0
+	vm0_2 extends vm0_0
+	vm0_3 extends vm0_0
+	vm0_4 extends vm0_0
+	vm0_5 extends vm0_0
+	vm0_6 extends vm0_0
+	vm0_7 extends vm0_0
+	vm0_8 extends vm0_0
+	vm0_9 extends vm0_0
+	global {
+	  if vm0.lb.installed = true; then vm0.running = true;
+	  if vm0.lb.running = true; then vm0_0.app.running = true;
+	  if vm0_0.app.installed = true; then vm0_0.running = true;
+	  if vm0_1.app.installed = true; then vm0_1.running = true;
+	  if vm0_2.app.installed = true; then vm0_2.running = true;
+	  if vm0_3.app.installed = true; then vm0_3.running = true;
+	  if vm0_4.app.installed = true; then vm0_4.running = true;
+	  if vm0_5.app.installed = true; then vm0_5.running = true;
+	  if vm0_6.app.installed = true; then vm0_6.running = true;
+	  if vm0_7.app.installed = true; then vm0_7.running = true;
+	  if vm0_8.app.installed = true; then vm0_8.running = true;
+	  if vm0_9.app.installed = true; then vm0_9.running = true;
+	  if vm0_0.app.running = true; then vm0_1.app.running = true;
+	  if vm0_0.app.running = true; then vm0_4.app.running = true;
+	  if vm0_0.app.running = true; then vm0_5.app.running = true;
+	  if vm0_0.app.running = true; then vm0_6.app.running = true;
+	  if vm0_1.app.running = true; then vm0_8.app.running = true;
+	  if vm0_1.app.running = true; then vm0_2.app.running = true;
+	  if vm0_1.app.running = true; then vm0_6.app.running = true;
+	  if vm0_1.app.running = true; then vm0_7.app.running = true;
+	  if vm0_2.app.running = true; then vm0_9.app.running = true;
+	  if vm0_2.app.running = true; then vm0_3.app.running = true;
+	  if vm0_3.app.running = true; then vm0_4.app.running = true;
+	  if vm0_3.app.running = true; then vm0_5.app.running = true;
+	  if vm0_4.app.running = true; then vm0_8.app.running = true;
+	  if vm0_4.app.running = true; then vm0_5.app.running = true;
+	  if vm0_4.app.running = true; then vm0_6.app.running = true;
+	  if vm0_5.app.running = true; then vm0_8.app.running = true;
+	  if vm0_5.app.running = true; then vm0_9.app.running = true;
+	  if vm0_5.app.running = true; then vm0_7.app.running = true;
+	  if vm0_6.app.running = true; then vm0_8.app.running = true;
+	  if vm0_6.app.running = true; then vm0_9.app.running = true;
+	  if vm0_6.app.running = true; then vm0_7.app.running = true;
+	  if vm0_7.app.running = true; then vm0_8.app.running = true;
+	}
+}

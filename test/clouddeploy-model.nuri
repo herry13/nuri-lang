@@ -1,4 +1,3 @@
-// file: model.nuri
 schema Cloud {
   def create_vm(vm: VM) {
     condition {
