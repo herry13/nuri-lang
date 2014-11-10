@@ -65,7 +65,7 @@ let json_of_parameters buffer parameters =
 	Buffer.add_char buffer '{';
 	let first = ref 1 in
 	MapStr.iter (fun id v ->
-        if id <> "this" then (
+        if id <> "this" && id <> "parent" then (
     		if !first = 0 then Buffer.add_char buffer ',';
     		Buffer.add_char buffer '"';
     		Buffer.add_string buffer id;
@@ -209,7 +209,12 @@ let decode_name (s: string): int * reference * basic MapStr.t =
  * (identifier => value)
  *)
 let ground_parameters parameters name typeValues =
-	let map1 = MapStr.add "this" [Ref (prefix name)] MapStr.empty in
+    let this = prefix name in
+	let map1 = MapStr.add "this" [Ref this] MapStr.empty in
+    let map1 = match this with
+        | [] -> map1
+        | _  -> MapStr.add "parent" [Ref (prefix this)] map1
+    in
 	let map2 = List.fold_left (fun acc (id, t) ->
 			let values = SetValue.fold (fun v acc ->
 					match v with

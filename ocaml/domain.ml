@@ -417,7 +417,7 @@ let substitute_parameter_of_reference reference groundParameters =
 	| id :: tail ->
 		if MapStr.mem id groundParameters then
 			match MapStr.find id groundParameters with
-			| Ref r1 -> r1 @++ tail
+			| Ref r1 -> simplify (r1 @++ tail)
 			| _      -> error 513 ("cannot replace left-hand side " ^
 				"reference with a non-reference value")
 			            (* cannot replace left-hand side reference with
@@ -434,7 +434,7 @@ let substitute_parameter_of_basic_value basicValue groundParameters =
 	| Ref (id :: tail) ->
 		if MapStr.mem id groundParameters then
 			match MapStr.find id groundParameters with
-			| Ref r1            -> Ref (r1 @++ tail)
+			| Ref r1            -> Ref (simplify (r1 @++ tail))
 			| v1 when tail = [] -> v1
 			| _                 -> error 514 ""
 		else basicValue

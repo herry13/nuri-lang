@@ -19,3 +19,7 @@ parser.ml
 .paths
 .project
 .settings
+
+/planner
+/preprocess
+/search
