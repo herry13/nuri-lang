@@ -1,0 +1,6 @@
+#!/usr/bin/env ruby
+
+require 'json'
+require 'coderay'
+
+puts CodeRay.encode(JSON.pretty_generate(JSON.parse(STDIN.read)), :json, :terminal)
