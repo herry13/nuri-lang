@@ -1,0 +1,15 @@
+import "system1-model";
+main {
+  s1 isa Machine {
+    web isa Service {
+      running = false;
+    }
+  }
+  s2 extends s1, {
+    web.running = true;
+  }
+  pc1 isa Client {
+    refer = s2.web;
+  }
+  pc2 := pc1;
+}

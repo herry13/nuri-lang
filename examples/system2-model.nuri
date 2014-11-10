@@ -1,0 +1,88 @@
+schema Cloud {
+  def create_vm(vm: VM) {
+    condition {
+      vm.in_cloud = null;
+      vm.running = false;
+    }
+    effect {
+      vm.in_cloud = this;
+    }
+  }
+  def delete_vm(vm: VM) {
+    condition {
+      vm.in_cloud != null;
+      vm.running = false;
+    }
+    effect {
+      vm.in_cloud = null;
+    }
+  }
+}
+schema VM {
+  in_cloud: *Cloud = null;
+  running = false;
+  def start {
+    condition {
+      this.in_cloud != null;
+      this.running = false;
+    }
+    effect {
+      this.running = true;
+    }
+  }
+  def stop {
+    condition {
+      this.in_cloud != null;
+      this.running = true;
+    }
+    effect {
+      this.running = false;
+    }
+  }
+}
+schema Service {
+  installed = false;
+  running = false;
+  def start {
+    condition {
+      parent.running = true;
+      this.installed = true;
+      this.running = false;
+    }
+    effect {
+      this.running = true;
+    }
+  }
+  def stop {
+    condition {
+      parent.running = true;
+      this.installed = true;
+      this.running = true;
+    }
+    effect {
+      this.running = false;
+    }
+  }
+  def install {
+    condition {
+      parent.running = true;
+      this.installed = false;
+      this.running = false;
+    }
+    effect {
+      this.installed = true;
+    }
+  }
+  def uninstall {
+    condition {
+      parent.running = true;
+      this.installed = true;
+      this.running = false;
+    }
+    effect {
+      this.installed = false;
+    }
+  }
+}
+schema AppService extends Service { }
+schema LoadBalancer extends Service { }
