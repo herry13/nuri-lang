@@ -8,7 +8,6 @@
  */
 enum State {
     not_exist,
-    exist,
     uninstalled,
     installed,
     stopped,

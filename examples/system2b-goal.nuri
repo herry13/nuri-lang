@@ -1,33 +1,27 @@
 import "system2-model";
 main {
-	cloud0 isa Cloud { }
-	vm0 isa VM {
-	  in_cloud = null;
-      running = false;
-	  lb isa LoadBalancer {
-        installed = true;
-        running = false;
-      }
-	}
-	vm0_0 isa VM {
-	  in_cloud = null;
-      running = false;
-	  app isa AppService {
-        installed = true;
-        running = false;
-      }
-	}
-	vm0_1 extends vm0_0
-	vm0_2 extends vm0_0
+  cloud0 isa Cloud { }
 
-	global {
-      if vm0.running = false;      then vm0.lb.running = false;
-      if vm0_0.running = false;    then vm0_0.app.running = false;
-      if vm0_1.running = false;    then vm0_1.app.running = false;
-      if vm0_2.running = false;    then vm0_2.app.running = false;
+  vm0 isa VM {
+    in_cloud = null;
+    state = State.not_exist;
+    lb isa LoadBalancer {
+      state = State.stopped;
+    }
+  }
+  vm0_0 isa VM {
+    in_cloud = null;
+    state = State.not_exist;
+    app isa AppService {
+      state = State.stopped;
+    }
+  }
+  vm0_1 extends vm0_0
+  vm0_2 extends vm0_0
 
-	  if vm0.lb.running = true;    then vm0_0.app.running = true;
-	  if vm0_0.app.running = true; then vm0_1.app.running = true;
-	  if vm0_1.app.running = true; then vm0_2.app.running = true;
-	}
+  global {
+    if vm0.lb.state = State.running; then vm0_0.app.state = State.running;
+    if vm0_0.app.state = State.running; then vm0_1.app.state = State.running;
+    if vm0_1.app.state = State.running; then vm0_2.app.state = State.running;
+  }
 }

@@ -1,7 +1,9 @@
-// file : model.nuri
+import "state";
+
 schema Machine {
   dns = "ns.foo";
 }
+
 schema Client extends Machine {
   refer: *Service = null;
   def redirect(s: Service) {
@@ -11,23 +13,24 @@ schema Client extends Machine {
     }
   }
 }
+
 schema Service {
-  running = true;
+  state = State.stopped;
   port = 80;
   def start {
     condition {
-      this.running = false;
+      this.state = State.stopped;
     }
     effect {
-      this.running = true;
+      this.state = State.running;
     }
   }
   def stop {
     condition {
-      this.running = true;
+      this.state = State.running;
     }
     effect {
-      this.running = false;
+      this.state = State.stopped;
     }
   }
 }

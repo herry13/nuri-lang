@@ -1,22 +1,21 @@
 import "system2-model";
 main {
-	cloud0 isa Cloud { }
-	vm0 isa VM {
-	  in_cloud = cloud0;
-      running = true;
-	  lb isa LoadBalancer {
-        installed = true;
-        running = true;
-      }
-	}
-	vm0_0 isa VM {
-	  in_cloud = cloud0;
-      running = true;
-	  app isa AppService {
-        installed = true;
-        running = true;
-      }
-	}
-	vm0_1 extends vm0_0
-	vm0_2 extends vm0_0
+  cloud0 isa Cloud { }
+
+  vm0 isa VM {
+    in_cloud = cloud0;
+    state = State.running;
+    lb isa LoadBalancer {
+      state = State.running;
+    }
+  }
+  vm0_0 isa VM {
+    in_cloud = cloud0;
+    state = State.running;
+    app isa AppService {
+      state = State.running;
+    }
+  }
+  vm0_1 extends vm0_0
+  vm0_2 extends vm0_0
 }

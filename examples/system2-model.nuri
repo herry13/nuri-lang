@@ -1,88 +1,107 @@
+import "state";
+
 schema Cloud {
   def create_vm(vm: VM) {
     condition {
       vm.in_cloud = null;
-      vm.running = false;
+      vm.state = State.not_exist;
     }
     effect {
       vm.in_cloud = this;
+      vm.state = State.stopped;
     }
   }
   def delete_vm(vm: VM) {
     condition {
       vm.in_cloud != null;
-      vm.running = false;
+      vm.state = State.stopped;
     }
     effect {
       vm.in_cloud = null;
+      vm.state = State.not_exist;
     }
   }
 }
+
+/**
+ * State transition:
+ *   not_exist <-> stopped <-> running
+ */
 schema VM {
   in_cloud: *Cloud = null;
-  running = false;
+  state = State.not_exist;
   def start {
     condition {
       this.in_cloud != null;
-      this.running = false;
+      this.state = State.stopped;
     }
     effect {
-      this.running = true;
+      this.state = State.running;
     }
   }
   def stop {
     condition {
       this.in_cloud != null;
-      this.running = true;
+      this.state = State.running;
     }
     effect {
-      this.running = false;
+      this.state = State.stopped;
     }
   }
 }
+
+/**
+ * State transition:
+ *   uninstalled <-> stopped <-> running
+ */
 schema Service {
-  installed = false;
-  running = false;
+  state = State.uninstalled;
   def start {
     condition {
-      parent.running = true;
-      this.installed = true;
-      this.running = false;
+      parent.state = State.running;
+      this.state = State.stopped;
     }
     effect {
-      this.running = true;
+      this.state = State.running;
     }
   }
   def stop {
     condition {
-      parent.running = true;
-      this.installed = true;
-      this.running = true;
+      parent.state = State.running;
+      this.state = State.running;
     }
     effect {
-      this.running = false;
+      this.state = State.stopped;
     }
   }
   def install {
     condition {
-      parent.running = true;
-      this.installed = false;
-      this.running = false;
+      parent.state = State.running;
+      this.state = State.uninstalled;
     }
     effect {
-      this.installed = true;
+      this.state = State.stopped;
     }
   }
   def uninstall {
     condition {
-      parent.running = true;
-      this.installed = true;
-      this.running = false;
+      parent.state = State.running;
+      this.state = State.stopped;
     }
     effect {
-      this.installed = false;
+      this.state = State.uninstalled;
     }
   }
 }
+
+/**
+ * State transition:
+ *   uninstalled <-> stopped <-> running
+ */
 schema AppService extends Service { }
+
+/**
+ * State transition:
+ *   uninstalled <-> stopped <-> running
+ */
 schema LoadBalancer extends Service { }

@@ -1,14 +1,15 @@
 import "system2-model";
+
 main {
-	cloud0 isa Cloud { }
-	vm0 isa VM {
-	  in_cloud = null;
-	  lb isa LoadBalancer { }
-	}
-	vm0_0 isa VM {
-	  in_cloud = null;
-	  app isa AppService { }
-	}
-	vm0_1 extends vm0_0
-	vm0_2 extends vm0_0
+  cloud0 isa Cloud { }
+  vm0 isa VM {
+    in_cloud = null;
+    lb isa LoadBalancer { }
+  }
+  vm0_0 isa VM {
+    in_cloud = null;
+    app isa AppService { }
+  }
+  vm0_1 extends vm0_0
+  vm0_2 extends vm0_0
 }

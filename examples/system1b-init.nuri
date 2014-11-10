@@ -1,12 +1,13 @@
 import "system1-model";
+
 main {
   s1 isa Machine {
     web isa Service {
-      running = false;
+      state = State.stopped;
     }
   }
   s2 extends s1, {
-    web.running = true;
+    web.state = State.running;
   }
   pc1 isa Client {
     refer = s2.web;
