@@ -306,74 +306,74 @@ let create_global_actions globalConstraint actions =
  *
  * @return a list of preconditions, each of which is for an action
  *)
-let compile_simple_implication preconditions effects variables
-		globalImplications =
+let compile_simple_implication preconditions effects variables globalImplications =
 	let modified = ref false in
-	let has_atom r v map =
-		(MapRef.mem r map) && (MapRef.find r map) = v
-	in
-	let negate_atom r v map =
-		(MapRef.mem r map) && (MapRef.find r map) <> v
-	in
-	let rec iter acc implications =
-		if acc = [] then acc
-		else
-			match implications with
-			| [] -> acc
-			| Imply (Eq (rp, vp), Eq (rc, vc)) :: css ->
-				let evaluate map pre =
-					if has_atom rp vp map then (* 'map' models premise *)
-						if (MapRef.mem rc pre) then (
-							if (MapRef.find rc pre) <> vc
-								then [] (* 'pre' doesn't model conclusion *)
-							else [pre] (* 'pre' models conclusion *)
-						) else (
-							(* add an extra precondition so that
-							   'pre' models conclusion *)
-							modified := true;
-							[MapRef.add rc vc pre]
-						)
-					else if negate_atom rc vc map then
-						(* 'map' models conclusion=false *)
-						if has_atom rp vp pre
-							then [] (* 'pre' models premise *)
-						else Array.fold_left (fun acc1 v ->
-							match v with
-					     	| Basic vx when vx <> vp ->
-								if MapRef.mem rp pre then (
-									if (MapRef.find rp pre) <> vp
-										then pre :: acc1
-										(* 'pre' models premise=true *)
-									else acc1
-										(* 'pre' models premise=false *)
-								) else (
-									modified := true;
-									(* add extra precondition such that
-									   pre models conclusion *)
-									(MapRef.add rp vx pre) :: acc1
-								)
-							| _ -> acc1
-						) [] (Variable.values_of rp variables)
-				else [pre]
-			in
-			let acc2 = List.fold_left (fun acc2 pre ->
-					(* evaluate preconditions *)
-					let acc3 = evaluate pre pre in
-					(* evaluate effects *)
-					List.fold_left (fun acc4 pre ->
-						List.append (evaluate effects pre) acc4
-					) [] acc3
-				) [] acc
-			in
-			iter acc2 css
-		| _ -> error 808 ""
-	in
-	let rec compile acc =
+	let has_atom r v map = (MapRef.mem r map) && (MapRef.find r map) = v in
+	let negate_atom r v map = (MapRef.mem r map) && (MapRef.find r map) <> v in
+	let rec iter acc implications = match acc, implications with
+        | [], _ -> acc
+        | _, [] -> acc
+        | _, Imply (Eq (rp, vp), Eq (rc, vc)) :: css ->
+            (
+                let evaluate map pre =
+                    if has_atom rp vp map then (
+                        if MapRef.mem rc pre then (  (* 'map' models premise *)
+                            if (MapRef.find rc pre) <> vc then (  (* 'pre' falsifies conclusion *)
+                                []
+                            )
+                            else (       (* 'pre' models conclusion *)
+                                [ pre ]
+                            )
+                        ) else (
+                            modified := true;         (* add extra precondition so that 'pre' models conclusion *)
+                            [ MapRef.add rc vc pre ]
+                        )
+                    )
+                    else if negate_atom rc vc map then (  (* 'map' falsifies conclusion *)
+                        if has_atom rp vp pre then (      (* 'pre' models premise       *)
+                            []
+                        )
+                        else if negate_atom rp vp pre then (  (* 'pre' falsifies premise *)
+                            [ pre ]
+                        )
+                        else (  (* for other values do ... *)
+                            Array.fold_left (fun acc1 v1 ->
+                                match v1 with
+                                | Basic v2 when v2 <> vp ->
+                                    (
+                                        modified := true;   (* add extra precondition so that 'pre' models conclusion *)
+                                        (MapRef.add rp v2 pre) :: acc1
+                                    )
+                                | _ -> acc1
+                            ) [] (Variable.values_of rp variables)
+                        )
+                    )
+                    else (
+                        [ pre ]
+                    )
+                in
+                let acc2 = List.fold_left (fun acc3 pre ->
+                        (* evaluate preconditions *)
+                        let acc4 = evaluate pre pre in
+
+                        (* evaluate effects *)
+                        List.fold_left (fun acc5 pre ->
+                            List.append (evaluate effects pre) acc5
+                        ) acc3 acc4
+                    ) [] acc
+                in
+                iter acc2 css
+            )
+        | _ -> error 808 ""  (* invalid input *)
+    in
+	let rec compile acc =  (* compile until there's no modification *)
 		let acc1 = iter acc globalImplications in
 		if !modified then (
 			modified := false;
 			compile acc1
-		) else acc1
+		) else (
+            acc1
+        )
 	in
 	compile [preconditions]
 ;;

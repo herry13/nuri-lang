@@ -737,7 +737,19 @@ let make_type_values typeEnvInit flatStoreInit typeEnvGoal flatStoreGoal =
                 | t -> add_value t v map
         )
     in
-    let map00 = add_store_values typeEnvInit flatStoreInit MapType.empty in
-    let map01 = add_action_values typeEnvInit map00 in
-    let map10 = add_store_values typeEnvGoal flatStoreGoal map01 in
-    add_action_values typeEnvGoal map10
+    let map0 = add_store_values typeEnvInit flatStoreInit MapType.empty in
+    let map1 = add_action_values typeEnvInit map0 in
+    let map2 = add_store_values typeEnvGoal flatStoreGoal map1 in
+    let map3 = add_action_values typeEnvGoal map2 in
+    MapType.fold (fun (t: Syntax.t) (values: Domain.SetValue.t) (map: type_values) ->
+        match t with
+        | TEnum (id, symbols) ->
+            (
+                List.fold_left (fun map symbol ->
+                    let v : Domain.value = Domain.Basic (Domain.Ref [id; symbol]) in
+                    add_value t v map
+                ) map symbols
+            )
+        | _ -> map
+    ) map3 map3
+;;
