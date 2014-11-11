@@ -31,7 +31,7 @@ schema Service {
       this.state = State.stopped;
     }
   }
-  def update (ver : int) {
+  def upgrade (ver : int) {
     condition {
       this.state = State.stopped;
     }

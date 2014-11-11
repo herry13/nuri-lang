@@ -2,8 +2,27 @@ import "system3-schemas";
 
 main {
   service1a isa Service {
-    state = State.stopped;
+    state = State.running;
     version = 1;
   }
+  service1b isa Service {
+    state = State.running;
+    version = 2;
+  }
+  service2a isa Service {
+    state = State.running;
+    version = 1;
+  }
+  service2b isa Service {
+    state = State.running;
+    version = 2;
+  }
+  client isa Client {
+    refer = service1a;
+  }
+  global {
+    if service1a.state = State.running; then service1b.state = State.running;
+    if service2a.state = State.running; then service2b.state = State.running;
+    client.refer.state = State.running;
+  }
 }
-
