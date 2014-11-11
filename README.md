@@ -25,12 +25,12 @@ The Nuri language serves two objectives:
     - a set of actions
     - global constraints
 
-This compiler can:
+This compiler can do:
 - syntax checking
 - type checking
-- evaluate the global constraints over the specification
-- generate a compilation result in JSON
-- automatically generate a plan of a reconfiguration (planning) problem -- this requires additional other programs
+- evaluating the global constraints over the specification
+- generating a compilation result in JSON
+- automatically generate a plan of a reconfiguration (planning) problem -- this requires additional softwares
 
 This compiler is used by the [Nuri](https://github.com/nurilabs/nuri) configuration management tool.
 
