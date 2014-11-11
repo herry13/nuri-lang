@@ -1,0 +1,17 @@
+import "system2-model";
+
+main {
+  mycloud isa Cloud { }
+
+  vm1 isa VM {
+    in_cloud = null;
+    service isa Service { }
+  }
+  vm2 isa VM {
+    in_cloud = null;
+    service isa Service { }
+  }
+  vm3 isa VM {
+    in_cloud = null;
+    service isa Service { }
+}

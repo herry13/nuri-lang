@@ -1,0 +1,8 @@
+import "system3-schemas";
+
+main {
+  service1a isa Service {
+    state = State.running;
+    version = 1;
+  }
+}

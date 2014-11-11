@@ -1,27 +1,20 @@
-import "system2-model";
+import "system2-schemas";
+
 main {
-  cloud0 isa Cloud { }
-
-  vm0 isa VM {
-    in_cloud = null;
-    state = State.not_exist;
-    lb isa LoadBalancer {
+  machine1 isa Machine {
+    state = State.stopped;
+    service isa Service {
       state = State.stopped;
     }
   }
-  vm0_0 isa VM {
-    in_cloud = null;
-    state = State.not_exist;
-    app isa AppService {
-      state = State.stopped;
-    }
-  }
-  vm0_1 extends vm0_0
-  vm0_2 extends vm0_0
-
+  machine2 extends machine1
+  machine3 extends machine1
+  machine4 extends machine1
   global {
-    if vm0.lb.state = State.running; then vm0_0.app.state = State.running;
-    if vm0_0.app.state = State.running; then vm0_1.app.state = State.running;
-    if vm0_1.app.state = State.running; then vm0_2.app.state = State.running;
+    if machine4.service.state = State.running; then machine2.service.state = State.running;
+    if machine4.service.state = State.running; then machine3.service.state = State.running;
+    if machine2.service.state = State.running; then machine1.service.state = State.running;
+    if machine3.service.state = State.running; then machine1.service.state = State.running;
   }
 }
+

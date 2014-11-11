@@ -1,20 +1,18 @@
-import "system1-model";
+import "system1-schemas";
 
 main {
-  s1 isa Machine {
-    web isa Service {
-      state = State.stopped;
-    }
+  service1 isa Service {
+    state = State.stopped;
   }
-  s2 extends s1, {
-    web.state = State.running;
+  service2 isa Service {
+    state = State.running;
   }
-  pc1 isa Client {
-    refer = s2.web;
+  client1 isa Client {
+    refer = service2;
   }
-  pc2 := pc1;
+  client2 extends client1
   global {
-    pc1.refer.state = State.running;
-    pc2.refer.state = State.running;
+    client1.refer.state = State.running;
+    client2.refer.state = State.running;
   }
 }

@@ -1,21 +1,13 @@
-import "system2-model";
-main {
-  cloud0 isa Cloud { }
+import "system2-schemas";
 
-  vm0 isa VM {
-    in_cloud = cloud0;
+main {
+  machine1 isa Machine {
     state = State.running;
-    lb isa LoadBalancer {
+    service isa Service {
       state = State.running;
     }
   }
-  vm0_0 isa VM {
-    in_cloud = cloud0;
-    state = State.running;
-    app isa AppService {
-      state = State.running;
-    }
-  }
-  vm0_1 extends vm0_0
-  vm0_2 extends vm0_0
+  machine2 extends machine1
+  machine3 extends machine1
+  machine4 extends machine1
 }

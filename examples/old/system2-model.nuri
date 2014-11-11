@@ -1,0 +1,95 @@
+import "state";
+
+schema Cloud {
+  def create_vm(vm: VM) {
+    condition {
+      vm.in_cloud = null;
+      vm.state = State.not_exist;
+    }
+    effect {
+      vm.in_cloud = this;
+      vm.state = State.stopped;
+    }
+  }
+  def delete_vm(vm: VM) {
+    condition {
+      vm.in_cloud != null;
+      vm.state = State.stopped;
+    }
+    effect {
+      vm.in_cloud = null;
+      vm.state = State.not_exist;
+    }
+  }
+}
+
+/**
+ * State transition:
+ *   not_exist <-> stopped <-> running
+ */
+schema VM {
+  in_cloud: *Cloud = null;
+  state = State.not_exist;
+  def start {
+    condition {
+      this.in_cloud != null;
+      this.state = State.stopped;
+    }
+    effect {
+      this.state = State.running;
+    }
+  }
+  def stop {
+    condition {
+      this.in_cloud != null;
+      this.state = State.running;
+    }
+    effect {
+      this.state = State.stopped;
+    }
+  }
+}
+
+/**
+ * State transition:
+ *   uninstalled <-> stopped <-> running
+ */
+schema Service {
+  state = State.uninstalled;
+  def start {
+    condition {
+      parent.state = State.running;
+      this.state = State.stopped;
+    }
+    effect {
+      this.state = State.running;
+    }
+  }
+  def stop {
+    condition {
+      parent.state = State.running;
+      this.state = State.running;
+    }
+    effect {
+      this.state = State.stopped;
+    }
+  }
+  def install {
+    condition {
+      parent.state = State.running;
+      this.state = State.uninstalled;
+    }
+    effect {
+      this.state = State.stopped;
+    }
+  }
+  def uninstall {
+    condition {
+      parent.state = State.running;
+      this.state = State.stopped;
+    }
+    effect {
+      this.state = State.uninstalled;
+    }
+  }
+}

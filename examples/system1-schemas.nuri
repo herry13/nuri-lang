@@ -1,0 +1,31 @@
+import "state";
+
+schema Client {
+  refer: *Service = null;
+  def redirect(s : Service) {
+    condition { }
+    effect {
+      this.refer = s;
+    }
+  }
+}
+
+schema Service {
+  state = State.stopped;
+  def start {
+    condition {
+      this.state = State.stopped;
+    }
+    effect {
+      this.state = State.running;
+    }
+  }
+  def stop {
+    condition {
+      this.state = State.running;
+    }
+    effect {
+      this.state = State.stopped;
+    }
+  }
+}

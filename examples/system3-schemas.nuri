@@ -1,12 +1,9 @@
 import "state";
 
-schema Machine {
-  dns = "ns.foo";
-}
-
-schema Client extends Machine {
+schema Client {
   refer: *Service = null;
-  def redirect(s: Service) {
+
+  def redirect(s : Service) {
     condition { }
     effect {
       this.refer = s;
@@ -16,7 +13,8 @@ schema Client extends Machine {
 
 schema Service {
   state = State.stopped;
-  port = 80;
+  version : int = TBD;
+
   def start {
     condition {
       this.state = State.stopped;
@@ -31,6 +29,14 @@ schema Service {
     }
     effect {
       this.state = State.stopped;
+    }
+  }
+  def update (ver : int) {
+    condition {
+      this.state = State.stopped;
+    }
+    effect {
+      this.version = ver;
     }
   }
 }

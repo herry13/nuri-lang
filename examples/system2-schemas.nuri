@@ -1,38 +1,13 @@
 import "state";
 
-schema Cloud {
-  def create_vm(vm: VM) {
-    condition {
-      vm.in_cloud = null;
-      vm.state = State.not_exist;
-    }
-    effect {
-      vm.in_cloud = this;
-      vm.state = State.stopped;
-    }
-  }
-  def delete_vm(vm: VM) {
-    condition {
-      vm.in_cloud != null;
-      vm.state = State.stopped;
-    }
-    effect {
-      vm.in_cloud = null;
-      vm.state = State.not_exist;
-    }
-  }
-}
-
 /**
  * State transition:
- *   not_exist <-> stopped <-> running
+ *   stopped <-> running
  */
-schema VM {
-  in_cloud: *Cloud = null;
-  state = State.not_exist;
+schema Machine {
+  state = State.stopped;
   def start {
     condition {
-      this.in_cloud != null;
       this.state = State.stopped;
     }
     effect {
@@ -41,7 +16,6 @@ schema VM {
   }
   def stop {
     condition {
-      this.in_cloud != null;
       this.state = State.running;
     }
     effect {
@@ -93,15 +67,3 @@ schema Service {
     }
   }
 }
-
-/**
- * State transition:
- *   uninstalled <-> stopped <-> running
- */
-schema AppService extends Service { }
-
-/**
- * State transition:
- *   uninstalled <-> stopped <-> running
- */
-schema LoadBalancer extends Service { }
