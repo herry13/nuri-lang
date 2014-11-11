@@ -224,7 +224,14 @@ params
 	| param              { [$1] }
 
 param
-	: ID COLON tau_schema { ($1, TSchema $3) }
+	: ID COLON t_param { ($1, $3) }
+
+t_param
+    : tau_schema { TSchema $1 }
+    | TBOOL      { TBool      }
+    | TINT       { TInt       }
+    | TFLOAT     { TFloat     }
+    | TSTR       { TString    }
 
 cost
 	: COST EQUAL INT EOS { Cost $3 }
