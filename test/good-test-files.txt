@@ -5,6 +5,7 @@ herry3.nuri
 herry4.nuri
 herry5.nuri
 main-include1.nuri
+main-include3.nuri
 object1.nuri
 primitive1.nuri
 schema1.nuri

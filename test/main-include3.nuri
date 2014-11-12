@@ -1,0 +1,17 @@
+import "schemata3"; // import file schemata.nuri that contains all schemata
+main {
+    pm1 isa PM {
+        name = "Physical Machine";
+        running = true;
+    }
+    vm1 isa VM {
+        name = "Virtual Machine";
+        is_on = pm1;
+        httpd isa Service {
+            name = "HTTP Server";
+        }
+    }
+    pc isa Client {
+        refer = null;
+    }
+}

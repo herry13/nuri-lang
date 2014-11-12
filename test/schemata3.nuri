@@ -1,0 +1,31 @@
+schema Machine {
+    name = "";
+    running = false;
+}
+schema PM extends Machine { }
+schema VM extends Machine {
+    is_on : *PM = null;
+}
+schema Service {
+    name = "";
+    running = false;
+    def start {
+        conditions {
+            this.running = false;
+        }
+        effects {
+            this.running = true;
+        }
+    }
+}
+schema Client {
+    refer : *Service = null;
+    def redirect ( s : Service ) {
+        conditions {
+            s.running = true;
+        }
+        effects {
+            this.refer = s;
+        }
+    }
+}
