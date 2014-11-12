@@ -5,7 +5,6 @@ open Common
 
 let usage_msg =
     "Usage: nuric [options] <spec-file>\n" ^
-    "       nuric -d <initial_file> <goal_file>\n" ^
     "       nuric -p <initial_file> <goal_file>\n"
 ;;
 
