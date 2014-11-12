@@ -3,7 +3,10 @@
 open Array
 open Common
 
+let version = "0.7.3" ;;
+
 let usage_msg =
+    "Nuri compiler (version " ^ version ^ ")\n" ^
     "Usage: nuric [options] <spec-file>\n" ^
     "       nuric -p <initial_file> <goal_file>\n"
 ;;
