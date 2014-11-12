@@ -1,6 +1,7 @@
 # Nuri Language Compiler
 
 [![Build Status](https://travis-ci.org/nurilabs/nuri-lang.svg?branch=master)](https://travis-ci.org/nurilabs/nuri-lang)
+[![Gem Version](https://badge.fury.io/rb/nuric.png)](https://badge.fury.io/rb/nuric)
 
 
 ## Table of Contents
