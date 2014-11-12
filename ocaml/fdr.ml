@@ -295,7 +295,7 @@ let convert_fdr_to_nuri_plan fdr_plan data removeDummy =
                 let parts = Str.bounded_split space line 3 in
                 let index = int_of_string (List.hd parts) in
                 if removeDummy then
-                    if (List.hd (List.tl parts)).[3] = '!' then
+                    if (List.hd (List.tl parts)).[1] = '!' then
                         (* a dummy action: "$.!global" *)
                         if acc.dummy = dummy then
                             {

@@ -54,10 +54,12 @@ module Nuri
     end
 
     def plan_files(init, goal, lib)
-      IO.popen("export NURI_LIB=\"#{lib}\" && #{nuric} -p #{init} #{goal}",
+      IO.popen("export NURI_LIB=\"#{lib}\" && #{nuric} -p #{init} #{goal} 2>/dev/null",
                external_encoding: 'UTF-8') do |io|
         return JSON[io.gets]
       end
+    rescue
+      nil
     end
 
     def temp_init
