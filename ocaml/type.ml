@@ -97,6 +97,7 @@ let rec (<:) type1 type2 =
     let rec (<::) schema1 schema2 =
         match schema1, schema2 with
         | _, _ when schema1 = schema2 -> true               (* (Reflex)         *)
+        | TUserSchema (id1, _), TUserSchema (id2, _) when id1 = id2 -> true
         | TUserSchema (_, _), TObject -> true               (* (Object Subtype) *)
         | TUserSchema (_, super), _   -> super <:: schema2  (* (Trans)          *)
         | _, _                        -> false
