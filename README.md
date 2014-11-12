@@ -188,7 +188,7 @@ Action `redirect` of schema `Client` has a parameter which is an object of `Serv
 
 Nuri can be used to define a configuration state of a system. The following codes define three objects i.e. `pm1`, `vm1`, and `pc`. They inherit the attributes (and values) of their schemata, except the attributes which have been redefined. For example, object `pm1` inherits attributes `running` from schema `PM`. But instead of `false`, its value has been redefined with value `true`.
 
-	import "schemata"; // import file schemata.sfp that contains all schemata
+	import "schemata"; // import file schemata.nuri that contains all schemata
 	main {
 	  pm1 isa PM {
 	    name = "Physical Machine #1";
