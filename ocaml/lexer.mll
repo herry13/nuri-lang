@@ -13,16 +13,12 @@
 				pos with pos_bol = lexbuf.lex_curr_pos;
 				pos_lnum = pos.pos_lnum + 1
 			}
+    ;;
 
 	(* reserved words *)
-	let keywords = ["true"; "false"; "null"; "NULL"; "extends"; "DATA"; "TBD";
-	                "unknown"; "nothing";
-                    "bool"; "int"; "float"; "string"; "object"; "enum";
-	                "isa"; "schema"; "include"; "import";
-	                "in"; "if"; "then"; "global"; "not";
-	                "def"; "action"; "cost"; "condition"; "conditions";
-	                "effect"; "effects"; "#always"; "#sometime"]
+	let keywords = [] ;;
 
+    (* true if given 'id' is a keyword, otherwise false *)
 	let is_keyword id =
 		let rec check id words =
 			match words with
@@ -30,34 +26,52 @@
 			| _            -> false
 		in
 		check id keywords
+    ;;
 }
 
-(* reserved characters: '/' '*' ',' '{' '}' '[' ']' '(' ')' ';' '.' ':' '=' "!=" '"' *)
-(* regular expressions *)
+(**
+ * reserved characters: '/' '*' ',' '{' '}' '[' ']' '(' ')' ';' '.' ':'
+ *                      '=' "!=" ">=" "<=" '>' '<' ":=" '"'
+ *)
+
+(** regular expressions **)
+
+(* white spaces *)
+let white            = [' ' '\t']+
+let newline          = '\r' | '\n' | "\r\n"
+
+(* identifier *)
+let ident            = ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '0'-'9' '_' '-']*
+
+(* single and multiple lines comment *)
+let comment          = "//" [^'\n''\r']*
+let comments         = '/' '*'+ (('*'[^'/'])+|[^'*']+)* '*'+ '/'
+
+(* file inclusion *)
+let include_file     = "#include"
+let sfp_include_file = "include"
+let import_file      = "import"
+let include_string   = '"' ('\\'_|[^'\\' '"'])+ '"'
+
+(* built-in values *)
+let true_value       = "true"
+let false_value      = "false"
 let int              = '-'? ['0'-'9']+
 let digit            = ['0'-'9']
 let frac             = '.' digit*
 let exp              = ['e' 'E'] ['-' '+']? digit+
 let float            = digit* frac? exp?
 let string           = '"' ('\\'_|[^'\\' '"'])* '"'
-let include_string   = '"' ('\\'_|[^'\\' '"'])+ '"'
-let white            = [' ' '\t']+
-let newline          = '\r' | '\n' | "\r\n"
-let ident            = ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '0'-'9' '_' '-']*
-let comment          = "//" [^'\n''\r']*
-let comments         = '/' '*'+ (('*'[^'/'])+|[^'*']+)* '*'+ '/'
-let include_file     = "#include"
-let sfp_include_file = "include"
-let import_file      = "import"
-let true_value       = "true"
-let false_value      = "false"
 let null_value       = "null" | "NULL"
 let tbd_value        = "TBD"
 let unknown_value    = "unknown"
 let nothing_value    = "nothing"
+
+(* object inheritance (prototype or schema) *)
 let extends          = "extends"
-let data_ref         = "DATA"
 let isa              = "isa"
+
+(* typing *)
 let schema           = "schema"
 let enum             = "enum"
 let t_bool           = "bool"
@@ -65,12 +79,19 @@ let t_int            = "int"
 let t_float          = "float"
 let t_str            = "string"
 let t_obj            = "object"
+
+(* constraint *)
+let _global          = "global" | "#always"
+let _sometime        = "#sometime"
+let _atleast         = "#atleast"
+let _atmost          = "#atmost"
+let _alldifferent    = "#alldifferent"
 let _in              = "in"
 let _if              = "if"
 let _then            = "then"
-let _global          = "global" | "#always"
-let _sometime        = "#sometime"
 let _not             = "not"
+
+(* action *)
 let action           = "def" | "action"
 let cost             = "cost"
 let conditions       = "conditions" | "condition"
@@ -116,7 +137,6 @@ rule token =
 	| unknown_value { TOK_UNKNOWN }
 	| nothing_value { TOK_NOTHING }
 	| extends     { EXTENDS }
-	| data_ref    { DATA }
 	| isa         { ISA }
 	| schema      { SCHEMA }
     | enum        { ENUM }
@@ -131,6 +151,9 @@ rule token =
 	| _then       { THEN }
 	| _global     { GLOBAL }
     | _sometime   { SOMETIME }
+    | _atleast    { ATLEAST }
+    | _atmost     { ATMOST }
+    | _alldifferent { ALLDIFFERENT }
 	| cost        { COST }
 	| conditions  { CONDITIONS }
 	| effects     { EFFECTS }
@@ -138,7 +161,7 @@ rule token =
 	| '"'         { STRING (read_string (Buffer.create 17) lexbuf) }
 	| ident       {
 	              	let id = Lexing.lexeme lexbuf in
-	               if is_keyword id then raise (SyntaxError (id ^ " is a reserved identifier"))
+	                if is_keyword id then raise (SyntaxError (id ^ " is a reserved identifier"))
 	              	else ID id
 	              }
 	| eof         { EOF }

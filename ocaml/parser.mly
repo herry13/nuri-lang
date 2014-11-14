@@ -23,7 +23,7 @@ open Syntax
 %token EXTENDS COMMA DATA BEGIN END SEP
 %token LBRACKET RBRACKET EOS EOF
 %token ISA SCHEMA ENUM ASTERIX COLON TBOOL TINT TFLOAT TSTR TOBJ
-%token GLOBAL SOMETIME
+%token GLOBAL SOMETIME ATLEAST ATMOST ALLDIFFERENT
 %token EQUAL NOT_EQUAL IF THEN IN NOT LPARENTHESIS RPARENTHESIS
 %token TOK_GREATER TOK_GREATER_EQUAL TOK_LESS TOK_LESS_EQUAL
 %token TOK_COLON_EQUAL
@@ -53,21 +53,24 @@ incontext_included
 	: context EOF { $1 }
 
 context
-	: SCHEMA schema context   { fun c -> SchemaContext ($2, $3 c) }
-    | ENUM enum context       { fun c -> EnumContext ($2, $3 c) }
-	| GLOBAL global context   { fun c -> GlobalContext ($2, $3 c) }
-	| NURI_INCLUDE EOS context { fun c -> $1 ($3 c) }
-	| assignment context      { fun c -> AssignmentContext ($1, $2 c) }
-	|                            { fun c -> c }
+	: SCHEMA schema context     { fun c -> SchemaContext ($2, $3 c) }
+    | ENUM enum context         { fun c -> EnumContext ($2, $3 c) }
+	| trajectory context        { fun c -> TrajectoryContext ($1, $2 c) }
+	| NURI_INCLUDE EOS context  { fun c -> $1 ($3 c) }
+	| assignment context        { fun c -> AssignmentContext ($1, $2 c) }
+	|                           { fun c -> c }
 
 inblock_included
 	: block EOF { $1 }
 
 block
-	: assignment block     { fun b -> AssignmentBlock ($1, $2 b) }
-	| GLOBAL global block  { fun b -> GlobalBlock ($2, $3 b) }
-	| INCLUDE EOS block { fun b -> $1 ($3 b) }
-	|                      { fun b -> b }
+	: assignment block   { fun b -> AssignmentBlock ($1, $2 b) }
+	| trajectory block   { fun b -> TrajectoryBlock ($1, $2 b) }
+	| INCLUDE EOS block  { fun b -> $1 ($3 b) }
+	|                    { fun b -> b }
+
+trajectory
+    : GLOBAL global  { Global $2 }
 
 assignment
 	: ACTION reference action  { ($2, TUndefined, $3) }

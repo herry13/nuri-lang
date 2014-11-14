@@ -7,10 +7,10 @@ type nuri          = context
 and  context       = AssignmentContext of assignment * context
                    | SchemaContext     of schema * context
                    | EnumContext       of enum * context
-                   | GlobalContext     of _constraint * context
+                   | TrajectoryContext of trajectory * context
                    | EmptyContext
 and  block         = AssignmentBlock of assignment * block
-                   | GlobalBlock     of _constraint * block
+                   | TrajectoryBlock of trajectory * block
                    | EmptyBlock
 and  assignment    = reference * t * value
 and  value         = Basic     of basicValue
@@ -63,6 +63,9 @@ and tSchema  = TObject
     
 and tForward = TLinkForward
              | TRefForward
+
+(** trajectory **)
+and trajectory = Global of _constraint
 
 (** constraint syntax **)
 and _constraint = Eq           of reference * basicValue

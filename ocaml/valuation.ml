@@ -92,7 +92,7 @@ and sfBlock block =
     fun ns s ->
         match block with
         | AssignmentBlock (a, b) -> sfBlock b ns (sfAssignment a ns s)
-        | GlobalBlock (g, b)     -> sfBlock b ns (nuriGlobal g s)
+        | TrajectoryBlock (t, b) -> sfBlock b ns (nuriTrajectory t s)
         | EmptyBlock             -> s
 
 and nuriSchema (name, parent, b) =
@@ -111,6 +111,9 @@ and nuriEnum (name, elements) =
         let refName = [name] in
         Domain.bind s refName (Domain.Enum elements)
 
+and nuriTrajectory t = match t with
+    | Global g -> nuriGlobal g
+
 and nuriContext context =
     fun s ->
         match context with
@@ -120,8 +123,8 @@ and nuriContext context =
             nuriContext nextContext (nuriSchema schema s)
         | EnumContext (enum, nextContext) ->
             nuriContext nextContext (nuriEnum enum s)
-        | GlobalContext (global, nextContext) ->
-            nuriContext nextContext (nuriGlobal global s)
+        | TrajectoryContext (trajectory, nextContext) ->
+            nuriContext nextContext (nuriTrajectory trajectory s)
         | EmptyContext -> s
 
 and nuriSpecificationFirstPass nuri = nuriContext nuri []

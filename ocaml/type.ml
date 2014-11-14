@@ -592,7 +592,7 @@ and sfAssignment (r, t, v) : reference -> environment -> environment =
      * @param ns namespace
      * @param e  type environment
      *)
-    fun ns e -> sfValue v ns (ns @++ r) t e
+    fun ns -> sfValue v ns (ns @++ r) t
 
 and nuriBlock block : reference -> environment -> environment =
     (**
@@ -602,7 +602,7 @@ and nuriBlock block : reference -> environment -> environment =
     fun ns e ->
         match block with
         | AssignmentBlock (a, b) -> nuriBlock b ns (sfAssignment a ns e)
-        | GlobalBlock (g, b)     -> nuriBlock b ns (nuriGlobal g e)
+        | TrajectoryBlock (t, b) -> nuriBlock b ns (nuriTrajectory t e)
         | EmptyBlock             -> e
 
 and nuriSchema s : environment -> environment =
@@ -644,13 +644,16 @@ and nuriEnum enum : environment -> environment =
 and nuriGlobal g : environment -> environment =
     fun e -> assign e ["global"] TUndefined TGlobal
 
+and nuriTrajectory t = match t with
+    | Global g -> nuriGlobal g
+
 and nuriContext ctx : environment -> environment =
     fun e ->
         match ctx with
         | AssignmentContext (a, c) -> nuriContext c (sfAssignment a [] e)
         | SchemaContext (s, c)     -> nuriContext c (nuriSchema s e)
         | EnumContext (enum, c)    -> nuriContext c (nuriEnum enum e)
-        | GlobalContext (g, c)     -> nuriContext c (nuriGlobal g e)
+        | TrajectoryContext (t, c) -> nuriContext c (nuriTrajectory t e)
         | EmptyContext             -> e
 
 and nuriSpecification ?main:(mainReference=["main"]) nuri =

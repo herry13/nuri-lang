@@ -9,10 +9,10 @@ type nuri          = context
 and  context       = AssignmentContext of assignment * context
                    | SchemaContext     of schema * context
                    | EnumContext       of enum * context
-                   | GlobalContext     of _constraint * context
+                   | TrajectoryContext of trajectory * context
                    | EmptyContext
 and  block         = AssignmentBlock of assignment * block
-                   | GlobalBlock     of _constraint * block
+                   | TrajectoryBlock of trajectory * block
                    | EmptyBlock
 and  assignment    = reference * t * value
 and  value         = Basic     of basicValue
@@ -66,6 +66,8 @@ and tSchema  = TObject
 and tForward = TLinkForward
              | TRefForward
 
+and trajectory = Global of _constraint
+
 (** constraint syntax **)
 and _constraint = Eq of reference * basicValue
                 | Ne of reference * basicValue
@@ -104,7 +106,7 @@ let rec string_of_sf sf = string_of_block sf
 
 and string_of_block = function
     | AssignmentBlock (a, b) -> (string_of_assignment a) ^ "\n" ^ (string_of_block b)
-    | GlobalBlock (g, b)     -> (string_of_global g) ^ "\n" ^ (string_of_block b)
+    | TrajectoryBlock (t, b) -> (string_of_trajectory t) ^ "\n" ^ (string_of_block b)
     | EmptyBlock             -> ""
 
 and string_of_assignment = function
@@ -187,16 +189,19 @@ and string_of_context = function
                                       (string_of_context c)
     | SchemaContext (s, c)     -> (string_of_schema s) ^ "\n" ^ (string_of_context c)
     | EnumContext (enum, c)    -> (string_of_enum enum) ^ "\n" ^ (string_of_context c)
-    | GlobalContext (g, c)     -> (string_of_global g) ^ "\n" ^ (string_of_context c)
+    | TrajectoryContext (t, c) -> (string_of_trajectory t) ^ "\n" ^ (string_of_context c)
     | EmptyContext             -> ""
 
 and string_of_nuri nuri = string_of_context nuri
 
 (** constraints *)
+and string_of_trajectory t = match t with
+    | Global g -> string_of_global g
+
 and string_of_global g =
     "global " ^ (string_of_constraint g) ^ "\n"
 
-and string_of_constraint = function
+and string_of_constraint c = match c with
     | Eq (r, bv)      -> "(= " ^ !^r ^ " " ^ (string_of_basic_value bv) ^ ")"
     | Ne (r, bv)      -> "(!= " ^ !^r ^ " " ^ (string_of_basic_value bv) ^ ")"
     | Not c           -> "(not " ^ (string_of_constraint c) ^ ")"
@@ -304,6 +309,7 @@ let json_of_nuri nuri =
                 Buffer.add_string buf (String.concat "." r);
                 Buffer.add_char buf '"'
             )
+
     and json_of_vector vec =
         match vec with
         | [] -> ()
@@ -313,6 +319,7 @@ let json_of_nuri nuri =
                 Buffer.add_char buf ',';
                 json_of_vector tail
             )
+
     and json_of_super_schema super =
         match super with
         | SID id -> (
@@ -321,6 +328,7 @@ let json_of_nuri nuri =
                 Buffer.add_char buf '"'
             )
         | EmptySchema -> Buffer.add_string buf "null"
+
     and json_of_prototype ?first:(fst=true) p =
         match p with
         | ReferencePrototype (r, p) -> (
@@ -338,6 +346,7 @@ let json_of_nuri nuri =
                 json_of_prototype ~first:false p
             )
         | EmptyPrototype -> ()
+
     and json_of_value v =
         match v with
         | Basic bv -> json_of_basic_value bv
@@ -357,6 +366,7 @@ let json_of_nuri nuri =
         | TBD -> Buffer.add_string buf "\"§TBD\""
         | Unknown -> Buffer.add_string buf "\"§unknown\""
         | Nothing -> Buffer.add_string buf "\"§nothing\""
+
     and json_of_action (parameters, cost, conditions, effects) =
         Buffer.add_string buf "\"action\",{\"parameters\":{";
         (* parameters *)
@@ -406,6 +416,7 @@ let json_of_nuri nuri =
         in
         json_of_effects effects;
         Buffer.add_string buf "]}"
+
     and formula_to_json operator r v =
         Buffer.add_string buf "[\"";
         Buffer.add_string buf operator;
@@ -414,7 +425,8 @@ let json_of_nuri nuri =
         Buffer.add_string buf "\",";
         json_of_basic_value v;
         Buffer.add_char buf ']'
-    and    json_of_constraint c =
+
+    and json_of_constraint c =
         match c with
         | Eq (r, v) -> formula_to_json "=" r v
         | Ne (r, v) -> formula_to_json "!=" r v
@@ -451,10 +463,12 @@ let json_of_nuri nuri =
                 ) cs;
                 Buffer.add_char buf ']'
             )
+
     and json_of_global g =
         Buffer.add_string buf "[\"global\",";
         json_of_constraint g;
         Buffer.add_char buf ']'
+
     and json_of_schema (sid, ss, b) =
         Buffer.add_string buf "[\"";
         Buffer.add_string buf sid;
@@ -463,6 +477,7 @@ let json_of_nuri nuri =
         Buffer.add_string buf "],[";
         json_of_block b;
         Buffer.add_string buf "]]"
+
     and json_of_enum (eid, elements) =
         Buffer.add_string buf "[\"";
         Buffer.add_string buf eid;
@@ -473,6 +488,7 @@ let json_of_nuri nuri =
             Buffer.add_char buf '"'
         ) elements;
         Buffer.add_string buf "]]"
+
     and json_of_assignment (r, t, v) =
         Buffer.add_string buf "[\"";
         Buffer.add_string buf !^r;
@@ -488,18 +504,23 @@ let json_of_nuri nuri =
                 json_of_value v;
                 Buffer.add_char buf ']'
             )
+
     and json_of_block ?first:(fst=true) block = match block with
         | AssignmentBlock (a, b) -> (
                 if not fst then Buffer.add_char buf ',';
                 json_of_assignment a;
                 json_of_block ~first:false b
             )
-        | GlobalBlock (g, b) -> (
+        | TrajectoryBlock (t, b) -> (
                 if not fst then Buffer.add_char buf ',';
-                json_of_global g;
+                json_of_trajectory t;
                 json_of_block ~first:false b
             )
         | EmptyBlock -> ()
+
+    and json_of_trajectory t = match t with
+        | Global g -> json_of_global g
+
     and json_of_context ?first:(fst=true) context =
         match context with
         | AssignmentContext (a, c) -> (
@@ -517,9 +538,9 @@ let json_of_nuri nuri =
                 json_of_enum enum;
                 json_of_context ~first:false c
             )
-        | GlobalContext (g, c) -> (
+        | TrajectoryContext (t, c) -> (
                 if not fst then Buffer.add_char buf ',';
-                json_of_global g;
+                json_of_trajectory t;
                 json_of_context ~first:false c
             )
         | EmptyContext -> ()
