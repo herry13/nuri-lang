@@ -644,8 +644,13 @@ and nuriEnum enum : environment -> environment =
 and nuriGlobal g : environment -> environment =
     fun e -> assign e ["global"] TUndefined TGlobal
 
-and nuriTrajectory t = match t with
+and nuriAtLeast n t id c : environment -> environment =
+    fun e -> assign e ["atleast"] TUndefined TGlobal
+
+and nuriTrajectory t : environment -> environment =
+    match t with
     | Global g -> nuriGlobal g
+    | AtLeast (n, t, id, c) -> nuriAtLeast n t id c
 
 and nuriContext ctx : environment -> environment =
     fun e ->

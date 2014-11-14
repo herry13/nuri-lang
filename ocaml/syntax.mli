@@ -66,6 +66,7 @@ and tForward = TLinkForward
 
 (** trajectory **)
 and trajectory = Global of _constraint
+               | AtLeast of string * tSchema * string * _constraint
 
 (** constraint syntax **)
 and _constraint = Eq           of reference * basicValue

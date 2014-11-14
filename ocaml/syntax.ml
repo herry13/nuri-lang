@@ -67,6 +67,7 @@ and tForward = TLinkForward
              | TRefForward
 
 and trajectory = Global of _constraint
+               | AtLeast of string * tSchema * string * _constraint
 
 (** constraint syntax **)
 and _constraint = Eq of reference * basicValue
@@ -197,10 +198,15 @@ and string_of_nuri nuri = string_of_context nuri
 (** constraints *)
 and string_of_trajectory t = match t with
     | Global g -> string_of_global g
+    | AtLeast (n, t, id, c) -> string_of_atleast n t id c
 
 and string_of_global g =
     "global " ^ (string_of_constraint g) ^ "\n"
 
+and string_of_atleast n t id c =
+    "atleast " ^ n ^ " " ^ (string_of_type_schema t) ^ " " ^ id ^ " " ^
+    (string_of_constraint c)
+    
 and string_of_constraint c = match c with
     | Eq (r, bv)      -> "(= " ^ !^r ^ " " ^ (string_of_basic_value bv) ^ ")"
     | Ne (r, bv)      -> "(!= " ^ !^r ^ " " ^ (string_of_basic_value bv) ^ ")"
@@ -252,6 +258,8 @@ and string_of_action (params, cost, conds, effs) =
 ;;
 
 let json_of_nuri nuri =
+    ""
+(*
     let buf = Buffer.create 42 in
 
     let rec json_of_type t =
@@ -520,6 +528,16 @@ let json_of_nuri nuri =
 
     and json_of_trajectory t = match t with
         | Global g -> json_of_global g
+        | AtLeast (n, t, id, c) -> json_of_atleast n t id c
+
+    and json_of_atleast n t id c =
+        Buffer.add_string buf "[\"atleast\"";
+        Buffer.add_char buf ',';
+        json_of_type_schema t;
+        Buffer.add_string buf ",\"";
+        Buffer.add_string buf id;
+        Buffer.add_char buf '"';
+        json_of_string c
 
     and json_of_context ?first:(fst=true) context =
         match context with
@@ -549,6 +567,7 @@ let json_of_nuri nuri =
     json_of_context nuri;
     Buffer.add_char buf ']';
     Buffer.contents buf
+*)
 ;;
     
 let nuri_of_json json =

@@ -26,6 +26,7 @@ open Syntax
 %token GLOBAL SOMETIME ATLEAST ATMOST ALLDIFFERENT
 %token EQUAL NOT_EQUAL IF THEN IN NOT LPARENTHESIS RPARENTHESIS
 %token TOK_GREATER TOK_GREATER_EQUAL TOK_LESS TOK_LESS_EQUAL
+%token TOK_AS
 %token TOK_COLON_EQUAL
 %token COST CONDITIONS EFFECTS ACTION
 
@@ -70,7 +71,8 @@ block
 	|                    { fun b -> b }
 
 trajectory
-    : GLOBAL global  { Global $2 }
+    : GLOBAL nuri_constraint  { Global $2 }
+    | ATLEAST INT tau_schema TOK_AS ID nuri_constraint { AtLeast ($2, $3, $5, $6) }
 
 assignment
 	: ACTION reference action  { ($2, TUndefined, $3) }
@@ -157,17 +159,6 @@ tau_schema
     : TOBJ  { TObject }
     | ID    { TUserSchema ($1, TObject) }
 
-global
-	: nuri_constraint { $1 }
-
-conjunction
-	: nuri_constraint conjunction { $1 :: $2 }
-	|                            { [] }
-
-disjunction
-	: nuri_constraint disjunction { $1 :: $2 }
-	|                            { [] }
-
 nuri_constraint
 	: BEGIN conjunction END                 { And $2 }
 	| LPARENTHESIS disjunction RPARENTHESIS { Or $2 }
@@ -181,6 +172,14 @@ nuri_constraint
 	| less_than                             { $1 }
 	| greater_equal                         { $1 }
 	| less_equal                            { $1 }
+
+conjunction
+	: nuri_constraint conjunction { $1 :: $2 }
+	|                            { [] }
+
+disjunction
+	: nuri_constraint disjunction { $1 :: $2 }
+	|                            { [] }
 
 equal
 	: reference EQUAL basic EOS { Eq ($1, $3) }

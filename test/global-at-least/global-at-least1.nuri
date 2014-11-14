@@ -1,0 +1,15 @@
+main {
+    a {
+        valid = true;
+    }
+    b {
+        valid = true;
+    }
+    c {
+        valid = false;
+    }
+
+    #atleast 3 object as obj {
+        obj.valid = true;
+    }
+}

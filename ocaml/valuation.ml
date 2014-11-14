@@ -113,6 +113,7 @@ and nuriEnum (name, elements) =
 
 and nuriTrajectory t = match t with
     | Global g -> nuriGlobal g
+    | AtLeast (n, t, id, c) -> nuriAtLeast n t id c
 
 and nuriContext context =
     fun s ->
@@ -169,6 +170,15 @@ and nuriGlobal g =
             Domain.bind s r f
         | Domain.Undefined -> Domain.bind s r (Domain.Global gc)
         | _                  -> Domain.error 1106 ""
+
+and nuriAtLeast n t id c =
+    fun s ->
+        let r = ["atleast"] in
+        let gc = nuriConstraint c in
+        match Domain.find s r with
+        | Domain.Val (Domain.AtLeast gcc) -> Domain.bind s r (Domain.AtLeast gc :: gcc)
+        | Domain.Undefined -> Domain.bind s r (Domain.AtLeast [gc])
+        | _ -> Domain.error 1107 ""
 
 (** constraints **)
 and nuriConstraint (c : _constraint) =

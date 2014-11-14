@@ -18,6 +18,7 @@ and basic     = Boolean of bool
 and value     = Basic of basic
               | Store of store
               | Global of _constraint
+              | AtLeast of (int * Syntax.tSchema * string * _constraint) list
               | Link of reference
               | Action of action
               | TBD

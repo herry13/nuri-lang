@@ -82,14 +82,16 @@ let t_obj            = "object"
 
 (* constraint *)
 let _global          = "global" | "#always"
-let _sometime        = "#sometime"
-let _atleast         = "#atleast"
-let _atmost          = "#atmost"
-let _alldifferent    = "#alldifferent"
+let _sometime        = "sometime"
+let _atleast         = "atleast"
+let _atmost          = "atmost"
+let _alldifferent    = "alldifferent"
 let _in              = "in"
 let _if              = "if"
 let _then            = "then"
 let _not             = "not"
+
+let _as              = "as"
 
 (* action *)
 let action           = "def" | "action"
@@ -154,6 +156,7 @@ rule token =
     | _atleast    { ATLEAST }
     | _atmost     { ATMOST }
     | _alldifferent { ALLDIFFERENT }
+    | _as         { TOK_AS }
 	| cost        { COST }
 	| conditions  { CONDITIONS }
 	| effects     { EFFECTS }
