@@ -117,10 +117,12 @@ Schema is similar to class on programming languages. However, it is weaker in th
 
 You can define a schema by declaring its name and attributes. Here is an example of schema `Machine` which has two attributes i.e. `name` (type `str`) and `running` (type `bool`). Where their default values are empty string (`""`) and `false` respectively.
 
-	schema Machine {
-		name = "";
-		running = false;
-	}
+```java
+schema Machine {
+  name = "";
+  running = false;
+}
+```
 
 Note that the Nuri compiler uses type-inference technique to determine the type of `name` and `running`, where in this case their types are obtained from the values.
 
@@ -130,20 +132,24 @@ The attribute can be assigned with `TBD` (to be defined) value, which means that
 
 ### Inheritance and Reference
 
-	schema PM extends Machine { }
-	schema VM extends Machine {
-		is_on : *PM = null;
-	}
+```java
+schema PM extends Machine { }
+schema VM extends Machine {
+  is_on : *PM = null;
+}
+```
 
 The above codes declare two new schemas i.e. `PM` and `VM`. `PM` extends schema `Machine`, thus it inherits all `Machine`'s attributes (`name` and `running`) and their default values. `VM` also extends schema `Machine`, but besides it has attributes `name` and `running`, it also has a new attribute i.e. `is_on` with type reference of `PM`. So `is_on` can only be assigned with a reference of an object that implements schema `PM`.
 
-	schema Service {
-		name = "";
-		running = false;
-	}
-	schema Client {
-		refer : *Service = null;
-	}
+```java
+schema Service {
+  name = "";
+  running = false;
+}
+schema Client {
+  refer : *Service = null;
+}
+```
 
 The above schemata are other examples that have an attribute with a reference type.
 
@@ -152,32 +158,34 @@ The above schemata are other examples that have an attribute with a reference ty
 
 An action describes the mutation of attributes' value (effects) and the constraints (conditions) that have to be satisfied before execution. Each Nuri schema or object could have none or several actions. Each action may have parameters, cost, conditions, and effects.
 
-	schema Service {
-	  name = "";
-	  running = false;
+```java
+schema Service {
+  name = "";
+  running = false;
 
-	  def start {
-	    conditions {
-	      this.running = false;
-	    }
-	    effects {
-	      this.running = true;
-	    }
-	  }
-	}
+  def start {
+    conditions {
+      this.running = false;
+    }
+    effects {
+      this.running = true;
+    }
+  }
+}
 	
-	schema Client {
-	  refer : *Service = null;
+schema Client {
+  refer : *Service = null;
 	
-	  def redirect ( s : Service ) {
-	    conditions {
-	      s.running = true;
-	    }
-	    effects {
-	      this.refer = s;
-	    }
-	  }
-	}
+  def redirect ( s : Service ) {
+    conditions {
+      s.running = true;
+    }
+    effects {
+      this.refer = s;
+    }
+  }
+}
+```
 
 Action `start` of schema `Service` has a precondition where the object that implements the schema (referred by `this`) must be stopped (`this.running = false`). After execution, the action changes the object's state to running (`this.running = true`).
 
@@ -188,23 +196,25 @@ Action `redirect` of schema `Client` has a parameter which is an object of `Serv
 
 Nuri can be used to define a configuration state of a system. The following codes define three objects i.e. `pm1`, `vm1`, and `pc`. They inherit the attributes (and values) of their schemata, except the attributes which have been redefined. For example, object `pm1` inherits attributes `running` from schema `PM`. But instead of `false`, its value has been redefined with value `true`.
 
-	import "schemata"; // import file schemata.nuri that contains all schemata
-	main {
-	  pm1 isa PM {
-	    name = "Physical Machine #1";
-	    running = true;
-	  }
-	  vm1 isa VM {
-	    name = "Virtual Machine #1";
-	    is_on = pm1;
-	    httpd isa Service {
-	      name = "HTTP Server";
-	    }
-	  }
-	  pc isa Client {
-	    refer = null;
-	  }
-	}
+```java
+import "schemata"; // import file schemata.nuri that contains all schemata
+main {
+  pm1 isa PM {
+    name = "Physical Machine #1";
+    running = true;
+  }
+  vm1 isa VM {
+    name = "Virtual Machine #1";
+    is_on = pm1;
+    httpd isa Service {
+      name = "HTTP Server";
+    }
+  }
+  pc isa Client {
+    refer = null;
+  }
+}
+```
 
 Notice that the objects are inside another object i.e. `main`. This **main** object is necessary because the compiler will ignore definition outside `main` (only variables inside `main` will be in the final output). This semantics is very useful whenever you want to have objects/variables which act as prototypes of the others.
 
@@ -214,7 +224,189 @@ In a reconfiguration task, you need to define two states: first is the current s
 <a name="planning"></a>
 ## Planning
 
-TODO
+**TODO: explain the example**.
+
+Model of resources:
+
+```java
+// file schemas.nuri
+enum State {
+    stopped,
+    running
+}
+
+schema Client {
+  refer: *Service = null;
+  def redirect(s : Service) {
+    condition { }
+    effect {
+      this.refer = s;
+    }
+  }
+}
+
+schema Service {
+  state = State.stopped;
+  def start {
+    condition {
+      this.state = State.stopped;
+    }
+    effect {
+      this.state = State.running;
+    }
+  }
+  def stop {
+    condition {
+      this.state = State.running;
+    }
+    effect {
+      this.state = State.stopped;
+    }
+  }
+}
+```
+
+Specification of the current state:
+
+```java
+import "schemas";
+
+main {
+  service1 isa Service {
+    state = State.running;
+  }
+  service2 isa Service {
+    state = State.stopped;
+  }
+  client1 isa Client {
+    refer = service1;
+  }
+  client2 extends client1
+}
+```
+
+Specification of the desired state:
+
+```java
+import "schemas";
+
+main {
+  service1 isa Service {
+    state = State.stopped;
+  }
+  service2 isa Service {
+    state = State.running;
+  }
+  client1 isa Client {
+    refer = service2;
+  }
+  client2 extends client1
+  global {
+    client1.refer.state = State.running;
+    client2.refer.state = State.running;
+  }
+}
+```
+
+The generated plan:
+
+1. service2.start{}
+2. client2.redirect{"s":"$service2"}
+3. service2.stop{}
+
+```json
+{
+  "type": "parallel",
+  "version": 2,
+  "actions": [
+    {
+      "name": "service2.start",
+      "parameters": {
+      },
+      "cost": 1,
+      "conditions": {
+        "client1.refer": "$service1",
+        "client2.refer": "$service1",
+        "service1.state": "$State.running",
+        "service2.state": "$State.stopped"
+      },
+      "effects": {
+        "service2.state": "$State.running"
+      },
+      "before": [
+
+      ],
+      "after": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "name": "client2.redirect",
+      "parameters": {
+        "s": "$service2"
+      },
+      "cost": 1,
+      "conditions": {
+        "service2.state": "$State.running"
+      },
+      "effects": {
+        "client2.refer": "$service2"
+      },
+      "before": [
+        0
+      ],
+      "after": [
+        3
+      ]
+    },
+    {
+      "name": "client1.redirect",
+      "parameters": {
+        "s": "$service2"
+      },
+      "cost": 1,
+      "conditions": {
+        "service2.state": "$State.running"
+      },
+      "effects": {
+        "client1.refer": "$service2"
+      },
+      "before": [
+        0
+      ],
+      "after": [
+        3
+      ]
+    },
+    {
+      "name": "service1.stop",
+      "parameters": {
+      },
+      "cost": 1,
+      "conditions": {
+        "client1.refer": "$service2",
+        "client2.refer": "$service2",
+        "service1.state": "$State.running",
+        "service2.state": "$State.running"
+      },
+      "effects": {
+        "service1.state": "$State.stopped"
+      },
+      "before": [
+        0,
+        1,
+        2
+      ],
+      "after": [
+
+      ]
+    }
+  ]
+}
+```
+
 
 
 <a name="license"></a>
