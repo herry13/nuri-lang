@@ -21,8 +21,12 @@ main {
     refer = service1a;
   }
   global {
-    if service1a.state = State.running; then service1b.state = State.running;
-    if service2a.state = State.running; then service2b.state = State.running;
+    if service1a.state = State.running;
+    then service1b.state = State.running;
+
+    if service2a.state = State.running;
+    then service2b.state = State.running;
+
     client.refer.state = State.running;
   }
 }
