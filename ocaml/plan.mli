@@ -14,8 +14,11 @@ type parallel = {
 
 val sequential_of : parallel -> sequential
 
+val string_of_sequential : sequential -> string
+
 val json_of_sequential : sequential -> string
 
 val parallel_of : sequential -> parallel
 
 val json_of_parallel : parallel -> string
+

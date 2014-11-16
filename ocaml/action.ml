@@ -118,6 +118,11 @@ let json_of action =
 	Buffer.contents buffer
 ;;
 
+let to_string_buffer action buffer =
+    Buffer.add_string buffer !^(action.name);
+	json_of_parameters buffer action.parameters
+;;
+
 let json_of_parallel_action action before after =
 	let buffer = Buffer.create 42 in
 	let to_json elements =

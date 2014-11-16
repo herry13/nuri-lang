@@ -17,6 +17,15 @@ type parallel = {
 	after   : SetInt.t array
 }
 
+let string_of_sequential sequentialPlan =
+    let buffer = Buffer.create 42 in
+    Array.iteri (fun index action ->
+        if index > 0 then Buffer.add_char buffer '\n';
+        Action.to_string_buffer action buffer
+    ) sequentialPlan;
+    Buffer.contents buffer
+;;
+
 (* TODO *)
 let sequential_of (plan: parallel) : sequential =
 	raise (Failure "not implemented")
@@ -26,12 +35,10 @@ let json_of_sequential plan =
 	let buf = Buffer.create 42 in
 	Buffer.add_string buf
 		"{\"type\":\"sequential\",\"version\":1,\"actions\":[";
-	if Array.length plan > 0 then (
-		Array.iteri (fun i a ->
-			if i = 0 then Buffer.add_char buf ',';
-			Buffer.add_string buf (json_of a);
-		) plan
-	);
+    Array.iteri (fun i a ->
+		if i > 0 then Buffer.add_char buf ',';
+		Buffer.add_string buf (json_of a);
+	) plan;
 	Buffer.add_string buf "]}";
 	Buffer.contents buf
 

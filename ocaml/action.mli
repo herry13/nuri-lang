@@ -72,3 +72,4 @@ val encode_name : int -> t -> string
 val decode_name : string -> (int * reference * basic MapStr.t)
 
 
+val to_string_buffer : t -> Buffer.t -> unit

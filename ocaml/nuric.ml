@@ -22,6 +22,7 @@ let opt_check_type = ref false ;;
 let opt_no_main = ref false ;;
 let opt_fdr = ref false ;;
 let opt_planning = ref false ;;
+let opt_simple_plan = ref false ;;
 let opt_not_eval_global_constraints = ref false ;;
 let opt_stdin = ref false ;;
 
@@ -97,7 +98,12 @@ let plan initFile goalFile =
             Sys.remove plan_file
         with _ -> ()
     );
-    Plan.json_of_parallel (Plan.parallel_of (Fdr.to_nuri_plan plan fdr))
+    let sequentialPlan = Fdr.to_nuri_plan plan fdr in
+    if !opt_simple_plan then
+        Plan.string_of_sequential sequentialPlan
+    else
+        let parallelPlan = Plan.parallel_of sequentialPlan in
+        Plan.json_of_parallel parallelPlan
 ;;
 
 
@@ -118,6 +124,8 @@ let main =
             "    Generate Finite Domain Representation.");
         ("-p", Arg.Set opt_planning,
             "    Planning.");
+        ("-sp", Arg.Set opt_simple_plan,
+            "   Simple plan (a list of actions).");
     ]
     in
     Arg.parse options (fun f -> files := f :: !files) usage_msg_with_options;
