@@ -100,15 +100,44 @@ TODO: explain every option.
 <a name="nuri-language"></a>
 ## Nuri Language
 
-**Nuri** is an object-oriented configuration language which allows us to define three different aspects of specification:
+**Nuri language** is a declarative configuration language which allows us to define three aspects of configuration:
 
-1. a declarative configuration state of the system,
-2. actions that can change the state of the system,
-3. global constraints that should be maintained during the changes.
+1. a configuration state of the system,
+2. a model of configuration change called as action,
+3. global constraints, which are constraints that should be maintained during the changes.
 
-Nuri can also be seen as _**an object oriented planning language**_. It is a static-typed language. Its syntax resembles [SmartFrog](http://smartfrog.org) (SF) language plus notations to describe actions and global constraints.
+Nuri adopts a prototype-object mechanism from [SmartFrog](http://smartfrog.org) where an object can be used as a prototype of other objects. This allows configuration composition through inheritance (`extends`). Nuri also supports a traditional composition through file inclusion (`import` and `include`).
 
-This article is a short introduction to Nuri. It describes several aspects which are supported by the language.
+Nuri is a static-typed language with a powerful type-inference (the compiler can determine the variable's type based on its value). It supports some basic types i.e. `bool`, `int`, `float`, `string`, `object`, reference, and list. It also allows two user-defined types i.e. **schema** and **enum**.
+
+This section is a short introduction to Nuri language. It describes several aspects which are supported by the language with some examples.
+
+### Main Object
+
+In Nuri, the configuration of the target system must be defined inside object `main`. Other variables or objects defined outside this object `main` are treated as prototypes which will not be included in the final compilation output.
+
+```java
+x = 1;
+main {
+  a = 2;
+  b = true;
+  a = 3;
+}
+```
+
+In the above specification we have object `main` and three variables i.e. `x`, `a`, and `b`. Since `x` is defined outside `main`, then it will not be included in the final output. On the other hand, since `a` and `b` are defined inside `main`, then they will be included in the final output. Thus, the final output after compilation is:
+
+```java
+a = 3;
+b = true;
+```
+
+Notice that during compilation the value of `a` has been changed from `2` to `3`.
+
+
+### Static Typing
+
+TODO
 
 
 ### Schema
@@ -224,7 +253,12 @@ In a reconfiguration task, you need to define two states: first is the current s
 <a name="planning"></a>
 ## Planning
 
-**TODO: explain the example**.
+### Example 1 : Service Reference
+
+[![Example 1](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system1a.png)](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system1a.png)
+
+TODO: describe the above figure.
+
 
 Model of resources:
 
@@ -406,6 +440,14 @@ The generated plan:
   ]
 }
 ```
+
+
+### Example 2 : Continuous Deployment
+
+[![Example 2](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system3.png)](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system3.png)
+
+TODO: describe the above figure
+
 
 
 
