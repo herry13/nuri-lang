@@ -108,7 +108,7 @@ TODO: explain every option.
 
 Nuri adopts a prototype-object mechanism from [SmartFrog](http://smartfrog.org) where an object can be used as a prototype of other objects. This allows configuration composition through inheritance (`extends`). Nuri also supports a traditional composition through file inclusion (`import` and `include`).
 
-Nuri is a static-typed language with a powerful type-inference (the compiler can determine the variable's type based on its value). It supports some basic types i.e. `bool`, `int`, `float`, `string`, `object`, reference, and list. It also allows two user-defined types i.e. **schema** and **enum**.
+Nuri is a static-typed language with a powerful type-inference (the compiler can determine the variable's type based on its value). It supports common types i.e. `bool`, `int`, `float`, `string`, `object`, _reference_, and _array_. It also allows two user-defined types i.e. _schema_ and _enum_.
 
 This section is a short introduction to Nuri language. It describes several aspects which are supported by the language with some examples.
 
@@ -137,14 +137,45 @@ Notice that during compilation the value of `a` has been changed from `2` to `3`
 
 ### Static Typing
 
-TODO
+There are 4 basic types i.e. `bool`, `int`, `float`, and `string`. The type of a variable is determined by its first declaration. We can let the compiler to automatically infer the type of the variable based on its value, or explicitly declare the type.
+
+```java
+main {
+  a : bool = true;  // type: bool
+  b = 1;            // type: int
+  c = 2.3;          // type: float
+  d = "a string";   // type: string
+  c = 4;            // type: float
+}
+```
+
+The above specification shows that the type of `a` is explicitly declared as `bool`. While the types of `b`, `c`, and `d` are automatically inferred by the compiler i.e. `int`, `float`, and `string` respectively. The last statement (`c = 4;`) is accepted because any float variable can be assigned with any integer value, but not vice versa.
+
+Nuri allows us to define an object, which is very useful to model a resource. Basically, all objects have type `object`. However, we can use _schema_ to defined a custom type of object -- more details about _schema_ will be described in the following subsection. A variable also can have a type of _reference_ of _object_ or _schema_, which is a natural way to express dependency between resources.
+
+Array is an abstract data structure supported by Nuri. For simplicity, we can only have an array of `bool`, `int`, `float`, `string`, or reference. An array can be in any size of dimensions where the type of an n-dimension array is compatible with an m-dimension array.
+
+There is another way to define a custom type i.e. using _enum_. _Enum_ allows us to define a set of symbols that can only be used by particular variable.
+
+```java
+enum State { stopped, running }  // enum type with two symbols: stopped & running
+main {
+  a {
+    ipaddress = "10.0.0.1";
+    users = ["herry", "paul"];
+    apache {
+      state = State.running;
+    }
+  }
+}
+```
+
+The above specification defines an _enum_ type `State` which has two symbols i.e. `stopped` and `running`. It has one machine `a`. The machine has an IP address `10.0.0.1`. It has two users i.e. `herry` and `paul`. It has an apache server whose state is `running`. Note that the compiler automatically infers variable `state` to having type `enum State`.
 
 
-### Schema
+#### Schema
 
-Schema is similar to class on programming languages. However, it is weaker in the sense that any object that implement a schema may have attributes that are not exist in the schema's definition. Schema is very useful to define objects that have similar properties, for example: `Machine` or `File`.
-
-You can define a schema by declaring its name and attributes. Here is an example of schema `Machine` which has two attributes i.e. `name` (type `str`) and `running` (type `bool`). Where their default values are empty string (`""`) and `false` respectively.
+Schema is similar to class on programming languages. However, it is more flexible in the sense that any object that implement a schema may have attributes that are not exist in the schema's definition. Thus, we do not have to define a new schema for every specific object. A schema is very useful to group objects (resources) that have similar properties, for example: `Machine`, `File`, `Service`.
 
 ```java
 schema Machine {
@@ -153,11 +184,9 @@ schema Machine {
 }
 ```
 
-Note that the Nuri compiler uses type-inference technique to determine the type of `name` and `running`, where in this case their types are obtained from the values.
+You can define a schema by declaring its name and attributes. The above is an example of schema `Machine` which has two attributes i.e. `name` (type `string`) and `running` (type `bool`), where their default values are an empty string (`""`) and `false` respectively. Note that the Nuri compiler uses type-inference technique to determine the type of `name` and `running`, where in this case their types are obtained from the values.
 
-An attribute can have a value of primitive type (`bool`, `int`, `float`, and `string`), a reference, a `null`, or an object. The reference value is similar with pointer in Java. However, once the variable has been defined, then it can only be assigned with a value whose type is the same or the subtype of the variable's type. For the above example, attribute `name` cannot be assigned with `true` since `bool` is not a subtype of `string`.
-
-The attribute can be assigned with `TBD` (to be defined) value, which means that we or others should replace this value with other value (non `TBD`) later. The compiler will ensure that the final output does not have variable with `TBD` value. If such situation exists, then an error will arise.
+An attribute can be assigned with `TBD` (_To Be Defined_) value, which means that we or other users should replace this value with a non `TBD` value later. The compiler will ensure that the final output does not have variable with `TBD` value. If such situation exists, then an error will arise.
 
 ### Inheritance and Reference
 
@@ -168,7 +197,7 @@ schema VM extends Machine {
 }
 ```
 
-The above codes declare two new schemas i.e. `PM` and `VM`. `PM` extends schema `Machine`, thus it inherits all `Machine`'s attributes (`name` and `running`) and their default values. `VM` also extends schema `Machine`, but besides it has attributes `name` and `running`, it also has a new attribute i.e. `is_on` with type reference of `PM`. So `is_on` can only be assigned with a reference of an object that implements schema `PM`.
+The above specification declares two new schemas i.e. `PM` and `VM`. `PM` extends schema `Machine`, thus it inherits all `Machine`'s attributes (`name` and `running`) and their default values. `VM` also extends schema `Machine`, but besides it has attributes `name` and `running`, it also has a new attribute i.e. `is_on` with type reference of `PM`. So `is_on` can only be assigned with a reference of an object that implements schema `PM` or other sub-schemas of `PM`.
 
 ```java
 schema Service {
@@ -180,53 +209,14 @@ schema Client {
 }
 ```
 
-The above schemata are other examples that have an attribute with a reference type.
+The above specification is another example where schema `Client` has an attribute `refer` whose type is a reference of `Service` where its default value is `null`.
 
 
-### Action
-
-An action describes the mutation of attributes' value (effects) and the constraints (conditions) that have to be satisfied before execution. Each Nuri schema or object could have none or several actions. Each action may have parameters, cost, conditions, and effects.
+### Declarative Specification of Configuration State
 
 ```java
-schema Service {
-  name = "";
-  running = false;
-
-  def start {
-    conditions {
-      this.running = false;
-    }
-    effects {
-      this.running = true;
-    }
-  }
-}
-	
-schema Client {
-  refer : *Service = null;
-	
-  def redirect ( s : Service ) {
-    conditions {
-      s.running = true;
-    }
-    effects {
-      this.refer = s;
-    }
-  }
-}
-```
-
-Action `start` of schema `Service` has a precondition where the object that implements the schema (referred by `this`) must be stopped (`this.running = false`). After execution, the action changes the object's state to running (`this.running = true`).
-
-Action `redirect` of schema `Client` has a parameter which is an object of `Service`. It has a precondition where the object `Service` (referred by `s`) must be running (`s.running = true`). After execution, the action changes the client object's state by setting attribute `refer` with value of a reference of the parameter value.
-
-
-### State
-
-Nuri can be used to define a configuration state of a system. The following codes define three objects i.e. `pm1`, `vm1`, and `pc`. They inherit the attributes (and values) of their schemata, except the attributes which have been redefined. For example, object `pm1` inherits attributes `running` from schema `PM`. But instead of `false`, its value has been redefined with value `true`.
-
-```java
-import "schemata"; // import file schemata.nuri that contains all schemata
+import "schemas"; // import file schemas.nuri that contains schema:
+                  // 'machine', 'PM', 'VM', 'Service', and 'Client'
 main {
   pm1 isa PM {
     name = "Physical Machine #1";
@@ -240,14 +230,51 @@ main {
     }
   }
   pc isa Client {
-    refer = null;
+    refer = vm1.httpd;
   }
 }
 ```
 
-Notice that the objects are inside another object i.e. `main`. This **main** object is necessary because the compiler will ignore definition outside `main` (only variables inside `main` will be in the final output). This semantics is very useful whenever you want to have objects/variables which act as prototypes of the others.
+The above specification is an example a configuration state of a system in Nuri language. The specification defines three objects that represent three machines i.e. `pm1`, `vm1`, and `pc`. Each of which inherits the attributes of their schema, where some attributes (e.g. `vm1.running`) inherits the default value (`false`), while others (e.g. `pm1.running`) has a new value (`true`).
 
-In a reconfiguration task, you need to define two states: first is the current state, and second is the desired state of your system. By having these two states, and later actions and global constraints, the compiler can automatically generate a plan that can bring the system from the current to the desired state (under condition that the solution exists).
+Notice that the objects are inside another object i.e. `main`. This is a necessary because the compiler will ignore any declaration outside `main` (only variables inside `main` will be in the final output). This is very useful whenever you want to have objects/variables which act as prototypes of the others.
+
+
+### Action = Configuration Change
+
+An action describes a declarative specification of a configuration change. It has preconditions (`conditions`) i.e. the constraints that must be satisfied before executing the action, and postconditions (`effects`) i.e. the conditions after executing the action. An action can also have a set of typed-parameters, and a cost to express the preferences.
+
+We can explicitly add actions to an object. However, the best practice is to define the actions inside a schema so that every object can inherit the actions through schema. This will allow us to implement _design pattern_ in our specification.
+
+```java
+schema Service {
+  name = "";
+  running = false;
+
+  def start {
+    conditions { this.running = false; }
+    effects    { this.running = true;  }
+  }
+  def stop {
+    conditions { this.running = true;  }
+    effects    { this.running = false; }
+  }
+}
+	
+schema Client {
+  refer : *Service = null;
+	
+  def redirect ( s : Service ) {
+    conditions { s.running = true; }
+    effects    { this.refer = s;   }
+  }
+}
+```
+
+The above specification shows that schema `Service` has two common actions i.e. `start` and `stop` which will be inherited by all objects that implement `Service`. Action `start` has a precondition where the object (referred by `this`) must be stopped (`this.running = false`). After execution, the action changes the object's state to running (`this.running = true`). A similar thing is applied to action `stop`.
+
+Action `redirect` of schema `Client` has a parameter which is an object of `Service`. It has a precondition where the object `Service` (referred by `s`) must be running (`s.running = true`). After execution, the action changes the client object's state by setting attribute `refer` with value of a reference of the parameter value.
+
 
 
 <a name="planning"></a>
