@@ -293,7 +293,7 @@ The following examples show how to specify the planning problem in Nuri language
 
 [![Example 1](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system1a.png)](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system1a.png)
 
-In the above figure, assume that you have two services `service1` and `service2`, and a `client`. The current state of the system (**left side**) is that `service1` is running, `service2` is stopped, and the `client` is referring to `service1`. Due to particular reason (e.g. maintenance on `service1`), you would like to change the configuration of the system as illustrated on the **right side** where `service1` is stopped, `service2` is running, and the `client` is referring to `service2`. However, you have a particular global constraints that should be maintained throughout configuration changes i.e. the `client` should always refer to a running service.
+In the above figure, assume that we have two services `service1` and `service2`, and a `client`. The current state of the system (**left side**) is that `service1` is running, `service2` is stopped, and the `client` is referring to `service1`. Due to particular reason (e.g. maintenance on `service1`), we would like to change the configuration of the system as illustrated on the **right side** where `service1` is stopped, `service2` is running, and the `client` is referring to `service2`. However, we have a particular global constraints that should be maintained throughout configuration changes i.e. the `client` should always refer to a running service.
 
 #### Schemas
 
@@ -394,13 +394,15 @@ The above specification defines the desired state of the system where `service1`
 The global constraints are defined in scope `global` where in this case the constraint is a conjunction of two equality statements. The first statement i.e. `client1.refer.state = State.running;` states that `client1` must always refer to a running service. The second statement i.e. `client2.refer.state = State.running;` states that `client2` must always refer to a running service. Since the constraint is a conjunction of logic formula, then the order is insignificant.
 
 
-#### Plan
+#### Solution Plan
 
 The specification of the current state is defined in file `initial.nuri`, and the specification of the desired state is defined in file `goal.nuri`. To generate the plan, we can invoke the Nuri compiler using option `-p` as follows:
 
 ```bash
 nuric -p initial.nuri goal.nuri
 ```
+
+Notes that the plan will only be generated if the solution does exist. If not, then the program will return a non-successful exit flat.
 
 The above command will generate a plan in JSON format as the following.
 
@@ -497,7 +499,7 @@ The above command will generate a plan in JSON format as the following.
 }
 ```
 
-Notice that the actions of the plan is in an array of attribute `actions`. The order of the actions are the order of the solution of the sequential plan i.e.:
+Notice that the actions of the plan is in an array of attribute `actions`. The order of the actions are the order of the solution sequential plan i.e.:
 
 1. `service2.start ()`
 2. `client2.redirect (s = service2)`
@@ -506,7 +508,7 @@ Notice that the actions of the plan is in an array of attribute `actions`. The o
 
 Notice that each action of the above plan has attribute `before` and `after` with an array of integers. These two attributes represent the partial-ordering constraints between the action with other actions where the integers are the indexes of other actions.
 
-Let's focus on the second action i.e. `client2.redirect`:
+Let us focus on the second action i.e. `client2.redirect`:
 
 ```json
 {
@@ -530,11 +532,11 @@ Let's focus on the second action i.e. `client2.redirect`:
 }
 ```
 
-The above action descriptions shows that the `name` of the action is `client2.redirect` (action `redirect` owned by object `client2`). It has a single parameter `s` with value `$service2` -- the value is a reference to object `service2` (in JSON, every Nuri reference is represented as a string started with `$` character). The `cost` of the action is `1`. The `conditions` before execution is `service2.state = State.running;`. The `effects` after execution is `client2.refer = service2;`. `before` gives a list of action indexes that must be successfully executed before this action -- in this case, action `service2.start` that has index `0` must be successfully executed before executing action `client2.redirect`. `after` gives a list of action that should be executed after this action has been successfully executed -- in this case, action `service1.stop`.
+The above action descriptions shows that the `name` of the action is `client2.redirect` (action `redirect` owned by object `client2`). It has a single parameter `s` with value `$service2` -- the value is a reference to object `service2` (in JSON, every Nuri reference is represented as a string started with `$` character). The `cost` of the action is `1`. The `conditions` before execution is `service2.state = State.running`. The `effects` after execution is `client2.refer = service2`. `before` gives a list of action indexes that must be successfully executed before this action -- in this case, action `service2.start` that has index `0` must be successfully executed before executing action `client2.redirect`. `after` gives a list of action indexes that should be executed after this action has been successfully executed -- in this case, action `service1.stop`.
 
-By using partial-ordering constraints which are defined in `before` and `after`, the following partial-order plan can be executed using parallel execution in order to decrease the execution time.
+By using partial-ordering constraints which are defined in `before` and `after` of all actions, the following partial-order plan can be executed using a parallel execution algorithm in order to decrease the execution time.
 
-[![Parallel Plan of Example 1](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system1a-plan.png)](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system1a-plan.png)
+[![Solution Plan of Example 1](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system1a-plan.png)](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system1a-plan.png)
 
 
 
@@ -542,9 +544,126 @@ By using partial-ordering constraints which are defined in `before` and `after`,
 
 [![Example 2](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system3.png)](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system3.png)
 
-TODO: describe the above figure
+The above figure illustrates a common continuous deployment problem. Assume we have two identical 2-tier systems, one (`service1{a,b}`) is the primary and another (`service2{a,b}`) is the backup. The first layer of the system `service1a` and `service2a` depend on the service at the second layer i.e. `service1b` and `service2b` respectively. Currently, we have a `client` that refers to the primary system (`service1{a,b}`).
+
+Due to a bug, we have to upgrade the second layer services (`service1b` and `service2b`) from version `1` to version `2`. However, we do not want disrupting the client. In other words, we want the client to always using a running service.
+
+#### Schemas
+
+We can reuse the schemas that have been used in the first example. However, we need to modify schema `Service` in order to add attribute `version` and action `upgrade`.
+
+```java
+// file : schemas.nuri
+enum State {
+  ...
+}
+
+schema Client {
+  ...
+}
+
+schema Service {
+  ...
+  
+  version : int = TBD;
+  
+  def upgrade (ver : int) {
+    condition {
+      this.state = State.stopped;
+    }
+    effect {
+      this.version = ver;
+    }
+  }
+}
+```
+
+As shown above, we add attribute `version` with type of `int`. This attribute represents the version of the service. The default value is `TBD`, which means that it must be replaced with any integer value.
+
+We also add action `upgrade` that models the upgrade process of the service from one to another version. The action has a parameter `ver` which is the target upgrade version. The action has a precondition i.e. the service must be stopped. While the effect is that the service has been upgraded to the version specified in the parameter.
+
+Note that the compiler will automatically set the parameter with any possible value. Thus, we do not need to define the value manually.
+
+#### Current State
+
+```java
+// file : initial.nuri
+import "schemas";
+
+main {
+  service1a isa Service {
+    state = State.running;
+    version = 1;
+  }
+  service1b isa Service {
+    state = State.running;
+    version = 1;
+  }
+  service2a isa Service {
+    state = State.running;
+    version = 1;
+  }
+  service2b isa Service {
+    state = State.running;
+    version = 1;
+  }
+  client isa Client {
+    refer = service1a;
+  }
+}
+```
+
+The above specification describes that the current state of the system. The primary system has two services i.e. `service1a` and `service1b`, while the backup system also has two services i.e. `service2a` and `service2b`. All services are running and they have version `1`. We also have a `client` that is referring to `service1a` which is the first layer of the main system.
 
 
+#### Desired State
+
+```java
+// file : goal.nuri
+import "schemas";
+
+main {
+  service1a isa Service {
+    state = State.running;
+    version = 1;
+  }
+  service1b isa Service {
+    state = State.running;
+    version = 2;  // upgrade to version 2
+  }
+  service2a isa Service {
+    state = State.running;
+    version = 1;
+  }
+  service2b isa Service {
+    state = State.running;
+    version = 2;  // upgrade to version 2
+  }
+  client isa Client {
+    refer = service1a;
+  }
+  
+  // global constraints
+  global {
+    if service1a.state = State.running; then service1b.state = State.running;
+
+    if service2a.state = State.running; then service2b.state = State.running;
+
+    client.refer.state = State.running;
+  }
+}
+```
+
+The above specification describes the desired state of the system where there are only two changes i.e. the version of `service2a` and `service2b` is changed to `2` (previously `1`). Other attributes have the same value including the client where it is referring to `service1a`.
+
+We have three global constraints. The first states that `service1a` depends on `service1b`. The second states that `service2a` depends on `service2b`. And the third states that the `client` always refers to a running service.
+
+
+#### Solution Plan
+
+Invoking the same command i.e. `nuric -p initial.nuri goal.nuri`, we will get [this solution plan](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system3-plan.json). The following graph illustrates the workflow of the plan.
+
+[![Solution Plan of Example 2](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system3-plan.png)](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system3-plan.png)
 
 
 <a name="license"></a>
