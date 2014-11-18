@@ -11,7 +11,7 @@
 3. [Install](#install)
 4. [Usage](#usage)
 5. [Nuri Language](#nuri-language)
-6. [Planning](#planning)
+6. [Planning for Orchestrating Configuration Changes](#planning)
 7. [License](#license)
 
 
@@ -75,6 +75,10 @@ To test, try:
 nuric
 ```
 
+This gem also provides a Ruby wrapper of the Nuri compiler so that you can call the compiler/planner through any Ruby program.
+
+TODO: A Python wrapper is under development.
+
 
 <a name="usage"></a>
 ## Usage
@@ -87,14 +91,14 @@ nuric spec.nuri
 This will parse the specification in file `spec.nuri`, perform the type-checking, evaluate the global constraints, and finally generate a compilation result in JSON.
 
 Other options:
-- `-x` : perform only syntax-checking
-- `-t` : perform syntax and type-checking
-- `-m` : return `root` instead of object `main`
-- `-i` : specification from standard input (STDIN)
-- `-g` : do not evaluate the global constraints
-- `-p` : solve a reconfiguration (planning) problem
-
-TODO: explain every option.
+- `-x` : the compiler will only perform syntax-checking over the specification;
+- `-t` : the compiler will only perform syntax-checking and type-checking over the specification, and then print the type of every variable;
+- `-m` : the compiler will perform syntax-checking, type-checking, determine the final value of every variable, evaluate the global constraints, but it will use object `root` as the final output instead of object `main`;
+- `-i` : the compiler will evaluate specification from standard input (STDIN) instead of from a file;
+- `-g` : the compiler will perform syntax-checking, type-checking, determine the final value of every variable, but it will not evaluate the global constraints;
+- `-p` : the compiler will solve a planning (reconfiguration) problem which requires two input files (one is the initial state, and second is the goal state).
+ 
+Notes that `-p` option requires an external program that is not included in this repository. You can contact the author ([Herry](mailto:herry13@gmail.com)) or use a binary distribution through Rubygems (see [Install](#install)).
 
 
 <a name="nuri-language"></a>
@@ -197,7 +201,7 @@ schema VM extends Machine {
 }
 ```
 
-The above specification declares two new schemas i.e. `PM` and `VM`. `PM` extends schema `Machine`, thus it inherits all `Machine`'s attributes (`name` and `running`) and their default values. `VM` also extends schema `Machine`, but besides it has attributes `name` and `running`, it also has a new attribute i.e. `is_on` with type reference of `PM`. So `is_on` can only be assigned with a reference of an object that implements schema `PM` or other sub-schemas of `PM`.
+The above specification declares two new schemas i.e. `PM` and `VM`. `PM` extends schema `Machine`, thus it inherits all `Machine`'s attributes (`name` and `running`) and their default values. `VM` also extends schema `Machine`, but besides attributes `name` and `running`, it also has a new attribute i.e. `is_on` with type reference of `PM`. So `is_on` can only be assigned with a reference of an object that implements schema `PM` or other sub-schemas of `PM`.
 
 ```java
 schema Service {
@@ -278,16 +282,22 @@ Action `redirect` of schema `Client` has a parameter which is an object of `Serv
 
 
 <a name="planning"></a>
-## Planning
+## Planning for Orchestrating Configuration Changes
+
+Nuri language can be used to specify a planning problem of reconfiguration i.e. a problem to generate a workflow that can bring the system from its current state to a particular desired state. Thus, to specify the problem, we need to have two descriptions in two separate files: first is the description of the current state of the system (_initial state_), and second is the description of the desired state of the system (_goal state_).
+
+The following examples show how to specify the planning problem in Nuri language and then solve it using the Nuri compiler.
+
 
 ### Example 1 : Service Reference
 
 [![Example 1](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system1a.png)](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system1a.png)
 
-TODO: describe the above figure.
+In the above figure, assume that you have two services `service1` and `service2`, and a `client`. The current state of the system (**left side**) is that `service1` is running, `service2` is stopped, and the `client` is referring to `service1`. Due to particular reason (e.g. maintenance on `service1`), you would like to change the configuration of the system as illustrated on the **right side** where `service1` is stopped, `service2` is running, and the `client` is referring to `service2`. However, you have a particular global constraints that should be maintained throughout configuration changes i.e. the `client` should always refer to a running service.
 
+#### Schemas
 
-Model of resources:
+The first step to model the planning problem is to model resources through schemas.
 
 ```java
 // file schemas.nuri
@@ -327,9 +337,13 @@ schema Service {
 }
 ```
 
-Specification of the current state:
+The above specification is in file `schemas.nuri`. It has an _enum_ `State` that has two symbols i.e. `stopped` and `running`. It also has two schemas. First is `Client` that has attribute `refer` that holds a reference of a service. Schema `Client` has an action `redirect` which redirects the reference to any service. The second schema is `Service` that has attribute `state` whose default value is `State.stopped`. It has two actions i.e. `start` and `stop`.
+
+
+#### Current State
 
 ```java
+// file initial.nuri
 import "schemas";
 
 main {
@@ -342,13 +356,17 @@ main {
   client1 isa Client {
     refer = service1;
   }
-  client2 extends client1
+  client2 extends client1  // use client1 as prototype
 }
 ```
 
-Specification of the desired state:
+The above specification models the current state of the system where all resources are inside object `main`. Object `service1` and `service2` are implementing schema `Service`. Thus, they are inheriting their schema attribute and actions. Attribute `state` of `service1` and `service2` has value `State.running` and `State.stopped` respectively. On the other side, object `client1` is implementing schema `Client` where attribute `refer` is equal to `service1` (`client1` is referring `service1`). While object `client2` is using `client1` as its prototype (this copies all attributes and actions of `client1` to `client2`).
+
+
+#### Desired State
 
 ```java
+// file : goal.nuri
 import "schemas";
 
 main {
@@ -362,6 +380,8 @@ main {
     refer = service2;
   }
   client2 extends client1
+  
+  // global constraints
   global {
     client1.refer.state = State.running;
     client2.refer.state = State.running;
@@ -369,11 +389,20 @@ main {
 }
 ```
 
-The generated plan:
+The above specification defines the desired state of the system where `service1` is stopped (`state = State.stopped;`), `service2` is running (`state = State.running;`), while `client1` and `client2` are referring `service2` (`refer = service2;`).
 
-1. service2.start{}
-2. client2.redirect{"s":"$service2"}
-3. service2.stop{}
+The global constraints are defined in scope `global` where in this case the constraint is a conjunction of two equality statements. The first statement i.e. `client1.refer.state = State.running;` states that `client1` must always refer to a running service. The second statement i.e. `client2.refer.state = State.running;` states that `client2` must always refer to a running service. Since the constraint is a conjunction of logic formula, then the order is insignificant.
+
+
+#### Plan
+
+The specification of the current state is defined in file `initial.nuri`, and the specification of the desired state is defined in file `goal.nuri`. To generate the plan, we can invoke the Nuri compiler using option `-p` as follows:
+
+```bash
+nuric -p initial.nuri goal.nuri
+```
+
+The above command will generate a plan in JSON format as the following.
 
 ```json
 {
@@ -467,6 +496,46 @@ The generated plan:
   ]
 }
 ```
+
+Notice that the actions of the plan is in an array of attribute `actions`. The order of the actions are the order of the solution of the sequential plan i.e.:
+
+1. `service2.start ()`
+2. `client2.redirect (s = service2)`
+3. `client1.redirect (s = service2)`
+4. `service1.stop ()`
+
+Notice that each action of the above plan has attribute `before` and `after` with an array of integers. These two attributes represent the partial-ordering constraints between the action with other actions where the integers are the indexes of other actions.
+
+Let's focus on the second action i.e. `client2.redirect`:
+
+```json
+{
+  "name": "client2.redirect",
+  "parameters": {
+    "s": "$service2"
+  },
+  "cost": 1,
+  "conditions": {
+    "service2.state": "$State.running"
+  },
+  "effects": {
+    "client2.refer": "$service2"
+  },
+  "before": [
+    0
+  ],
+  "after": [
+    3
+  ]
+}
+```
+
+The above action descriptions shows that the `name` of the action is `client2.redirect` (action `redirect` owned by object `client2`). It has a single parameter `s` with value `$service2` -- the value is a reference to object `service2` (in JSON, every Nuri reference is represented as a string started with `$` character). The `cost` of the action is `1`. The `conditions` before execution is `service2.state = State.running;`. The `effects` after execution is `client2.refer = service2;`. `before` gives a list of action indexes that must be successfully executed before this action -- in this case, action `service2.start` that has index `0` must be successfully executed before executing action `client2.redirect`. `after` gives a list of action that should be executed after this action has been successfully executed -- in this case, action `service1.stop`.
+
+By using partial-ordering constraints which are defined in `before` and `after`, the following partial-order plan can be executed using parallel execution in order to decrease the execution time.
+
+[![Parallel Plan of Example 1](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system1a-plan.png)](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system1a-plan.png)
+
 
 
 ### Example 2 : Continuous Deployment
