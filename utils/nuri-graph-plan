@@ -1,7 +1,6 @@
 #!/usr/bin/env ruby
 
 require 'json'
-require 'trollop'
 
 module Nuri
   # A class that represents a grounded action
@@ -92,22 +91,57 @@ end
 
 if $PROGRAM_NAME == __FILE__
   usage = 'Usage: nuri-graph-plan [options] <plan.json>'
-  opts = Trollop::options do
-    version 'nuri-graph-plan 0.0.1 (c) 2014 Herry'
-    banner <<-EOS
-Generate a graph of a JSON Plan.\n
-#{usage}
+  help = <<-EOS
+Generate a graph of a JSON plan using graphviz.\n
+#{usage}\n
+--out <filename>    save the image as <filename>
+--png               generate a PNG image file
+--svg               generate a SVG image file
+--with-transitive   include transitive edges
+--debug             activate debug mode
+--help              print this help\n
 EOS
-    opt :out, 'Target file output.'
-    opt :png, 'Generate a PNG file.'
-    opt :svg, 'Generate an SVG file.'
-    opt :debug, 'Debug mode.'
-    opt :with_transitive, 'Do not remove transitive edges.'
-  end
 
   if `which dot`.length <= 0
-    STDERR.puts 'Graphviz is not available. Please install it!'
+    STDERR.puts 'Graphviz is not available in your path. Please install it!'
     exit 2
+  end
+
+  opts = {}
+  i = 0
+  while ARGV[i] do
+    case ARGV[i]
+    when '--debug'
+      opts[:debug] = true
+      ARGV.delete_at(i)
+    when '--png'
+      opts[:png] = true
+      ARGV.delete_at(i)
+    when '--svg'
+      opts[:svg] = true
+      ARGV.delete_at(i)
+    when '--with-transitive'
+      opts[:with_transitive] = true
+      ARGV.delete_at(i)
+    when '--out'
+      if ARGV[i+1] && ARGV[i+1][0,2] != '--'
+        opts[:out] = ARGV[i+1]
+        ARGV.delete_at(i)
+        ARGV.delete_at(i)
+      else
+        STDERR.puts 'Invalid option --out. Use --help for more details.'
+        exit 3
+      end
+    when '--help'
+      puts help
+      exit 0
+    else
+      i += 1
+    end
+  end
+
+  if opts[:png].nil? && opts[:svg].nil?
+    opts[:png] = true
   end
 
   if ARGV.length < 1
@@ -127,14 +161,26 @@ EOS
     plan.remove_transitive_predecessors! unless opts[:with_transitive]
 
     # generate graphviz DOT
-    dot_file = "/tmp/#{ARGV[0]}.dot"
+    dot_file = "tmp.#{ARGV[0]}.dot"
     dot = plan.to_dot
     File.open(dot_file, 'w') { |f| f.write dot }
 
-    basename = File.basename ARGV[0], File.extname(ARGV[0])
+    outfile = case opts[:out]
+    when String
+      opts[:out]
+    else
+      basename = File.basename ARGV[0], File.extname(ARGV[0])
+      if opts[:png]
+        "#{basename}.png"
+      elsif opts[:svg]
+        "#{basename}.svg"
+      else
+        basename
+      end
+    end
 
-    system "dot -Tpng -o #{basename}.png #{dot_file}" if opts[:png]
-    system "dot -Tsvg -o #{basename}.svg #{dot_file}" if opts[:svg]
+    system "dot -Tpng -o #{outfile} #{dot_file}" if opts[:png]
+    system "dot -Tsvg -o #{outfile} #{dot_file}" if opts[:svg]
 
     File.unlink dot_file unless opts[:debug]
   end
