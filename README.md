@@ -673,7 +673,7 @@ Invoking the same command i.e. `nuric -p initial.nuri goal.nuri`, we will get [t
 
 The Nuri compiler compiles every specification into an intermediate representation in JSON format. However, sometimes we want to revert back from JSON to Nuri format. This capability is very useful for reverse engineering or generating the current/goal state from a program.
 
-[nuri2json](https://github.com/nurilabs/nuri-lang/blob/master/utils/json2nuri.rb) provides this capability. The script will receive a JSON data from given file or standard input (STDIN). It converts the JSON data into a Nuri representation and then print the output to standard output (STDOUT).
+Script [json2nuri.rb](https://github.com/nurilabs/nuri-lang/blob/master/utils/json2nuri.rb) (in directory [utils](https://github.com/nurilabs/nuri-lang/blob/master/utils)) provides this capability. The script will receive a JSON data from given file or standard input (STDIN). It converts the JSON data into a Nuri representation and then print the output to standard output (STDOUT).
 
 If we have a JSON specification in file `spec.json`, then the following command will convert it into Nuri representation:
 
