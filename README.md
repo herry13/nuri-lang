@@ -11,9 +11,10 @@
 3. [Install](#install)
 4. [Usage](#usage)
 5. [Nuri Language](#nuri-language)
-6. [Planning for Orchestrating Configuration Changes](#planning)
-8. [JSON to Nuri](#json2nuri)
-7. [License](#license)
+6. [Nuri JSON](#nuri-json)
+7. [Deserialisation (JSON-to-Nuri)](#json2nuri)
+8. [Planning](#planning)
+9. [License](#license)
 
 
 <a name="intro"></a>
@@ -33,9 +34,11 @@ This compiler can do:
 - type checking
 - evaluating the global constraints over the specification
 - generating a compilation result in JSON
-- automatically generate a plan of a reconfiguration (planning) problem -- this requires additional softwares
+- automatically generate a plan of a reconfiguration (planning) problem -- this
+  requires additional softwares
 
-This compiler is used by the [Nuri](https://github.com/nurilabs/nuri) configuration management tool.
+This compiler is used by the [Nuri](https://github.com/nurilabs/nuri)
+configuration management tool.
 
 
 <a name="build"></a>
@@ -45,15 +48,17 @@ Requirements:
 - OCaml version >= 3.12.1
 
 Compilation:
+
 ```bash
-sudo apt-get install ocaml m4 opam
-opam init
-opam install ocamlfind yojson
+sudo apt-get install ocaml
 cd ocaml
 make
 ```
 
-The above commands generates file `nuric`. Notes that in default the codes are compiled into OCaml byte-codes. However, we can compile it into native by setting variable `NATIVE=1`:
+The above commands generates file `nuric`. Notes that in default the codes are
+compiled into OCaml byte-codes. However, we can compile it into native by
+setting variable `NATIVE=1`:
+
 ```bash
 make NATIVE=1
 ```
@@ -62,17 +67,21 @@ make NATIVE=1
 <a name="install"></a>
 ## Install
 
-If you are familiar with Ruby, you can install a pre-compiled binary distribution through Rubygems:
+If you are familiar with Ruby, you can install a pre-compiled binary
+distribution through Rubygems:
+
 ```
 sudo gem install nuric
 ```
 
 To test, try:
+
 ```bash
 nuric
 ```
 
-This gem also provides a Ruby wrapper of the Nuri compiler so that you can call the compiler/planner through any Ruby program.
+This gem also provides a Ruby wrapper of the Nuri compiler so that you can call
+the compiler/planner through any Ruby program.
 
 TODO: A Python wrapper is under development.
 
@@ -85,37 +94,61 @@ The simplest way is:
 nuric spec.nuri
 ```
 
-This will parse the specification in file `spec.nuri`, perform the type-checking, evaluate the global constraints, and finally generate a compilation result in JSON.
+This will parse the specification in file `spec.nuri`, perform the type-
+checking, evaluate the global constraints, and finally generate a compilation
+result in JSON.
 
 Other options:
 - `-x` : the compiler will only perform syntax-checking over the specification;
-- `-t` : the compiler will only perform syntax-checking and type-checking over the specification, and then print the type of every variable;
-- `-m` : the compiler will perform syntax-checking, type-checking, determine the final value of every variable, evaluate the global constraints, but it will use object `root` as the final output instead of object `main`;
-- `-i` : the compiler will evaluate specification from standard input (STDIN) instead of from a file;
-- `-g` : the compiler will perform syntax-checking, type-checking, determine the final value of every variable, but it will not evaluate the global constraints;
-- `-p` : the compiler will solve a planning (reconfiguration) problem which requires two input files (one is the initial state, and second is the goal state).
+- `-t` : the compiler will only perform syntax-checking and type-checking over
+         the specification, and then print the type of every variable;
+- `-m` : the compiler will perform syntax-checking, type-checking, determine
+         the final value of every variable, evaluate the global constraints,
+         but it will use object `root` as the final output instead of object
+         `main`;
+- `-i` : the compiler will evaluate specification from standard input (STDIN);
+- `-g` : the compiler will perform syntax-checking, type-checking, determine
+         the final value of every variable, but it will not evaluate the global
+         constraints;
+- `-p` : the compiler will solve a planning (reconfiguration) problem which
+         requires two input files (one is the initial state, and second is the
+         goal state).
  
-Notes that `-p` option requires an external program that is not included in this repository. You can contact the author ([Herry](mailto:herry13@gmail.com)) or use a binary distribution through Rubygems (see [Install](#install)).
+Notes that `-p` option requires an external program that is not included in
+this repository. You can contact the author ([Herry](mailto:herry13@gmail.com))
+or use a binary distribution through Rubygems (see [Install](#install)).
 
 
 <a name="nuri-language"></a>
 ## Nuri Language
 
-**Nuri language** is a declarative configuration language which allows us to define three aspects of configuration:
+**Nuri language** is a declarative configuration language which allows us to
+define three aspects of configuration:
 
 1. a configuration state of the system,
 2. a model of configuration change called as action,
-3. global constraints, which are constraints that should be maintained during the changes.
+3. global constraints, which are constraints that should be maintained during
+   the changes.
 
-Nuri adopts a prototype-object mechanism from [SmartFrog](http://smartfrog.org) where an object can be used as a prototype of other objects. This allows configuration composition through inheritance (`extends`). Nuri also supports a traditional composition through file inclusion (`import` and `include`).
+Nuri adopts a prototype-object mechanism from [SmartFrog](http://smartfrog.org)
+where an object can be used as a prototype of other objects. This allows
+configuration composition through inheritance (`extends`). Nuri also supports
+a traditional composition through file inclusion (`import` and `include`).
 
-Nuri is a static-typed language with a powerful type-inference (the compiler can determine the variable's type based on its value). It supports common types i.e. `bool`, `int`, `float`, `string`, `object`, _reference_, and _array_. It also allows two user-defined types i.e. _schema_ and _enum_.
+Nuri is a static-typed language with a powerful type-inference (the compiler
+can determine the variable's type based on its value). It supports common types
+i.e. `bool`, `int`, `float`, `string`, `object`, _reference_, and _array_. It
+also allows two user-defined types i.e. _schema_ and _enum_.
 
-This section is a short introduction to Nuri language. It describes several aspects which are supported by the language with some examples.
+This section is a short introduction to Nuri language. It describes several
+aspects which are supported by the language with some examples.
 
 ### Main Object
 
-In Nuri, the configuration of the target system must be defined inside object `main`. Other variables or objects defined outside this object `main` are treated as prototypes which will not be included in the final compilation output.
+In Nuri, the configuration of the target system must be defined inside object
+`main`. Other variables or objects defined outside this object `main` are
+treated as prototypes which will not be included in the final compilation
+output.
 
 ```java
 x = 1;
@@ -126,19 +159,65 @@ main {
 }
 ```
 
-In the above specification we have object `main` and three variables i.e. `x`, `a`, and `b`. Since `x` is defined outside `main`, then it will not be included in the final output. On the other hand, since `a` and `b` are defined inside `main`, then they will be included in the final output. Thus, the final output after compilation is:
+In the above specification we have object `main` and three variables i.e. `x`,
+`a`, and `b`. Since `x` is defined outside `main`, then it will not be included
+in the final output. On the other hand, since `a` and `b` are defined inside
+`main`, then they will be included in the final output. Thus, the final output
+after compilation is:
 
 ```java
 a = 3;
 b = true;
 ```
 
-Notice that during compilation the value of `a` has been changed from `2` to `3`.
+Notice that during compilation the value of `a` has been changed from `2` to
+`3`.
+
+
+### Attribute Name of Object
+
+For practical purpose, attribute `name` will be automatically added by the
+compiler whenever **it is not defined explicitly**. The value object `name`
+will be the name of the variable that holds this object.
+
+```java
+main {
+  a { }
+  b {
+    name = 1;
+  }
+}
+```
+
+The compilation output will be:
+
+```json
+{
+  ".type": "object"
+  "a": {
+    ".type": "object",
+    "name": "a"
+  },
+  "b": {
+    ".type": "object",
+    "name": 1
+  },
+  "name": "main"
+}
+```
+
+Notice that attribute `name` of object `a` is automatically added and its
+value is `a`. While the value of attribute `name` of object `b` is `1` which
+is equal to the declaration.
+
 
 
 ### Static Typing
 
-There are 4 basic types i.e. `bool`, `int`, `float`, and `string`. The type of a variable is determined by its first declaration. We can let the compiler to automatically infer the type of the variable based on its value, or explicitly declare the type.
+There are 4 basic types i.e. `bool`, `int`, `float`, and `string`. The type of
+a variable is determined by its first declaration. We can let the compiler to
+automatically infer the type of the variable based on its value, or explicitly
+declare the type.
 
 ```java
 main {
@@ -150,33 +229,61 @@ main {
 }
 ```
 
-The above specification shows that the type of `a` is explicitly declared as `bool`. While the types of `b`, `c`, and `d` are automatically inferred by the compiler i.e. `int`, `float`, and `string` respectively. The last statement (`c = 4;`) is accepted because any float variable can be assigned with any integer value, but not vice versa.
+The above specification shows that the type of `a` is explicitly declared as
+`bool`. While the types of `b`, `c`, and `d` are automatically inferred by the
+compiler i.e. `int`, `float`, and `string` respectively. The last statement
+(`c = 4;`) is accepted because any float variable can be assigned with any
+integer value, but not vice versa.
 
-Nuri allows us to define an object, which is very useful to model a resource. Basically, all objects have type `object`. However, we can use _schema_ to defined a custom type of object -- more details about _schema_ will be described in the following subsection. A variable also can have a type of _reference_ of _object_ or _schema_, which is a natural way to express dependency between resources.
+Nuri allows us to define an object, which is very useful to model a resource
+component. Basically, all objects have type `object`. However, we can use
+_schema_ to defined a custom type of object -- more details about _schema_ will
+be described in the following subsection. A variable also can have a type of
+_reference_ of _object_ or _schema_, which is a natural way to express
+dependency between resources.
 
-Array is an abstract data structure supported by Nuri. For simplicity, we can only have an array of `bool`, `int`, `float`, `string`, or reference. An array can be in any size of dimensions where the type of an n-dimension array is compatible with an m-dimension array.
+Array is an abstract data structure supported by Nuri. For simplicity, we can
+only have an array of `bool`, `int`, `float`, `string`, or reference. An array
+can be in any size of dimensions where the type of an n-dimension array is
+compatible with an m-dimension array.
 
-There is another way to define a custom type i.e. using _enum_. _Enum_ allows us to define a set of symbols that can only be used by particular variable.
+There is another way to define a custom type i.e. using _enum_. _Enum_ allows
+us to define a set of symbols that can only be used by particular variable.
 
 ```java
-enum State { stopped, running }  // enum type with two symbols: stopped & running
+// enum type with two symbols: stopped & running
+enum State { stopped, running }
+
+// main object
 main {
-  a {
+  machine {
+    state = State.running;
     ipaddress = "10.0.0.1";
     users = ["herry", "paul"];
     apache {
-      state = State.running;
+      state = State.stopped;
     }
   }
 }
 ```
 
-The above specification defines an _enum_ type `State` which has two symbols i.e. `stopped` and `running`. It has one machine `a`. The machine has an IP address `10.0.0.1`. It has two users i.e. `herry` and `paul`. It has an apache server whose state is `running`. Note that the compiler automatically infers variable `state` to having type `enum State`.
+The above specification defines an _enum_ type `State` which has two symbols
+i.e. `stopped` and `running`. It has a `machine` whose state is `running`.
+Its IP address is `10.0.0.1`. It has two users i.e. `herry` and `paul`.
+It also has an apache  server whose state is `stopped`. Note that the compiler
+automatically infers the type of variable `state` i.e. `enum State`.
 
 
 #### Schema
 
-Schema is similar to class on programming languages. However, it is more flexible in the sense that any object that implement a schema may have attributes that are not exist in the schema's definition. Thus, we do not have to define a new schema for every specific object. A schema is very useful to group objects (resources) that have similar properties, for example: `Machine`, `File`, `Service`.
+Schema is similar to class on programming languages. However, it is more
+flexible in the sense that any object that implement a schema may have
+attributes that are not exist in the schema's definition. Thus, we do not have
+to define a new schema for every specific object. A schema is very useful to
+group objects (resources) that have similar properties, for example: `Machine`,
+`File`, `Service`. A Nuri schema is static which means that once it has been
+declared, it cannot be modified. This is for keeping consistency of the
+schema's structure at every step of compilation.
 
 ```java
 schema Machine {
@@ -185,9 +292,19 @@ schema Machine {
 }
 ```
 
-You can define a schema by declaring its name and attributes. The above is an example of schema `Machine` which has two attributes i.e. `name` (type `string`) and `running` (type `bool`), where their default values are an empty string (`""`) and `false` respectively. Note that the Nuri compiler uses type-inference technique to determine the type of `name` and `running`, where in this case their types are obtained from the values.
+You can define a schema by declaring its name and attributes. The above is an
+example of schema `Machine` which has two attributes i.e. `name` (type
+`string`) and `running` (type `bool`), where their default values are an empty
+string (`""`) and `false` respectively. Note that the Nuri compiler uses
+type-inference technique to determine the type of `name` and `running`, where
+in this case their types are obtained from the values.
 
-An attribute can be assigned with `TBD` (_To Be Defined_) value, which means that we or other users should replace this value with a non `TBD` value later. The compiler will ensure that the final output does not have variable with `TBD` value. If such situation exists, then an error will arise.
+An attribute (or in general, all variable) can be assigned with value `TBD`
+(_To Be Defined_), which means that we must replace this value with a non-`TBD`
+value later. The compiler will ensure that the final output does not have
+variable with `TBD` value. If such situation exists, then a compilation error
+will arise.
+
 
 ### Inheritance and Reference
 
@@ -198,7 +315,13 @@ schema VM extends Machine {
 }
 ```
 
-The above specification declares two new schemas i.e. `PM` and `VM`. `PM` extends schema `Machine`, thus it inherits all `Machine`'s attributes (`name` and `running`) and their default values. `VM` also extends schema `Machine`, but besides attributes `name` and `running`, it also has a new attribute i.e. `is_on` with type reference of `PM`. So `is_on` can only be assigned with a reference of an object that implements schema `PM` or other sub-schemas of `PM`.
+We can create a schema which is a child of another schema. For example, the
+above specification declares two new schemas i.e. `PM` and `VM`. `PM` extends
+schema `Machine`, thus it inherits all `Machine`'s attributes (`name` and
+`running`) and their default values. `VM` also extends schema `Machine`, but
+besides attributes `name` and `running`, it also has a new attribute i.e.
+`is_on` with type reference of `PM`. So `is_on` can only be assigned with a
+reference of an object that implements schema `PM` or other sub-schemas of `PM`.
 
 ```java
 schema Service {
@@ -210,7 +333,54 @@ schema Client {
 }
 ```
 
-The above specification is another example where schema `Client` has an attribute `refer` whose type is a reference of `Service` where its default value is `null`.
+The above specification is another example where schema `Client` has an
+attribute `refer` whose type is a reference of `Service` where its default
+value is `null`.
+
+In Nuri, we can only define a reference of an object, but not a basic value.
+
+```java
+main {
+  a1 { }
+  a2 isa Service { }
+  a3 = 0;
+  b1 = a1;  // *object
+  b2 = a2;  // *Service
+  b3 = a3;  // int
+}
+```
+
+The above specification shows that we can only have a reference of an object,
+but not a basic value. `b1` is a reference of object `a1` and `b2` is a
+reference of object `a2`, while `b3` is equal to `0` because `a3`'s value is
+not an object.
+
+
+### Link
+
+A Nuri link is very useful whenever we want to copy any kind of value (either
+basic value or object) of particular variable to another variable. Note that
+Nuri allows us to have _forward link reference_.
+
+```java
+main {
+  a = 1;
+  b := c;
+  c := a;
+}
+```
+
+The compilation output of the above specification is:
+
+```json
+{
+  ".type": "object",
+  "a": 1,
+  "b": 1,
+  "c"; 1
+}
+```
+
 
 
 ### Declarative Specification of Configuration State
@@ -236,16 +406,31 @@ main {
 }
 ```
 
-The above specification is an example a configuration state of a system in Nuri language. The specification defines three objects that represent three machines i.e. `pm1`, `vm1`, and `pc`. Each of which inherits the attributes of their schema, where some attributes (e.g. `vm1.running`) inherits the default value (`false`), while others (e.g. `pm1.running`) has a new value (`true`).
+The above specification is an example a configuration state of a system in Nuri
+language. The specification defines three objects that represent three machines
+i.e. `pm1`, `vm1`, and `pc`. Each of which inherits the attributes of their
+schema, where some attributes (e.g. `vm1.running`) inherits the default value
+(`false`), while others (e.g. `pm1.running`) has a new value (`true`).
 
-Notice that the objects are inside another object i.e. `main`. This is a necessary because the compiler will ignore any declaration outside `main` (only variables inside `main` will be in the final output). This is very useful whenever you want to have objects/variables which act as prototypes of the others.
+Notice that the objects are inside another object i.e. `main`. This is a
+necessary because the compiler will ignore any declaration outside `main`
+(only variables inside `main` will be in the final output). This is very useful
+whenever you want to have objects/variables which act as prototypes of the
+others.
 
 
 ### Action = Configuration Change
 
-An action describes a declarative specification of a configuration change. It has preconditions (`conditions`) i.e. the constraints that must be satisfied before executing the action, and postconditions (`effects`) i.e. the conditions after executing the action. An action can also have a set of typed-parameters, and a cost to express the preferences.
+An action describes a declarative specification of a configuration change. It
+has preconditions (`conditions`) i.e. the constraints that must be satisfied
+before executing the action, and postconditions (`effects`) i.e. the conditions
+after executing the action. An action can also have a set of typed-parameters,
+and a cost to express the preferences.
 
-We can explicitly add actions to an object. However, the best practice is to define the actions inside a schema so that every object can inherit the actions through schema. This will allow us to implement _design pattern_ in our specification.
+We can define actions inside object declaration. However, the best practice is
+to define the actions inside a schema so that every object can inherit the
+actions through schema. This will allow us to implement _design pattern_ in our
+specification.
 
 ```java
 schema Service {
@@ -272,14 +457,262 @@ schema Client {
 }
 ```
 
-The above specification shows that schema `Service` has two common actions i.e. `start` and `stop` which will be inherited by all objects that implement `Service`. Action `start` has a precondition where the object (referred by `this`) must be stopped (`this.running = false`). After execution, the action changes the object's state to running (`this.running = true`). A similar thing is applied to action `stop`.
+The above specification shows that schema `Service` has two common actions i.e.
+`start` and `stop` which will be inherited by all objects that implement
+`Service`. Action `start` has a precondition where the object (referred by
+`this`) must be stopped (`this.running = false`). After execution, the action
+changes the object's state to running (`this.running = true`). A similar thing
+is applied to action `stop`.
 
-Action `redirect` of schema `Client` has a parameter which is an object of `Service`. It has a precondition where the object `Service` (referred by `s`) must be running (`s.running = true`). After execution, the action changes the client object's state by setting attribute `refer` with value of a reference of the parameter value.
+Action `redirect` of schema `Client` has a parameter which is an object of
+`Service`. It has a precondition where the object `Service` (referred by `s`)
+must be running (`s.running = true`). After execution, the action changes the
+client object's state by setting attribute `refer` with value of a reference
+of the parameter value.
+
+Just like variable value, every action can be overidden simply by redeclaring
+an action with the same name. This is very useful whenever we want to change
+the preconditions or effects of an inherited action.
+
+
+<a name="nuri-json"></a>
+## Nuri JSON
+
+The Nuri compiler compiles a specification into a JSON data format. This makes
+the compilation output to be programming language agnostic because almost all
+platform can easily parse a JSON data.
+
+Nuri is using a specific but simple JSON data format. The conversion details
+are described in the following subsections.
+
+
+### Simple Values
+
+The following tables show conversions of Nuri simple values to JSON and vice
+versa.
+
+| Nuri       | JSON    | Example                                              |
+|:----------:|:-------:|:----------------------------------------------------:|
+| bool       | bool    | `a = true;`            <-> `{"a": true}`             |
+| int        | int     | `a = 1;`               <-> `{"a": 1}`                |
+| float      | float   | `a = 1.0;`             <-> `{"a": 1.0}`              |
+| string     | string  | `a = "a string";`      <-> `{"a": "a string"}`       |
+| array      | array   | `a = [1, 2];`          <-> `{"a": [1, 2]}`           |
+| reference  | $string | `a = b.c.d;`           <-> `{"a": "$b.c.d"}`         |
+| null       | null    | `a : *Service = null;` <-> `{"a:*Service": null}`    |
+| TBD        | $string | `a : int = TBD;`       <-> `{"a:int": "$TBD"}`       |
+| enum-value | $string | `a = State.running;`   <-> `{"a": "$State.running"}` |
+
+
+### Object
+
+Every Nuri object is converted into JSON object which has a _hidden_ attribute
+`.type` whose value is either `object` or a schema name. The schema name cannot
+be `schema`, `action`, or `enum`.
+
+```java
+a {
+  b = 1;
+}
+c isa Service {
+  state = State.running;
+}
+```
+
+The above Nuri specification is equivalent with the following JSON.
+
+```json
+{
+  ".type": "object",
+  "a": {
+    ".type": "object",
+    "b": 1
+  },
+  "c": {
+    ".type": "Service",
+    "state": "$State.running"
+  }
+}
+```
+
+
+### Link
+
+Although a link will be compiled and not exist in the compilation output, but
+we can express it in JSON data format.
+
+```java
+a := b.c.d;
+```
+
+```json
+{ "a": "§b.c.d" }
+```
+
+
+### Schema
+
+Every Nuri schema is converted into JSON object which has a _hidden_ attribute
+`.type` whose value is `schema`.
+
+```java
+schema Service {
+  running = false;
+}
+schema Apache extends Service { }
+```
+
+The above Nuri schema is converted to the following JSON.
+
+```json
+{
+  "Service": {
+    ".type": "schema",
+    "running": false
+  },
+  "Apache": {
+    ".type": "schema",
+    ".super": "Service",
+    "running": false
+  }
+```
+
+
+### Enum
+
+Every enum-type is converted into a JSON object which has a _hidden_
+attribute `.type` whose value is `enum`.
+
+```java
+enum State {
+  stopped,
+  running
+}
+```
+
+```json
+{
+  "State": {
+    ".type": "enum",
+    "elements": ["stopped", "running"]
+  }
+}
+```
+
+
+### Constraints
+
+Both the global constraints and the action preconditions are converted into
+JSON arrays where the first element of the array is the logic operator:
+`=`, `!=`, `>`, `>=`, `<`, `<=`, `not`, `imply`, `and`, `or`, or `in`.
+
+The followings are the examples of global constraints.
+
+- Equality
+  - Nuri `global a = true;`
+  - JSON `{"global": ["=", "a", true]}`
+- Inequality
+  - Nuri `global a != true;`
+  - JSON `{"global": ["!=", "a", true]}`
+- Greater-than
+  - Nuri `global a > 1;`
+  - JSON `{"global": [">", "a", 1]}`
+- Greater-or-equals
+  - Nuri `global a >= 1;`
+  - JSON `{"global": [">=", "a", 1]}`
+- Less-than
+  - Nuri `global a < 1;`
+  - JSON `{"global": ["<", "a", 1]}`
+- Less-or-equals
+  - Nuri `global a <= 1;`
+  - JSON `{"global": ["<=", "a", 1]}`
+- Negation
+  - Nuri `global not a = true;`
+  - JSON `{"global": ["not", ["=", "a", true]]}`
+- Implication
+  - Nuri `global if a = true; then b = false;`
+  - JSON `{"global": ["imply", ["=", "a", true], ["=", "b", false]]}`
+- Conjunction
+  - Nuri `global { a = true; b = false; }`
+  - JSON `{"global": ["and", ["=", "a", true], ["=", "b", false]]}`
+- Disjunction
+  - Nuri `global ( a = true; b = false; )`
+  - JSON `{"global": ["or", ["=", "a", true], ["=", "b", false]]}`
+- Membership
+  - Nuri `global a in [1, 2, 3];`
+  - JSON `{"global": ["in", "a", [1, 2, 3]]}`
+
+
+### Action
+
+Every Nuri action is converted into a JSON object which has a _hidden_
+attribute `.type` whose value is `action`.
+
+```java
+def redirect (s : Service) {
+  cost = 1;
+  conditions {
+    s.running = true;
+  }
+  effects {
+    this.running = true;
+  }
+}
+```
+
+The above Nuri action is converted to JSON as the following.
+
+```json
+{
+  "redirect": {
+    ".type": "action",
+    "parameters": {
+      "s": "Service"
+    },
+    "cost": 1,
+    "conditions": ["and", ["=", "s.running", true]],
+    "effects": [
+      ["=", "this.running", true]
+    ]
+  }
+}
+```
+
+
+
+<a name="json2nuri"></a>
+## Deserialisation (JSON-to-Nuri)
+
+The Nuri compiler compiles every specification into an intermediate
+representation in JSON format. However, sometimes we want to revert back from
+JSON to Nuri format. This deserialisation capability is very useful for
+reverse engineering or generating the current/goal state from a program.
+
+Script [json2nuri.rb](https://github.com/nurilabs/nuri-lang/blob/master/utils/json2nuri.rb)
+(in directory [utils](https://github.com/nurilabs/nuri-lang/blob/master/utils))
+provides this capability. The script will receive a JSON data from given file
+or standard input (STDIN). It converts the JSON data into a Nuri
+representation and then print the output to standard output (STDOUT).
+
+If we have a JSON specification in file `spec.json`, then the following
+command will convert it into Nuri representation:
+
+```bash
+json2nuri.rb spec.json
+```
+
+If we want to give the JSON specification through standard input, then use the following command:
+
+```bash
+cat spec.json | json2nuri.rb -i
+```
+
+
 
 
 
 <a name="planning"></a>
-## Planning for Orchestrating Configuration Changes
+## Planning
 
 Nuri language can be used to specify a planning problem of reconfiguration i.e. a problem to generate a workflow that can bring the system from its current state to a particular desired state. Thus, to specify the problem, we need to have two descriptions in two separate files: first is the description of the current state of the system (_initial state_), and second is the description of the desired state of the system (_goal state_).
 
@@ -663,25 +1096,6 @@ Invoking the same command i.e. `nuric -p initial.nuri goal.nuri`, we will get [t
 [![Solution Plan of Example 2](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system3-plan.png)](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system3-plan.png)
 
 
-
-<a name="json2nuri"></a>
-## JSON to Nuri
-
-The Nuri compiler compiles every specification into an intermediate representation in JSON format. However, sometimes we want to revert back from JSON to Nuri format. This capability is very useful for reverse engineering or generating the current/goal state from a program.
-
-Script [json2nuri.rb](https://github.com/nurilabs/nuri-lang/blob/master/utils/json2nuri.rb) (in directory [utils](https://github.com/nurilabs/nuri-lang/blob/master/utils)) provides this capability. The script will receive a JSON data from given file or standard input (STDIN). It converts the JSON data into a Nuri representation and then print the output to standard output (STDOUT).
-
-If we have a JSON specification in file `spec.json`, then the following command will convert it into Nuri representation:
-
-```bash
-json2nuri.rb spec.json
-```
-
-If we want to give the JSON specification through standard input, then use the following command:
-
-```bash
-cat spec.json | json2nuri.rb -i
-```
 
 
 

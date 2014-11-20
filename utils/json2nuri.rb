@@ -158,6 +158,8 @@ class Hash
             buffer << "#{tab}#{k}"
           end
           v.json_to_nuri(buffer, "#{tab}  ")
+        when /^§[a-zA-Z]/
+          buffer << "#{tab}#{k} := #{v[1..v.length};\n"
         else
           buffer << "#{tab}#{k} = #{Nuri.string_of_basic_value(v)};\n"
         end
