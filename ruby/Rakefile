@@ -60,7 +60,7 @@ def nuric
   end
 end
 
-task :default => :build
+task :default => [:build, :test, :build_gem]
 
 task :build do
   # build
@@ -69,14 +69,18 @@ task :build do
   FileUtils.mkdir "#{share_dir}/#{platform}" unless
     Dir.exist?("#{share_dir}/#{platform}")
   FileUtils.cp name, nuric
+end
 
+task :test do
   # test
   Dir.chdir test_dir
   testfiles.each do |file|
   	sh "#{nuric} #{file} 1>/dev/null"
   end
   Dir.chdir "#{home}/test"
+end
 
+task :build_gem do
   Dir.chdir home
   sh "gem build #{name}.gemspec"
 end
