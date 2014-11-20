@@ -12,6 +12,7 @@
 4. [Usage](#usage)
 5. [Nuri Language](#nuri-language)
 6. [Planning for Orchestrating Configuration Changes](#planning)
+8. [JSON to Nuri](#json2nuri)
 7. [License](#license)
 
 
@@ -664,6 +665,28 @@ We have three global constraints. The first states that `service1a` depends on `
 Invoking the same command i.e. `nuric -p initial.nuri goal.nuri`, we will get [this solution plan](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system3-plan.json). The following graph illustrates the workflow of the plan.
 
 [![Solution Plan of Example 2](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system3-plan.png)](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system3-plan.png)
+
+
+
+<a name="json2nuri"></a>
+## JSON to Nuri
+
+Every Nuri specification is compiled into an intermediate representation in JSON format. However, sometimes we want to revert back from JSON to Nuri format. This capability is very useful for reverse engineering or generating the current/goal state from a program.
+
+[nuri2json](https://github.com/nurilabs/nuri-lang/blob/master/utils/json2nuri.rb) provides this capability. The script will receive a JSON data from given file or standard input (STDIN). It converts the JSON data into a Nuri representation and then print the output to standard output (STDOUT).
+
+If we have a JSON specification in file `spec.json`, then the following command will convert it into Nuri representation:
+
+```bash
+json2nuri.rb spec.json
+```
+
+If we want to give the JSON specification through standard input, then use the following command:
+
+```bash
+cat spec.json | json2nuri.rb -i
+```
+
 
 
 <a name="license"></a>
