@@ -29,6 +29,22 @@ let rec of_type t = match t with
 
 (** private function to generate JSON of basic value **)
 let rec json_basic_value buf v =
+    let json_of_string str : unit =
+        Buffer.add_char buf '"';
+        String.iter (fun c ->
+            match c with
+            | '"'    -> Buffer.add_string buf "\\\""
+            | '/'    -> Buffer.add_string buf "\\/"
+            | '\\'    -> Buffer.add_string buf "\\\\"
+            | '\b'   -> Buffer.add_string buf "\\b"
+            | '\012' -> Buffer.add_string buf "\\f"
+            | '\n'   -> Buffer.add_string buf "\\n"
+            | '\r'   -> Buffer.add_string buf "\\r"
+            | '\t'   -> Buffer.add_string buf "\\t"
+            | _      -> Buffer.add_char buf c
+        ) str;
+        Buffer.add_char buf '"'
+    in
 	let json_vector vector =
 		let rec iter vec = match vec with
 			| [] -> ()
@@ -46,10 +62,17 @@ let rec json_basic_value buf v =
 	match v with
 	| Domain.Boolean b -> Buffer.add_string buf (string_of_bool b)
 	| Domain.Int i     -> Buffer.add_string buf (string_of_int i)
-	| Domain.Float f   -> Buffer.add_string buf
-	                          (Yojson.Basic.to_string (`Float f))
-	| Domain.String s  -> Buffer.add_string buf
-	                          (Yojson.Basic.to_string (`String s))
+	| Domain.Float f   ->
+        (
+            let s = string_of_float f in
+            Buffer.add_string buf s;
+            let last = (String.length s) - 1 in
+            if s.[last] = '.' then
+                Buffer.add_char buf '0'
+            else
+                ()
+        )
+	| Domain.String s  -> json_of_string s
 	| Domain.Null      -> Buffer.add_string buf "null"
 	| Domain.Ref r     -> (
 			Buffer.add_string buf "\"$";
@@ -368,6 +391,7 @@ let of_flatstore flatstore =
 let to_store json =
 	let typeEnv = MapRef.empty in
 	let store = [] in
+(*
 	let reference_separator = Str.regexp "\\." in
 	let rec make_vector acc vec =
 		match vec with
@@ -395,4 +419,5 @@ let to_store json =
 		| `Assoc s    -> Store (make_store [] s)
 	in
 	let _ = nuri_of (Yojson.Basic.from_string json) in
+*)
 	(typeEnv, store)

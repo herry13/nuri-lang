@@ -331,7 +331,9 @@ let string_of_ref reference = !^reference ;;
  * convert JSON to the semantics domain
  *******************************************************************)
 
+(* TODO: implement this function *)
 let rec from_json store =
+    (*
 	let reference_separator = Str.regexp "\\." in
 	let rec make_vector acc vec =
 		match vec with
@@ -358,6 +360,8 @@ let rec from_json store =
 		| `Assoc s    -> Store (make_store [] s)
 	in
 	nuri_of (Yojson.Basic.from_string store)
+    *)
+    Store []
 ;;
 
 

@@ -1,6 +1,6 @@
 (* Author: Herry (herry13@gmail.com) *)
 
-open Yojson.Basic
+(* open Yojson.Basic *)
 
 (*******************************************************************
  * abstract syntax tree
@@ -254,6 +254,23 @@ and string_of_action (params, cost, conds, effs) =
 let json_of_nuri nuri =
     let buf = Buffer.create 42 in
 
+    let json_of_string buf str =
+        Buffer.add_char buf '"';
+        String.iter (fun c ->
+            match c with
+            | '"'    -> Buffer.add_string buf "\\\""
+            | '/'    -> Buffer.add_string buf "\\/"
+            | '\\'    -> Buffer.add_string buf "\\\\"
+            | '\b'   -> Buffer.add_string buf "\\b"
+            | '\012' -> Buffer.add_string buf "\\f"
+            | '\n'   -> Buffer.add_string buf "\\n"
+            | '\r'   -> Buffer.add_string buf "\\r"
+            | '\t'   -> Buffer.add_string buf "\\t"
+            | _      -> Buffer.add_char buf c
+        ) str;
+        Buffer.add_char buf '"'
+    in
+
     let rec json_of_type t =
         match t with
         | TBool         -> Buffer.add_string buf "\"bool\""
@@ -297,7 +314,7 @@ let json_of_nuri nuri =
         | Boolean x
         | Int x
         | Float x -> Buffer.add_string buf x
-        | String s -> Buffer.add_string buf (to_string (`String s))
+        | String s -> json_of_string buf s
         | Null -> Buffer.add_string buf "null"
         | Vector vec -> (
                 Buffer.add_char buf '[';

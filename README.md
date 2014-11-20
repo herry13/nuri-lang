@@ -43,10 +43,6 @@ This compiler is used by the [Nuri](https://github.com/nurilabs/nuri) configurat
 
 Requirements:
 - OCaml version >= 3.12.1
-- m4 (required by ocamlfind)
-- OPAM version >= 1.0.0
-- ocamlfind (install via opam)
-- Yojson version >= 1.1.8 (install via opam)
 
 Compilation:
 ```bash

@@ -11,15 +11,21 @@ NAME=nuric
 # Don't forget to set environment variable OCAMLRUNPARAM=b
 STACK_TRACE=1
 
+PACKAGES=#-package yojson
+OCAMLFIND=#ocamlfind -linkpkg $(PACKAGES)
+
 ifeq ($(NATIVE),1)
 # native compiler
-COMPILER=ocamlfind ocamlopt -S -package yojson -linkpkg
+#COMPILER=ocamlfind ocamlopt -S -linkpkg $(PACKAGES)
+COMPILER=$(OCAMLFIND) ocamlopt -S
 else
 # byte code compiler
 ifeq ($(STACK_TRACE),1)
-COMPILER=ocamlfind ocamlc -package yojson -linkpkg -g
+#COMPILER=ocamlfind ocamlc -linkpkg -g $(PACKAGES)
+COMPILER=$(OCAMLFIND) ocamlc -g
 else
-COMPILER=ocamlfind ocamlc -package yojson -linkpkg
+#COMPILER=ocamlfind ocamlc -linkpkg $(PACKAGES)
+COMPILER=$(OCAMLFIND) ocamlc
 endif
 endif
 
