@@ -165,9 +165,11 @@ in the final output. On the other hand, since `a` and `b` are defined inside
 `main`, then they will be included in the final output. Thus, the final output
 after compilation is:
 
-```java
-a = 3;
-b = true;
+```json
+{
+  "a": 3,
+  "b", true
+}
 ```
 
 Notice that during compilation the value of `a` has been changed from `2` to
@@ -193,7 +195,6 @@ The compilation output will be:
 
 ```json
 {
-  ".type": "object"
   "a": {
     ".type": "object",
     "name": "a"
@@ -201,8 +202,7 @@ The compilation output will be:
   "b": {
     ".type": "object",
     "name": 1
-  },
-  "name": "main"
+  }
 }
 ```
 
@@ -321,7 +321,10 @@ schema `Machine`, thus it inherits all `Machine`'s attributes (`name` and
 `running`) and their default values. `VM` also extends schema `Machine`, but
 besides attributes `name` and `running`, it also has a new attribute i.e.
 `is_on` with type reference of `PM`. So `is_on` can only be assigned with a
-reference of an object that implements schema `PM` or other sub-schemas of `PM`.
+reference of an object that implements schema `PM` or other sub-schemas of
+`PM`.
+
+Note that Nuri only allows single inheritance.
 
 ```java
 schema Service {
@@ -356,17 +359,21 @@ reference of object `a2`, while `b3` is equal to `0` because `a3`'s value is
 not an object.
 
 
-### Link
+### Link Reference
 
-A Nuri link is very useful whenever we want to copy any kind of value (either
-basic value or object) of particular variable to another variable. Note that
-Nuri allows us to have _forward link reference_.
+A Nuri link-reference is very useful whenever we want to copy any kind of
+value (either basic value or object) of particular variable to another
+variable. Note that Nuri allows us to have _forward link reference_.
+
+To distinguish between a link with a _normal_ reference is that a link is
+using operator `:=`, while a _normal_ reference is using operator `=`.
 
 ```java
 main {
-  a = 1;
-  b := c;
-  c := a;
+  x := a;
+  a {
+    b = 1;
+  }
 }
 ```
 
@@ -374,10 +381,14 @@ The compilation output of the above specification is:
 
 ```json
 {
-  ".type": "object",
-  "a": 1,
-  "b": 1,
-  "c"; 1
+  "x": {
+    ".type": "object",
+    "b": 1
+  },
+  "a": {
+    ".type": "object",
+    "b": 1
+  }
 }
 ```
 
@@ -536,10 +547,10 @@ The above Nuri specification is equivalent with the following JSON.
 ```
 
 
-### Link
+### Link Reference
 
-Although a link will be compiled and not exist in the compilation output, but
-we can express it in JSON data format.
+Although a link-reference will be compiled and not exist in the compilation
+output, but we can express it in JSON data format.
 
 ```java
 a := b.c.d;
