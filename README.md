@@ -393,6 +393,43 @@ The compilation output of the above specification is:
 ```
 
 
+### File Inclusion
+
+Nuri provides a way to include a specification in another file. There are two
+keywords. First is `import` which should be used at the root-level of
+specification. It has an argument which is a string of file's name to be
+included without the extension (extension `.nuri` will be automatically
+added). The compiler first searches the file in current working directory.
+If it is not found, the compiler searches in the directories defined in
+environment variable `NURI_LIB`.
+
+For example, if we declares `import "file";`, then the following priorities
+are applied:
+
+1. `file.nuri` in the current working directory
+2. `file/file.nuri` in the current working directory
+3. `<dir1>/file.nuri`   where `NURI_LIB=<dir1>:<dir2>:...`
+4. `<dir1>/file/file.nuri` where `NURI_LIB=<dir1>:<dir2>:...`
+5. `<dir2>/file.nuri`   where `NURI_LIB=<dir1>:<dir2>:...`
+6. `<dir2>/file/file.nuri` where `NURI_LIB=<dir1>:<dir2>:...`
+7. ...and so on
+
+
+Keyword `#include` is used inside any object declaration. However, we must
+explicitly define the file extension.
+
+```java
+main {
+  a {
+    #include "attributes_a";
+  }
+}
+```
+
+Note that all imported/included files must be a **legal specification**. This
+is different from other such as C-preprocessor.
+
+
 
 ### Declarative Specification of Configuration State
 
@@ -690,6 +727,40 @@ The above Nuri action is converted to JSON as the following.
 ```
 
 
+### File Import or Inclusion
+
+We can import or include a file in our JSON representation. This is very
+useful whenever we generate a configuration specification from a program
+such as the specification of the current state of the system.
+
+```json
+{
+  "import": "schemas",
+  "main": {
+    "#include": "subsystem.nuri",
+    ...
+  }
+}
+```
+
+The above JSON is equivalent with the following Nuri specification.
+
+```java
+import "schemas";
+
+main {
+  #include "subsystem.nuri";
+  ...
+}
+```
+
+Note that file import or inclusion will never exist in the compilation
+output because it will be immediately substituted by the compiler.
+
+The next section will introduce a script (`json2nuri`) that can deserialised
+from JSON to Nuri specification.
+
+
 
 <a name="json2nuri"></a>
 ## Deserialisation (JSON-to-Nuri)
@@ -725,20 +796,37 @@ cat spec.json | json2nuri.rb -i
 <a name="planning"></a>
 ## Planning
 
-Nuri language can be used to specify a planning problem of reconfiguration i.e. a problem to generate a workflow that can bring the system from its current state to a particular desired state. Thus, to specify the problem, we need to have two descriptions in two separate files: first is the description of the current state of the system (_initial state_), and second is the description of the desired state of the system (_goal state_).
+Nuri language can be used to specify a planning problem of reconfiguration
+i.e. a problem to generate a workflow that can bring the system from its
+current state to a particular desired state. Thus, to specify the problem,
+we need to have two descriptions in two separate files: first is the
+description of the current state of the system (_initial state_), and second
+is the description of the desired state of the system (_goal state_).
 
-The following examples show how to specify the planning problem in Nuri language and then solve it using the Nuri compiler.
+
+The following examples show how to specify the planning problem in Nuri
+language and then solve it using the Nuri compiler.
 
 
 ### Example 1 : Service Reference
 
 [![Example 1](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system1a.png)](https://raw.githubusercontent.com/nurilabs/nuri-lang/master/examples/system1a.png)
 
-In the above figure, assume that we have two services `service1` and `service2`, and a `client`. The current state of the system (**left side**) is that `service1` is running, `service2` is stopped, and the `client` is referring to `service1`. Due to particular reason (e.g. maintenance on `service1`), we would like to change the configuration of the system as illustrated on the **right side** where `service1` is stopped, `service2` is running, and the `client` is referring to `service2`. However, we have a particular global constraints that should be maintained throughout configuration changes i.e. the `client` should always refer to a running service.
+In the above figure, assume that we have two services i.e. `service1` and
+`service2`, and a `client`. The current state of the system (**left side**)
+is that `service1` is running, `service2` is stopped, and the `client` is
+referring to `service1`. Due to particular reason (e.g. maintenance on
+`service1`), we would like to change the configuration of the system as
+illustrated on the **right side** where `service1` is stopped, `service2` is
+running, and the `client` is referring to `service2`. However, we have a
+particular global constraints that should be maintained throughout
+configuration changes i.e. the `client` should always refer to a running
+service.
 
 #### Schemas
 
-The first step to model the planning problem is to model resources through schemas.
+The first step to model the planning problem is to model resources through
+schemas.
 
 ```java
 // file schemas.nuri
