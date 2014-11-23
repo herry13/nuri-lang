@@ -1,4 +1,7 @@
-import "state";
+enum State {
+    stopped,
+    running
+}
 
 schema Client {
   refer: *Service = null;
