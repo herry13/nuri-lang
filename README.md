@@ -168,7 +168,7 @@ after compilation is:
 ```json
 {
   "a": 3,
-  "b", true
+  "b": true
 }
 ```
 
