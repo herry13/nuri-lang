@@ -239,7 +239,7 @@ Nuri allows us to define an object, which is very useful to model a resource
 component. Basically, all objects have type `object`. However, we can use
 _schema_ to defined a custom type of object -- more details about _schema_ will
 be described in the following subsection. A variable also can have a type of
-_reference_ of _object_ or _schema_, which is a natural way to express
+_reference_ of a _schema_, which is a natural way to express
 dependency between resources.
 
 Array is an abstract data structure supported by Nuri. For simplicity, we can
