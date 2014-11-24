@@ -78,12 +78,12 @@ assignment
 	| reference type_def value { ($1, $2, $3) }
 
 value
-	: EQUAL equal_value EOS              { $2 }
+	: EQUAL expression EOS              { $2 }
 	| TOK_COLON_EQUAL link_reference EOS { $2 }
 	| ISA ID protos                      { Prototype (SID $2, $3) }
 	| protos                             { Prototype (EmptySchema, $1) }
 
-equal_value
+expression
 	: basic       { Basic $1 }
 	| TOK_TBD     { TBD }
 	| TOK_UNKNOWN { Unknown }
