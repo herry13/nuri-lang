@@ -12,3 +12,5 @@ module SetInt : Set.S with type elt = int
 val read_file : string -> string
 
 val write_file : string -> string -> unit
+
+val get_process_output : string -> string

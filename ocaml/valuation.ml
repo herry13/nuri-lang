@@ -55,6 +55,54 @@ let rec sfPrototype prototypes =
             sfPrototype p ns r (Domain.inherit_proto s ns (sfReference pr) r)
         | EmptyPrototype -> s
 
+and nuriShell command =
+    fun ns s ->
+        let len = String.length command in
+        let bufferCommand = Buffer.create len in
+        let bufferVariable = Buffer.create 15 in
+        let rec string_interpolation index length state : string =
+            if index >= length then (
+                if state = 0 then
+                    Buffer.contents bufferCommand
+                else
+                    Domain.error 1108 ("Invalid command `" ^ command ^ "`")
+            ) else (
+                if state = 0 then (
+                    if command.[index] = '$' then
+                        string_interpolation (index + 1) length 1
+                    else (
+                        Buffer.add_char bufferCommand command.[index];
+                        string_interpolation (index + 1) length 0
+                    )
+                ) else if state = 1 then (
+                    if command.[index] = '{' then
+                        string_interpolation (index + 1) length 2
+                    else
+                        string_interpolation (index + 1) length 0
+                ) else if state = 2 then (
+                    if command.[index] = '}' then (
+                        let var = Buffer.contents bufferVariable in
+                        (
+                            match Domain.resolve s ns (Str.split (Str.regexp "\\.") var) with
+                            | _, Domain.Val Domain.Basic Domain.String value ->
+                                Buffer.add_string bufferCommand value
+                            | _ ->
+                                Domain.error 1109 ("'" ^ var ^ "' in `" ^ command ^ "` is not found.")
+                        );
+                        Buffer.clear bufferVariable;
+                        string_interpolation (index + 1) length 0
+                    ) else (
+                        Buffer.add_char bufferVariable command.[index];
+                        string_interpolation (index + 1) length 2
+                    )
+                ) else (
+                    Domain.error 1110 ("Invalid command `" ^ command ^ "`")
+                )
+            )
+        in
+        let command = string_interpolation 0 len 0 in
+        Domain.Basic (Domain.String (get_process_output command))
+
 and sfValue v =
     let eval_name (r: Domain.reference) (s: Domain.store) =
         let r_name = Domain.(@+.) r "name" in
@@ -84,27 +132,11 @@ and sfValue v =
         | TBD      -> Domain.bind s r Domain.TBD
         | Unknown  -> Domain.bind s r Domain.Unknown
         | Nothing  -> Domain.bind s r Domain.Nothing
-        | Shell cmd ->
-            (
-                let in_channel = Unix.open_process_in cmd in
-                let buf = Buffer.create 17 in
-                (
-                    try
-                        let first = ref true in
-                        while true do
-                            let line = input_line in_channel in
-                            if not !first then Buffer.add_char buf '\n';
-                            Buffer.add_string buf line;
-                            first := false
-                        done
-                    with End_of_file -> (
-                        match Unix.close_process_in in_channel with
-                        | Unix.WEXITED code when code = 0 -> ()
-                        | _ -> Domain.error 1107 ("exit with error when executing `" ^ cmd ^ "`")
-                    )
-                );
-                Domain.bind s r (Domain.Basic (Domain.String (Buffer.contents buf)))
-            )
+        | Shell command ->
+            try
+                Domain.bind s r (nuriShell command ns s)
+            with
+                Failure message -> Domain.error 1107 message
 
 (** the type is ignored since this function only evaluates the value **)
 and sfAssignment (reference, _, value) =

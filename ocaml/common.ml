@@ -32,3 +32,19 @@ let write_file file content =
 	output_string channel content;
 	close_out channel
 ;;
+
+let get_process_output command =
+    let in_channel = Unix.open_process_in command in
+    let buf = Buffer.create 17 in
+    try 
+        Buffer.add_string buf (input_line in_channel);
+        while true do
+            let line = input_line in_channel in
+            Buffer.add_char buf '\n';
+            Buffer.add_string buf line
+        done;
+        Buffer.contents buf
+    with End_of_file -> match Unix.close_process_in in_channel with
+        | Unix.WEXITED code when code = 0 -> Buffer.contents buf 
+        | _ -> raise (Failure ("Command '" ^ command ^ "' was exiting with error."))
+;;

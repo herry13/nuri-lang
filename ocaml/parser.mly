@@ -88,7 +88,10 @@ equal_value
 	| TOK_TBD     { TBD }
 	| TOK_UNKNOWN { Unknown }
 	| TOK_NOTHING { Nothing }
-    | SHELL       { Shell $1 }
+    | func        { $1 }
+
+func
+    : SHELL       { Shell $1 }
 
 protos
 	: EXTENDS prototypes { $2 }
