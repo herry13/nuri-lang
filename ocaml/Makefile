@@ -32,6 +32,7 @@ endif
 # byte code libraries
 BYTECODELIB= \
 	str.cma \
+    unix.cma \
 	common.cmo \
 	syntax.cmo \
 	lexer.cmo \
@@ -51,6 +52,7 @@ BYTECODELIB= \
 # native code libraries
 NATIVELIB= \
 	str.cmxa \
+    unix.cmxa \
 	common.cmx \
 	syntax.cmx \
 	lexer.cmx \

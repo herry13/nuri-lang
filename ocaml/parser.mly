@@ -27,6 +27,7 @@ open Syntax
 %token EQUAL NOT_EQUAL IF THEN IN NOT LPARENTHESIS RPARENTHESIS
 %token TOK_GREATER TOK_GREATER_EQUAL TOK_LESS TOK_LESS_EQUAL
 %token TOK_COLON_EQUAL
+%token <string> SHELL
 %token COST CONDITIONS EFFECTS ACTION
 
 /* entry point to included file */
@@ -87,6 +88,7 @@ equal_value
 	| TOK_TBD     { TBD }
 	| TOK_UNKNOWN { Unknown }
 	| TOK_NOTHING { Nothing }
+    | SHELL       { Shell $1 }
 
 protos
 	: EXTENDS prototypes { $2 }

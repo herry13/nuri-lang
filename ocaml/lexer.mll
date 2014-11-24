@@ -31,7 +31,7 @@
 
 (**
  * reserved characters: '/' '*' ',' '{' '}' '[' ']' '(' ')' ';' '.' ':'
- *                      '=' "!=" ">=" "<=" '>' '<' ":=" '"'
+ *                      '=' "!=" ">=" "<=" '>' '<' ":=" '"' '`'
  *)
 
 (** regular expressions **)
@@ -159,6 +159,7 @@ rule token =
 	| effects     { EFFECTS }
 	| action      { ACTION }
 	| '"'         { STRING (read_string (Buffer.create 17) lexbuf) }
+    | '`'         { SHELL (read_shell (Buffer.create 17) lexbuf) }
 	| ident       {
 	              	let id = Lexing.lexeme lexbuf in
 	                if is_keyword id then raise (SyntaxError (id ^ " is a reserved identifier"))
@@ -185,6 +186,14 @@ and read_string buf =
 	                }
 	| _             { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
 	| eof           { raise (SyntaxError "String is not terminated") }
+
+and read_shell buf =
+    parse
+    | '`'           { Buffer.contents buf }
+    | '\\' '`'      { Buffer.add_char buf '`'; read_shell buf lexbuf }
+    | [^ '`']+      { Buffer.add_string buf (Lexing.lexeme lexbuf); read_shell buf lexbuf }
+    | _             { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
+    | eof           { raise (SyntaxError "Shell command is not terminated") }
 
 and read_comments =
 	parse

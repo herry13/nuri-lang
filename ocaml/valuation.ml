@@ -1,5 +1,6 @@
 (* Author: Herry (herry13@gmail.com) *)
 
+open Common
 open Syntax
 
 let referenceGlobal = ["global"] ;;
@@ -83,6 +84,27 @@ and sfValue v =
         | TBD      -> Domain.bind s r Domain.TBD
         | Unknown  -> Domain.bind s r Domain.Unknown
         | Nothing  -> Domain.bind s r Domain.Nothing
+        | Shell cmd ->
+            (
+                let in_channel = Unix.open_process_in cmd in
+                let buf = Buffer.create 17 in
+                (
+                    try
+                        let first = ref true in
+                        while true do
+                            let line = input_line in_channel in
+                            if not !first then Buffer.add_char buf '\n';
+                            Buffer.add_string buf line;
+                            first := false
+                        done
+                    with End_of_file -> (
+                        match Unix.close_process_in in_channel with
+                        | Unix.WEXITED code when code = 0 -> ()
+                        | _ -> Domain.error 1107 ("exit with error when executing `" ^ cmd ^ "`")
+                    )
+                );
+                Domain.bind s r (Domain.Basic (Domain.String (Buffer.contents buf)))
+            )
 
 (** the type is ignored since this function only evaluates the value **)
 and sfAssignment (reference, _, value) =

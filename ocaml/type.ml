@@ -556,6 +556,7 @@ and sfValue v : reference -> reference -> t -> environment ->
         | TBD -> assign e r t TAny
         | Unknown -> assign e r t TAny
         | Nothing -> assign e r t TAny
+        | Shell s -> assign e r t TString
         | Basic bv -> assign e r t (sfBasicValue bv e ns)
         | Link link ->
             (

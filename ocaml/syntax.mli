@@ -20,6 +20,7 @@ and  value         = Basic     of basicValue
                    | TBD
                    | Unknown
                    | Nothing
+                   | Shell     of string
 and  prototype     = ReferencePrototype of reference * prototype
                    | BlockPrototype     of block * prototype
                    | EmptyPrototype

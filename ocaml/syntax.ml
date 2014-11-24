@@ -22,6 +22,7 @@ and  value         = Basic     of basicValue
                    | TBD
                    | Unknown
                    | Nothing
+                   | Shell     of string
 and  prototype     = ReferencePrototype of reference * prototype
                    | BlockPrototype     of block * prototype
                    | EmptyPrototype
@@ -120,6 +121,7 @@ and string_of_value = function
     | TBD                -> " TBD"
     | Unknown            -> " Unknown"
     | Nothing            -> " Nothing"
+    | Shell s            -> " `" ^ s ^ "`" (* TODO: use escape (\) for every backtick character *)
 
 and string_of_proto = function
     | ReferencePrototype (r, p) -> " extends " ^ (string_of_ref r) ^
@@ -383,6 +385,12 @@ let json_of_nuri nuri =
         | TBD -> Buffer.add_string buf "\"§TBD\""
         | Unknown -> Buffer.add_string buf "\"§unknown\""
         | Nothing -> Buffer.add_string buf "\"§nothing\""
+        | Shell s ->
+            (
+                Buffer.add_string buf "\"§()";
+                Buffer.add_string buf s; (* TODO: use escape characters *)
+                Buffer.add_char buf '"'
+            )
 
     and json_of_action (parameters, cost, conditions, effects) =
         Buffer.add_string buf "\"action\",{\"parameters\":{";
