@@ -31,7 +31,7 @@
 
 (**
  * reserved characters: '/' '*' ',' '{' '}' '[' ']' '(' ')' ';' '.' ':'
- *                      '=' "!=" ">=" "<=" '>' '<' ":=" '"' '`'
+ *                      '=' "!=" ">=" "<=" '>' '<' '==' ":=" '"' '`' '+'
  *)
 
 (** regular expressions **)
@@ -66,6 +66,9 @@ let null_value       = "null" | "NULL"
 let tbd_value        = "TBD"
 let unknown_value    = "unknown"
 let nothing_value    = "nothing"
+
+(* expression *)
+let _else            = "else"
 
 (* object inheritance (prototype or schema) *)
 let extends          = "extends"
@@ -121,6 +124,7 @@ rule token =
 	| '.'         { SEP }
 	| ':'         { COLON }
 	| '*'         { ASTERIX }
+    | '+'         { TOK_PLUS }
 	| '='         { EQUAL }
 	| "!="        { NOT_EQUAL }
 	| ">="        { TOK_GREATER_EQUAL }
@@ -128,6 +132,7 @@ rule token =
 	| '>'         { TOK_GREATER }
 	| '<'         { TOK_LESS }
     | ":="        { TOK_COLON_EQUAL }
+    | "=="        { TOK_EQUAL_EQUAL }
 	| int         { INT (Lexing.lexeme lexbuf) }
 	| float       { FLOAT (Lexing.lexeme lexbuf) }
 	| true_value  { BOOL "true" }
@@ -149,6 +154,7 @@ rule token =
 	| _not        { NOT }
 	| _if         { IF }
 	| _then       { THEN }
+    | _else       { ELSE }
 	| _global     { GLOBAL }
     | _sometime   { SOMETIME }
     | _atleast    { ATLEAST }

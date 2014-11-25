@@ -1,0 +1,22 @@
+enum State {
+    uninstalled,
+    installed
+}
+
+main {
+    path = ".";
+    path2 = path;
+    equal1 = "." == ".";
+    equal2 = path == ".";
+    equal3 = path == path;
+    add1 = 1 + 2;
+    add2 = 1.1 + 2;
+    add3 = 2 + 1.1;
+    add4 = 1.1 + 2.2;
+    ifthenelse1 = if true then 1 else 0;
+    ifthenelse2 = if false then 1 else 0;
+    //ls = `ls ${path}`;
+    dir_of_ls = "/bin/ls";
+    dir = `which ls`;
+    state = if `which ls` == "/bin/ls" then State.installed else State.uninstalled;
+}

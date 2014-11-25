@@ -101,7 +101,67 @@ and nuriShell command =
             )
         in
         let command = string_interpolation 0 len 0 in
-        Domain.Basic (Domain.String (get_process_output command))
+        try
+            Domain.Basic (Domain.String (get_process_output command))
+        with
+            Failure message -> Domain.error 1107 message
+
+(* TODO: documentation *)
+and nuriExpression exp =
+    fun ns r s -> match exp with
+        | Basic value -> Domain.Basic (sfBasicValue value)
+        | Shell command -> nuriShell command ns s
+        | Equal (exp1, exp2) ->
+            (
+                let value = match (nuriExpression exp1 ns r s),
+                                  (nuriExpression exp2 ns r s)
+                    with
+                    | Domain.Basic (Domain.Int v1), Domain.Basic (Domain.Float v2) -> (float_of_int v1) = v2
+                    | Domain.Basic (Domain.Float v1), Domain.Basic (Domain.Int v2) -> v1 = (float_of_int v2)
+                    | Domain.Basic (Domain.Ref r1), Domain.Basic (Domain.Ref r2) ->
+                        (
+                            match (Domain.resolve ~follow_ref:true s ns r1),
+                                  (Domain.resolve ~follow_ref:true s ns r2)
+                            with
+                            | (_, Domain.Val v1), (_, Domain.Val v2) -> v1 = v2
+                            | _ -> false
+                        )
+                    | Domain.Basic (Domain.Ref r), v1
+                    | v1, Domain.Basic (Domain.Ref r) ->
+                        (
+                            match Domain.resolve ~follow_ref:true s ns r with
+                            | _, Domain.Val v2 -> v1 = v2
+                            | _ -> false
+                        )
+                    | v1, v2 -> v1 = v2
+                in
+                Domain.Basic (Domain.Boolean value)
+            )
+        | Add (exp1, exp2) ->
+            (
+                match (nuriExpression exp1 ns r s),
+                      (nuriExpression exp2 ns r s)
+                with
+                | Domain.Basic (Domain.Int v1), Domain.Basic (Domain.Float v2) ->
+                    Domain.Basic (Domain.Float ((float_of_int v1) +. v2))
+                | Domain.Basic (Domain.Float v1), Domain.Basic (Domain.Int v2) ->
+                    Domain.Basic (Domain.Float (v1 +. (float_of_int v2)))
+                | Domain.Basic (Domain.Float v1), Domain.Basic (Domain.Float v2) ->
+                    Domain.Basic (Domain.Float (v1 +. v2))
+                | Domain.Basic (Domain.Int v1), Domain.Basic (Domain.Int v2) ->
+                    Domain.Basic (Domain.Int (v1 + v2))
+                | _ -> Domain.error 1111 "Left or right operand of '+' is neither an integer nor float."
+            )
+        | IfThenElse (exp1, exp2, exp3) ->
+            (
+                match (nuriExpression exp1 ns r s),
+                      (nuriExpression exp2 ns r s),
+                      (nuriExpression exp3 ns r s)
+                with
+                | Domain.Basic (Domain.Boolean condition), thenValue, elseValue ->
+                    if condition then thenValue else elseValue
+                | _ -> Domain.error 1112 "Invalid if-then-else statement."
+            )
 
 and sfValue v =
     let eval_name (r: Domain.reference) (s: Domain.store) =
@@ -118,7 +178,7 @@ and sfValue v =
     in
     fun ns r s ->
         match v with
-        | Basic value -> Domain.bind s r (Domain.Basic (sfBasicValue value))
+        | Expression exp -> Domain.bind s r (nuriExpression exp ns r s)
         | Link link   -> Domain.bind s r (sfLinkReference link r)
         | Prototype (EmptySchema, p) ->
             eval_name r (sfPrototype p ns r (Domain.bind s r (Domain.Store [])))
@@ -132,11 +192,6 @@ and sfValue v =
         | TBD      -> Domain.bind s r Domain.TBD
         | Unknown  -> Domain.bind s r Domain.Unknown
         | Nothing  -> Domain.bind s r Domain.Nothing
-        | Shell command ->
-            try
-                Domain.bind s r (nuriShell command ns s)
-            with
-                Failure message -> Domain.error 1107 message
 
 (** the type is ignored since this function only evaluates the value **)
 and sfAssignment (reference, _, value) =

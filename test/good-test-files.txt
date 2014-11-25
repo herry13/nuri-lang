@@ -41,6 +41,9 @@ nothing1-init.nuri
 nothing1-goal.nuri
 main-import1.nuri
 import2/main-import1.nuri
+# type enum
 enum1.nuri
 enum2-init.nuri
 enum2-goal.nuri
+# Expressions
+expression1.nuri

@@ -24,7 +24,8 @@ open Syntax
 %token LBRACKET RBRACKET EOS EOF
 %token ISA SCHEMA ENUM ASTERIX COLON TBOOL TINT TFLOAT TSTR TOBJ
 %token GLOBAL SOMETIME ATLEAST ATMOST ALLDIFFERENT
-%token EQUAL NOT_EQUAL IF THEN IN NOT LPARENTHESIS RPARENTHESIS
+%token TOK_EQUAL_EQUAL TOK_PLUS
+%token EQUAL NOT_EQUAL IF THEN ELSE IN NOT LPARENTHESIS RPARENTHESIS
 %token TOK_GREATER TOK_GREATER_EQUAL TOK_LESS TOK_LESS_EQUAL
 %token TOK_COLON_EQUAL
 %token <string> SHELL
@@ -78,20 +79,36 @@ assignment
 	| reference type_def value { ($1, $2, $3) }
 
 value
-	: EQUAL expression EOS              { $2 }
+	: EQUAL simple_value EOS             { $2 }
 	| TOK_COLON_EQUAL link_reference EOS { $2 }
 	| ISA ID protos                      { Prototype (SID $2, $3) }
 	| protos                             { Prototype (EmptySchema, $1) }
 
-expression
-	: basic       { Basic $1 }
-	| TOK_TBD     { TBD }
-	| TOK_UNKNOWN { Unknown }
-	| TOK_NOTHING { Nothing }
-    | func        { $1 }
+simple_value
+    : TOK_TBD     { TBD }
+    | TOK_UNKNOWN { Unknown }
+    | TOK_NOTHING { Nothing }
+    | exp         { Expression $1 }
+
+exp
+    : exp1                     { $1 }
+    | IF exp THEN exp ELSE exp { IfThenElse ($2, $4, $6) }
+
+exp1
+    : exp2 binary_op { $2 $1 }
+
+binary_op
+    : TOK_EQUAL_EQUAL exp2 binary_op { fun left -> $3 (Equal (left, $2)) }
+    | TOK_PLUS exp2 binary_op        { fun left -> $3 (Add (left, $2)) }
+    |                                { fun v -> v }
+
+exp2
+	: basic                         { Basic $1 }
+    | func                          { $1 }
+    | LPARENTHESIS exp RPARENTHESIS { $2 }
 
 func
-    : SHELL       { Shell $1 }
+    : SHELL { Shell $1 }
 
 protos
 	: EXTENDS prototypes { $2 }
