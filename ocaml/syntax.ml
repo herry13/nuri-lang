@@ -15,14 +15,18 @@ and  block         = AssignmentBlock of assignment * block
                    | TrajectoryBlock of trajectory * block
                    | EmptyBlock
 and  assignment    = reference * t * value
-and  value         = Basic     of basicValue
-                   | Link      of reference
-                   | Prototype of superSchema * prototype
-                   | Action    of action
+and  expression    = Basic      of basicValue
+                   | Shell      of string
+                   | Equal      of expression * expression
+                   | Add        of expression * expression
+                   | IfThenElse of expression * expression * expression
+and  value         = Expression of expression
+                   | Link       of reference
+                   | Prototype  of superSchema * prototype
+                   | Action     of action
                    | TBD
                    | Unknown
                    | Nothing
-                   | Shell     of string
 and  prototype     = ReferencePrototype of reference * prototype
                    | BlockPrototype     of block * prototype
                    | EmptyPrototype
@@ -113,15 +117,23 @@ and string_of_block = function
 and string_of_assignment = function
     | (r, t, v) -> (string_of_ref r) ^ ":" ^ (string_of_type t) ^ (string_of_value v)
 
+and string_of_expression e = match e with
+    | Basic v            -> string_of_basic_value v
+    | Shell s            -> " `" ^ s ^ "`;" (* TODO: use escape (\) for every backtick character *)
+    | Equal (e1, e2)     -> " " ^ (string_of_expression e1) ^ " = " ^ (string_of_expression e2)
+    | Add (e1, e2)       -> " " ^ (string_of_expression e1) ^ " + " ^ (string_of_expression e2)
+    | IfThenElse (e1, e2, e3) -> " if " ^ (string_of_expression e1) ^
+                                 " then " ^ (string_of_expression e2) ^
+                                 " else " ^ (string_of_expression e3)
+
 and string_of_value = function
-    | Basic bv           -> " " ^ (string_of_basic_value bv) ^ ";"
+    | Expression e       -> " " ^ (string_of_expression e) ^ ";"
     | Link lr            -> " " ^ (string_of_ref lr) ^ ";"
     | Prototype (sid, p) -> (string_of_super_schema sid) ^ (string_of_proto p)
     | Action a           -> string_of_action a
     | TBD                -> " TBD"
     | Unknown            -> " Unknown"
     | Nothing            -> " Nothing"
-    | Shell s            -> " `" ^ s ^ "`" (* TODO: use escape (\) for every backtick character *)
 
 and string_of_proto = function
     | ReferencePrototype (r, p) -> " extends " ^ (string_of_ref r) ^
@@ -366,9 +378,44 @@ let json_of_nuri nuri =
             )
         | EmptyPrototype -> ()
 
+    and json_of_expression e = match e with
+        | Basic bv -> json_of_basic_value bv
+        | Shell s ->
+            (
+                Buffer.add_string buf "\"§()";
+                Buffer.add_string buf s; (* TODO: use escape characters *)
+                Buffer.add_char buf '"'
+            )
+        | Equal (e1, e2) ->
+            (
+                Buffer.add_string buf "{\".type\":\"expression\",\"operator\":\"=\",\"left\":";
+                json_of_expression e1;
+                Buffer.add_string buf ",\"right\":";
+                json_of_expression e2;
+                Buffer.add_char buf '}'
+            )
+        | Add (e1, e2) ->
+            (
+                Buffer.add_string buf "{\".type\":\"expression\",\"operator\":\"+\",\"left\":";
+                json_of_expression e1;
+                Buffer.add_string buf ",\"right\":";
+                json_of_expression e2;
+                Buffer.add_char buf '}'
+            )
+        | IfThenElse (e1, e2, e3) ->
+            (
+                Buffer.add_string buf "{\".type\":\"expression\",\"operator\":\"ifthenelse\",\"if\":";
+                json_of_expression e1;
+                Buffer.add_string buf ",\"then\":";
+                json_of_expression e2;
+                Buffer.add_string buf ",\"else\":";
+                json_of_expression e3;
+                Buffer.add_char buf '}'
+            )
+
     and json_of_value v =
         match v with
-        | Basic bv -> json_of_basic_value bv
+        | Expression e -> json_of_expression e
         | Link r -> (
                 Buffer.add_string buf "\"§.";
                 Buffer.add_string buf !^r;
@@ -385,12 +432,6 @@ let json_of_nuri nuri =
         | TBD -> Buffer.add_string buf "\"§TBD\""
         | Unknown -> Buffer.add_string buf "\"§unknown\""
         | Nothing -> Buffer.add_string buf "\"§nothing\""
-        | Shell s ->
-            (
-                Buffer.add_string buf "\"§()";
-                Buffer.add_string buf s; (* TODO: use escape characters *)
-                Buffer.add_char buf '"'
-            )
 
     and json_of_action (parameters, cost, conditions, effects) =
         Buffer.add_string buf "\"action\",{\"parameters\":{";

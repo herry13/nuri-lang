@@ -89,7 +89,7 @@ val find : store -> reference -> _value
 
 val find_follow : store -> reference -> _value
 
-val resolve : store -> reference -> reference -> (reference * _value)
+val resolve : ?follow_ref:bool -> store -> reference -> reference -> (reference * _value)
 
 val put : store -> string -> value -> store
 

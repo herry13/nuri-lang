@@ -533,6 +533,40 @@ let rec sfPrototype proto first t_val : reference -> reference ->
                 sfPrototype p false t_proto ns r
                     (inherit_env e_proto ns proto r)
 
+and nuriExpression exp : reference -> reference -> t -> environment -> t =
+    fun ns r t e -> match exp with
+        | Shell s            -> TString (* TODO: Documentation *)
+        | Basic bv           -> sfBasicValue bv e ns
+        | Equal (exp1, exp2) ->
+            (   (* TODO: Documentation *)
+                match (nuriExpression exp1 ns r t e), (nuriExpression exp2 ns r t e) with
+                | TForward _, _ -> error 441 "Left reference is not exist."
+                | _, TForward _ -> error 442 "Right reference is not exist."
+                | TUndefined, _ -> error 443 "Type of left operand is undefined."
+                | _, TUndefined -> error 444 "Type of right operand is undefined."
+                | t1, t2 when t1 <: t2 && t2 <: t1 -> TBool
+                | _ -> error 445 "Left and right operands of '=' is not equal."
+            )
+        | Add (exp1, exp2) ->
+            (   (* TODO: Documentation *)
+                match (nuriExpression exp1 ns r t e), (nuriExpression exp2 ns r t e) with
+                | TInt  , TFloat
+                | TFloat, TInt
+                | TFloat, TFloat -> TFloat
+                | TInt  , TInt   -> TInt
+                | _              -> error 446 "Both operands of '+' is neither integer nor float."
+            )
+        | IfThenElse (exp1, exp2, exp3) ->
+            (   (* TODO: Documentation *)
+                match (nuriExpression exp1 ns r t e),
+                      (nuriExpression exp2 ns r t e),
+                      (nuriExpression exp3 ns r t e)
+                with
+                | TBool, t2, t3 when t2 <: t3 && t3 <: t2 -> t2
+                | TBool, _, _ -> error 447 "The types of 'then' and 'else' clauses are not the same."
+                | _, _, _     -> error 448 "The type of 'if' clause is not a boolean"
+            )
+
 and sfValue v : reference -> reference -> t -> environment ->
     environment =
     (**
@@ -553,11 +587,10 @@ and sfValue v : reference -> reference -> t -> environment ->
         in
         let r_name = r @+. "name" in
         match v with
+        | Expression exp -> assign e r t (nuriExpression exp ns r t e)
         | TBD -> assign e r t TAny
         | Unknown -> assign e r t TAny
         | Nothing -> assign e r t TAny
-        | Shell s -> assign e r t TString
-        | Basic bv -> assign e r t (sfBasicValue bv e ns)
         | Link link ->
             (
                 let (r_link, t_link) = sfLinkReference link e ns r in

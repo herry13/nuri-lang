@@ -174,21 +174,23 @@ let find_follow store reference : _value =
 	in
 	search store reference
 
-let rec resolve store baseReference reference =
+(* TODO: update documentation of the formal semantics *)
+let rec resolve ?follow_ref:(follow=false) store baseReference reference =
+    let findx s r = if follow then find_follow s r else find s r in
 	match reference with
-	| "root" :: rs   -> ([], find store !!rs)
+	| "root" :: rs   -> ([], findx store !!rs)
 	| "parent" :: rs ->
 		if baseReference = [] then
 			error 502 ("invalid reference " ^ !^reference)
 		else (
 			prefix baseReference,
-			find store !!((prefix baseReference) @++ rs)
+			findx store !!((prefix baseReference) @++ rs)
 		)
-	| "this" :: rs   -> (baseReference, find store !!(baseReference @++ rs))
+	| "this" :: rs   -> (baseReference, findx store !!(baseReference @++ rs))
 	| _              ->
-		if baseReference = [] then ([], find store !!reference)
+		if baseReference = [] then ([], findx store !!reference)
 		else
-			let value = find store (baseReference @<< reference) in
+			let value = findx store (baseReference @<< reference) in
 			match value with
 			| Undefined -> resolve store (prefix baseReference) reference
 			| _         -> (baseReference, value)

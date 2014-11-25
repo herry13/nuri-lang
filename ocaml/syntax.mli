@@ -13,14 +13,18 @@ and  block         = AssignmentBlock of assignment * block
                    | TrajectoryBlock of trajectory * block
                    | EmptyBlock
 and  assignment    = reference * t * value
-and  value         = Basic     of basicValue
-                   | Link      of reference
-                   | Prototype of superSchema * prototype
-                   | Action    of action
+and  expression    = Basic      of basicValue
+                   | Shell      of string
+                   | Equal      of expression * expression
+                   | Add        of expression * expression
+                   | IfThenElse of expression * expression * expression
+and  value         = Expression of expression
+                   | Link       of reference
+                   | Prototype  of superSchema * prototype
+                   | Action     of action
                    | TBD
                    | Unknown
                    | Nothing
-                   | Shell     of string
 and  prototype     = ReferencePrototype of reference * prototype
                    | BlockPrototype     of block * prototype
                    | EmptyPrototype
