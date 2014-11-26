@@ -3,4 +3,5 @@ main {
     state1 = "nginx is running" =~ /running/;
     state2 = status =~ /running/;
     state3 = `which ls` =~ /^\/bin\/ls$/;
+    state4 = status =~ /nginx .* running/;
 }
