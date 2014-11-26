@@ -145,7 +145,7 @@ and nuriExpression exp =
             )
         | Exp_Not exp ->
             Domain.Lazy (fun s ns ->
-                match nuriExpression exp ns s with
+                match eval exp ns s with
                 | Domain.Basic (Domain.Boolean b) -> Domain.Basic (Domain.Boolean (not b))
                 | Domain.Basic (Domain.Ref r) ->
                     (
@@ -159,8 +159,8 @@ and nuriExpression exp =
             )
         | Add (exp1, exp2) ->
             Domain.Lazy (fun s ns ->
-                match (nuriExpression exp1 ns s),
-                      (nuriExpression exp2 ns s)
+                match (eval exp1 ns s),
+                      (eval exp2 ns s)
                 with
                 | Domain.Basic v1, Domain.Basic v2 -> Domain.Basic (Domain.add ~store:s ~namespace:ns v1 v2)
                 | _, Domain.Basic _ -> Domain.error 1113 "Left operand is not a basic value."
@@ -169,9 +169,9 @@ and nuriExpression exp =
             )
         | IfThenElse (exp1, exp2, exp3) ->
             Domain.Lazy (fun s ns ->
-                match (nuriExpression exp1 ns s),
-                      (nuriExpression exp2 ns s),
-                      (nuriExpression exp3 ns s)
+                match (eval exp1 ns s),
+                      (eval exp2 ns s),
+                      (eval exp3 ns s)
                 with
                 | Domain.Basic (Domain.Boolean condition), thenValue, elseValue ->
                     if condition then thenValue else elseValue
@@ -188,7 +188,7 @@ and nuriExpression exp =
                     in
                     Domain.Basic (Domain.Boolean value)
                 in
-                match nuriExpression exp ns s with
+                match eval exp ns s with
                 | Domain.Basic (Domain.String str) -> match_regexp str
                 | Domain.Basic (Domain.Ref r) ->
                     (
@@ -196,12 +196,6 @@ and nuriExpression exp =
                         | _, Domain.Val Domain.Basic Domain.String str -> match_regexp str
                         | _ -> Domain.error 1117 "The operand of match-regexp is not a string."
                         
-                    )
-                | Domain.Lazy func ->
-                    (
-                        match Domain.resolve_function s ns func with
-                        | Domain.Basic (Domain.String str) -> match_regexp str
-                        | _ -> Domain.error 1118 "The operand of match-regexp is not a string."
                     )
                 | _ -> Domain.error 1119 "The operand of match-regexp is not a string."
             )
