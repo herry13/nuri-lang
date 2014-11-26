@@ -110,95 +110,106 @@ and nuriShell command =
             Failure message -> Domain.error 1107 message
 
 (* TODO: documentation *)
+and nuriEqual exp1 exp2 =
+    fun s ns ->
+        let value = match (eval exp1 ns s), (eval exp2 ns s) with
+            | Domain.Basic (Domain.Int v1), Domain.Basic (Domain.Float v2) -> (float_of_int v1) = v2
+            | Domain.Basic (Domain.Float v1), Domain.Basic (Domain.Int v2) -> v1 = (float_of_int v2)
+            | Domain.Basic (Domain.Ref r1), Domain.Basic (Domain.Ref r2) ->
+                (
+                    match (Domain.resolve ~follow_ref:true s ns r1),
+                          (Domain.resolve ~follow_ref:true s ns r2)
+                    with
+                    | (_, Domain.Val v1), (_, Domain.Val v2) -> v1 = v2
+                    | _ -> false
+                )
+            | Domain.Basic (Domain.Ref r), v1
+            | v1, Domain.Basic (Domain.Ref r) ->
+                (
+                    match Domain.resolve ~follow_ref:true s ns r with
+                    | _, Domain.Val v2 -> v1 = v2
+                    | _ -> false
+                )
+            | v1, v2 -> v1 = v2
+        in
+        Domain.Basic (Domain.Boolean value)
+
+(* TODO: documentation *)
+and nuriExp_Not exp =
+    fun s ns ->
+        match eval exp ns s with
+        | Domain.Basic (Domain.Boolean b) -> Domain.Basic (Domain.Boolean (not b))
+        | Domain.Basic (Domain.Ref r) ->
+            (
+                match Domain.resolve ~follow_ref:true s ns r with
+                | _, Domain.Val (Domain.Basic (Domain.Boolean b)) ->
+                    Domain.Basic (Domain.Boolean (not b))
+                | _ ->
+                    Domain.error 1111 "The operand of 'not' is not a boolean."
+            )
+        | _ -> Domain.error 1112 "The operand of 'not' is not a boolean."
+
+(* TODO: documentation *)
+and nuriAdd exp1 exp2 =
+    fun s ns ->
+        match (eval exp1 ns s),
+              (eval exp2 ns s)
+        with
+        | Domain.Basic v1, Domain.Basic v2 -> Domain.Basic (Domain.add ~store:s ~namespace:ns v1 v2)
+        | _, Domain.Basic _ -> Domain.error 1113 "Left operand is not a basic value."
+        | Domain.Basic _, _ -> Domain.error 1114 "Right operand is not a basic value."
+        | _, _ -> Domain.error 1115 "Both operands are not basic values."
+
+(* TODO: documentation *)
+and nuriIfThenElse ifExp thenExp elseExp =
+    fun s ns ->
+        match (eval ifExp ns s),
+              (eval thenExp ns s),
+              (eval elseExp ns s)
+        with
+        | Domain.Basic (Domain.Boolean condition), thenValue, elseValue ->
+            if condition then thenValue else elseValue
+        | _ -> Domain.error 1116 "Invalid if-then-else statement."
+
+(* TODO: documentation *)
+and nuriMatchRegexp exp regexp =
+    fun s ns ->
+        let match_regexp str =
+             let value =
+                try
+                    (Str.search_forward (Str.regexp regexp) str 0) >= 0
+                with
+                    Not_found -> false
+            in
+            Domain.Basic (Domain.Boolean value)
+        in
+        match eval exp ns s with
+        | Domain.Basic (Domain.String str) -> match_regexp str
+        | Domain.Basic (Domain.Ref r) ->
+            (
+                match Domain.resolve ~follow_ref:true s ns r with
+                | _, Domain.Val Domain.Basic Domain.String str -> match_regexp str
+                | _ -> Domain.error 1117 "The operand of match-regexp is not a string."
+                
+            )
+        | _ -> Domain.error 1119 "The operand of match-regexp is not a string."
+
+(* helper function -- TODO: documentation *)        
+and eval exp ns s =
+    match nuriExpression exp ns s  with
+    | Domain.Lazy func -> Domain.resolve_function s ns func
+    | value -> value
+
+(* TODO: documentation *)
 and nuriExpression exp =
-    let eval exp ns s =
-        match nuriExpression exp ns s  with
-        | Domain.Lazy func -> Domain.resolve_function s ns func
-        | value -> value
-    in
     fun ns s -> match exp with
-        | Basic value -> Domain.Basic (sfBasicValue value)
-        | Shell command -> Domain.Lazy (nuriShell command)
-        | Equal (exp1, exp2) ->
-            Domain.Lazy (fun s ns ->
-                let value = match (eval exp1 ns s), (eval exp2 ns s) with
-                    | Domain.Basic (Domain.Int v1), Domain.Basic (Domain.Float v2) -> (float_of_int v1) = v2
-                    | Domain.Basic (Domain.Float v1), Domain.Basic (Domain.Int v2) -> v1 = (float_of_int v2)
-                    | Domain.Basic (Domain.Ref r1), Domain.Basic (Domain.Ref r2) ->
-                        (
-                            match (Domain.resolve ~follow_ref:true s ns r1),
-                                  (Domain.resolve ~follow_ref:true s ns r2)
-                            with
-                            | (_, Domain.Val v1), (_, Domain.Val v2) -> v1 = v2
-                            | _ -> false
-                        )
-                    | Domain.Basic (Domain.Ref r), v1
-                    | v1, Domain.Basic (Domain.Ref r) ->
-                        (
-                            match Domain.resolve ~follow_ref:true s ns r with
-                            | _, Domain.Val v2 -> v1 = v2
-                            | _ -> false
-                        )
-                    | v1, v2 -> v1 = v2
-                in
-                Domain.Basic (Domain.Boolean value)
-            )
-        | Exp_Not exp ->
-            Domain.Lazy (fun s ns ->
-                match eval exp ns s with
-                | Domain.Basic (Domain.Boolean b) -> Domain.Basic (Domain.Boolean (not b))
-                | Domain.Basic (Domain.Ref r) ->
-                    (
-                        match Domain.resolve ~follow_ref:true s ns r with
-                        | _, Domain.Val (Domain.Basic (Domain.Boolean b)) ->
-                            Domain.Basic (Domain.Boolean (not b))
-                        | _ ->
-                            Domain.error 1111 "The operand of 'not' is not a boolean."
-                    )
-                | _ -> Domain.error 1112 "The operand of 'not' is not a boolean."
-            )
-        | Add (exp1, exp2) ->
-            Domain.Lazy (fun s ns ->
-                match (eval exp1 ns s),
-                      (eval exp2 ns s)
-                with
-                | Domain.Basic v1, Domain.Basic v2 -> Domain.Basic (Domain.add ~store:s ~namespace:ns v1 v2)
-                | _, Domain.Basic _ -> Domain.error 1113 "Left operand is not a basic value."
-                | Domain.Basic _, _ -> Domain.error 1114 "Right operand is not a basic value."
-                | _, _ -> Domain.error 1115 "Both operands are not basic values."
-            )
-        | IfThenElse (exp1, exp2, exp3) ->
-            Domain.Lazy (fun s ns ->
-                match (eval exp1 ns s),
-                      (eval exp2 ns s),
-                      (eval exp3 ns s)
-                with
-                | Domain.Basic (Domain.Boolean condition), thenValue, elseValue ->
-                    if condition then thenValue else elseValue
-                | _ -> Domain.error 1116 "Invalid if-then-else statement."
-            )
-        | MatchRegexp (exp, regexp) ->
-            Domain.Lazy (fun s ns ->
-                let match_regexp str =
-                     let value =
-                        try
-                            (Str.search_forward (Str.regexp regexp) str 0) >= 0
-                        with
-                            Not_found -> false
-                    in
-                    Domain.Basic (Domain.Boolean value)
-                in
-                match eval exp ns s with
-                | Domain.Basic (Domain.String str) -> match_regexp str
-                | Domain.Basic (Domain.Ref r) ->
-                    (
-                        match Domain.resolve ~follow_ref:true s ns r with
-                        | _, Domain.Val Domain.Basic Domain.String str -> match_regexp str
-                        | _ -> Domain.error 1117 "The operand of match-regexp is not a string."
-                        
-                    )
-                | _ -> Domain.error 1119 "The operand of match-regexp is not a string."
-            )
+        | Basic value                   -> Domain.Basic (sfBasicValue value)
+        | Shell command                 -> Domain.Lazy (nuriShell command)
+        | Equal (exp1, exp2)            -> Domain.Lazy (nuriEqual exp1 exp2)
+        | Exp_Not exp                   -> Domain.Lazy (nuriExp_Not exp)
+        | Add (exp1, exp2)              -> Domain.Lazy (nuriAdd exp1 exp2)
+        | IfThenElse (exp1, exp2, exp3) -> Domain.Lazy (nuriIfThenElse exp1 exp2 exp3)
+        | MatchRegexp (exp, regexp)     -> Domain.Lazy (nuriMatchRegexp exp regexp)
 
 and sfValue v =
     let eval_name (r: Domain.reference) (s: Domain.store) =
