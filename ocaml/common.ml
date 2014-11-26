@@ -45,6 +45,6 @@ let get_process_output command =
         done;
         Buffer.contents buf
     with End_of_file -> match Unix.close_process_in in_channel with
-        | Unix.WEXITED code when code = 0 -> Buffer.contents buf 
+        | Unix.WEXITED _ -> Buffer.contents buf 
         | _ -> raise (Failure ("Command '" ^ command ^ "' was exiting with error."))
 ;;
