@@ -1,0 +1,6 @@
+main {
+    a1 = 1;
+    a2 = 2;
+    s1 = if a1 == 1 then "one" else if a1 == 2 then "two" else "unknown";
+    s2 = if a2 == 1 then "one" else if a2 == 2 then "two" else "unknown";
+}

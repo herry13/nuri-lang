@@ -47,3 +47,6 @@ enum2-init.nuri
 enum2-goal.nuri
 # Expressions
 expression1.nuri
+expression2.nuri
+expression3.nuri
+expression4.nuri
