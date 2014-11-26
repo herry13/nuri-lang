@@ -6,7 +6,7 @@ open Domain
 
 exception JsonError of int * string
 
-let error code msg = raise (JsonError (code, msg)) ;;
+let error code msg = raise (JsonError (code, "[err" ^ (string_of_int code) ^ "] " ^ msg)) ;;
 
 let (!^) r = String.concat "." r ;;
 
@@ -257,6 +257,7 @@ let rec of_value value =
 		| Domain.Global c -> json_constraint buf c
 		| Domain.Action a -> json_action buf a
         | Domain.Enum _ -> Buffer.add_string buf ("\"%enum\"")
+        | Domain.Lazy _ -> error 1305 "Lazy value has not been evaluated."
 	);
 	Buffer.contents buf
 ;;
@@ -295,7 +296,6 @@ let of_store typeEnv store =
 	in
 	let rec json_store ns s = match s with
 		| [] -> ()
-		(* | (id, v) :: [] -> json_cell ns id v *)
 		| (id, v) :: tail -> (
 			Buffer.add_char buf ',';
 				json_cell ns id v;
@@ -355,6 +355,7 @@ let of_store typeEnv store =
                 Buffer.add_string buf (String.concat "\",\"" elements);
                 Buffer.add_string buf "\"]}"
             )
+        | Domain.Lazy _ -> error 1306 (!^ns ^ "." ^ id ^ "Lazy value has not been evaluated.")
 	in
 	Buffer.add_string buf "{\".type\":\"object\"";
 	json_store [] store;

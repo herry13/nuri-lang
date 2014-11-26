@@ -24,6 +24,7 @@ and value     = Basic of basic
               | Unknown
               | Nothing
               | Enum of string list
+              | Lazy of (store -> reference -> value)
 and _value    = Val of value
               | Undefined
 and cell      = ident * value
@@ -104,6 +105,12 @@ val accept : store -> reference -> store -> reference -> store
 val value_TBD_exists : reference -> store -> reference
 
 val add : ?store:store -> ?namespace:reference -> basic -> basic -> basic
+
+
+module SetFunc : Set.S with type elt = (store -> reference -> value)
+
+val resolve_function : ?visited:SetFunc.t -> store -> reference -> (store -> reference -> value) -> value
+
 
 (*******************************************************************
  * domain convertion functions to string

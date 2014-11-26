@@ -55,8 +55,9 @@ let rec sfPrototype prototypes =
             sfPrototype p ns r (Domain.inherit_proto s ns (sfReference pr) r)
         | EmptyPrototype -> s
 
+(* TODO: documentation *)
 and nuriShell command =
-    fun ns s ->
+    fun s ns ->
         let len = String.length command in
         let bufferCommand = Buffer.create len in
         let bufferVariable = Buffer.create 15 in
@@ -87,9 +88,9 @@ and nuriShell command =
                             | _, Domain.Val Domain.Basic value ->
                                 Buffer.add_string bufferCommand (Domain.string_of_basic_value value)
                             | _, Domain.Undefined ->
-                                Domain.error 1109 ("'" ^ var ^ "' in `" ^ command ^ "` is not found.")
+                                Domain.error 1109 ("Variable '" ^ var ^ "' in `" ^ command ^ "` is not found.")
                             | _ ->
-                                Domain.error 1110 ("'" ^ var ^ "' in `" ^ command ^ "` is not a string.")
+                                Domain.error 1110 ("Variable '" ^ var ^ "' in `" ^ command ^ "` is not a string.")
                         );
                         Buffer.clear bufferVariable;
                         string_interpolation (index + 1) length 0
@@ -110,14 +111,17 @@ and nuriShell command =
 
 (* TODO: documentation *)
 and nuriExpression exp =
-    fun ns r s -> match exp with
+    let eval exp ns s =
+        match nuriExpression exp ns s  with
+        | Domain.Lazy func -> Domain.resolve_function s ns func
+        | value -> value
+    in
+    fun ns s -> match exp with
         | Basic value -> Domain.Basic (sfBasicValue value)
-        | Shell command -> nuriShell command ns s
+        | Shell command -> Domain.Lazy (nuriShell command)
         | Equal (exp1, exp2) ->
-            (
-                let value = match (nuriExpression exp1 ns r s),
-                                  (nuriExpression exp2 ns r s)
-                    with
+            Domain.Lazy (fun s ns ->
+                let value = match (eval exp1 ns s), (eval exp2 ns s) with
                     | Domain.Basic (Domain.Int v1), Domain.Basic (Domain.Float v2) -> (float_of_int v1) = v2
                     | Domain.Basic (Domain.Float v1), Domain.Basic (Domain.Int v2) -> v1 = (float_of_int v2)
                     | Domain.Basic (Domain.Ref r1), Domain.Basic (Domain.Ref r2) ->
@@ -140,8 +144,8 @@ and nuriExpression exp =
                 Domain.Basic (Domain.Boolean value)
             )
         | Exp_Not exp ->
-            (
-                match nuriExpression exp ns r s with
+            Domain.Lazy (fun s ns ->
+                match nuriExpression exp ns s with
                 | Domain.Basic (Domain.Boolean b) -> Domain.Basic (Domain.Boolean (not b))
                 | Domain.Basic (Domain.Ref r) ->
                     (
@@ -154,9 +158,9 @@ and nuriExpression exp =
                 | _ -> Domain.error 1112 "The operand of 'not' is not a boolean."
             )
         | Add (exp1, exp2) ->
-            (
-                match (nuriExpression exp1 ns r s),
-                      (nuriExpression exp2 ns r s)
+            Domain.Lazy (fun s ns ->
+                match (nuriExpression exp1 ns s),
+                      (nuriExpression exp2 ns s)
                 with
                 | Domain.Basic v1, Domain.Basic v2 -> Domain.Basic (Domain.add ~store:s ~namespace:ns v1 v2)
                 | _, Domain.Basic _ -> Domain.error 1113 "Left operand is not a basic value."
@@ -164,17 +168,17 @@ and nuriExpression exp =
                 | _, _ -> Domain.error 1115 "Both operands are not basic values."
             )
         | IfThenElse (exp1, exp2, exp3) ->
-            (
-                match (nuriExpression exp1 ns r s),
-                      (nuriExpression exp2 ns r s),
-                      (nuriExpression exp3 ns r s)
+            Domain.Lazy (fun s ns ->
+                match (nuriExpression exp1 ns s),
+                      (nuriExpression exp2 ns s),
+                      (nuriExpression exp3 ns s)
                 with
                 | Domain.Basic (Domain.Boolean condition), thenValue, elseValue ->
                     if condition then thenValue else elseValue
                 | _ -> Domain.error 1116 "Invalid if-then-else statement."
             )
         | MatchRegexp (exp, regexp) ->
-            (
+            Domain.Lazy (fun s ns ->
                 let match_regexp str =
                      let value =
                         try
@@ -184,16 +188,22 @@ and nuriExpression exp =
                     in
                     Domain.Basic (Domain.Boolean value)
                 in
-                match nuriExpression exp ns r s with
+                match nuriExpression exp ns s with
                 | Domain.Basic (Domain.String str) -> match_regexp str
                 | Domain.Basic (Domain.Ref r) ->
                     (
                         match Domain.resolve ~follow_ref:true s ns r with
                         | _, Domain.Val Domain.Basic Domain.String str -> match_regexp str
-                        | _ -> Domain.error 1117 "The expression of match-regexp is not a string."
+                        | _ -> Domain.error 1117 "The operand of match-regexp is not a string."
                         
                     )
-                | _ -> Domain.error 1118 "The expression of match-regexp is not a string."
+                | Domain.Lazy func ->
+                    (
+                        match Domain.resolve_function s ns func with
+                        | Domain.Basic (Domain.String str) -> match_regexp str
+                        | _ -> Domain.error 1118 "The operand of match-regexp is not a string."
+                    )
+                | _ -> Domain.error 1119 "The operand of match-regexp is not a string."
             )
 
 and sfValue v =
@@ -211,7 +221,7 @@ and sfValue v =
     in
     fun ns r s ->
         match v with
-        | Expression exp -> Domain.bind s r (nuriExpression exp ns r s)
+        | Expression exp -> Domain.bind s r (nuriExpression exp ns s)
         | Link link   -> Domain.bind s r (sfLinkReference link r)
         | Prototype (EmptySchema, p) ->
             eval_name r (sfPrototype p ns r (Domain.bind s r (Domain.Store [])))

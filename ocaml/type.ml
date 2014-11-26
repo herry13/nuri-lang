@@ -19,7 +19,6 @@ type _t         = Type of t
                 | NotFound
 and var         = string list * t
 and environment = var list
-(*and lenv = environment*)
 
 (*******************************************************************
  * helper functions
@@ -132,8 +131,8 @@ let rec has_type env t =
     | TAny                                              (* (Type Any)           *) 
     | TAction                                           (* (Type Action)        *)
     | TGlobal                                           (* (Type Constraint)    *)
-    | TEnum (_, _)                                      (* TODOC (Type Enum)    *)
-    | TForward (_, _)                                   (* TODOC (Type Forward) *)
+    | TEnum _                                           (* TODOC (Type Enum)    *)
+    | TForward _                                        (* TODOC (Type Forward) *)
     | TSchema TObject                                   (* (Type Object)        *)
     | TSchema TRootSchema -> true                       (* TODOC (Type Schema)  *)
     | TList tl            -> has_type env tl            (* (Type List)          *)
@@ -206,14 +205,14 @@ let assign env var t tValue =
         bind env var tValue
     | NotFound, _, _ when tValue <: t ->                  (* (Assign3) *)
         bind env var t
-    | Type (TForward (_, _)), _, _                               (* TODOC *)
-    | NotFound, _, TForward (_, _) ->                            (* TODOC (Assign5) *)
+    | Type (TForward _), _, _                                    (* TODOC *)
+    | NotFound, _, TForward _ ->                            (* TODOC (Assign5) *)
         (var, t) :: (var, tValue) :: env
     | NotFound, _, _ ->
         error 406 (!^var ^ " not satisfy rule (Assign3)")
     | Type tVar, TUndefined, _ when tValue <: tVar ->   (* (Assign2) *)
         env
-    | Type tVar, TUndefined, TForward (_, _) ->               (* TODOC (Assign6) *)
+    | Type tVar, TUndefined, TForward _ ->               (* TODOC (Assign6) *)
         (var, tValue) :: env
     | Type _, TUndefined, _ ->
         error 407 (!^var ^ " not satisfy rule (Assign2)")
@@ -313,7 +312,7 @@ let inherit_env env base proto var =
  * @param var   variable of the value
  * @param accumulator  accumulator of visited variables
  *)
-let rec resolve_forward_type env base var accumulator =
+let rec resolve_forward_ref_type ?visited:(accumulator=SetRef.empty) env base var =
     let follow_forward_type base refValue =
         let r = base @++ var in
         if SetRef.exists (fun rx -> rx = r) accumulator
@@ -321,7 +320,7 @@ let rec resolve_forward_type env base var accumulator =
         else if r @<= refValue
             then error 412 ("Implicit cyclic reference detected: " ^ !^refValue)
         else
-            resolve_forward_type env r refValue (SetRef.add r accumulator)
+            resolve_forward_ref_type ~visited:(SetRef.add r accumulator) env r refValue
     in
     let (base1, var1) =
         match var with
@@ -339,7 +338,8 @@ let rec resolve_forward_type env base var accumulator =
     else
         match resolve env base1 var1 with
         | _, NotFound -> error 414 (!^var1 ^ " is not found in " ^ !^base1)
-        | base2, Type TForward (var2, _) -> follow_forward_type base2 var2
+        | base2, Type TForward TRefForward var2
+        | base2, Type TForward TLinkForward var2 -> follow_forward_type base2 var2
         | base2, Type t -> (base2 @++ var1, t)
 ;;
 
@@ -349,20 +349,25 @@ let rec resolve_forward_type env base var accumulator =
  * that have type TForward
  *)
 let replace_forward_type_in env mainReference =
-    let replace env var t refForward tForward =
-        let (proto, t_val) =
-            match resolve_forward_type env var refForward SetRef.empty with
-            | proto, TSchema t ->
-                (
-                    match tForward with
-                    | TLinkForward -> (proto, TSchema t)
-                    | TRefForward  -> (proto, TRef t)
-                )
-            | proto, t -> (proto, t)
-        in
-        let env1 = (var, t_val) :: env in
-        if t_val <: TSchema TObject then copy env1 proto var
-        else env1
+    let rec replace env var t tForward = match tForward with
+        | TLinkForward r ->
+            (
+                let (proto, t_val) = resolve_forward_ref_type env var r in
+                let env1 = (var, t_val) :: env in
+                if t_val <: TSchema TObject then copy env1 proto var
+                else env1
+            )
+        | TRefForward r ->
+            (
+                let (proto, t_val) = resolve_forward_ref_type env var r in
+                let t_val = match t_val with
+                    | TSchema t -> TRef t
+                    | v -> v
+                in
+                let env1 = (var, t_val) :: env in
+                if t_val <: TSchema TObject then copy env1 proto var
+                else env1
+            )
     in
     let rec iter env src =
         match src with
@@ -373,8 +378,8 @@ let replace_forward_type_in env mainReference =
             else
                 let result =
                     match t with
-                    | TForward (refForward, tForward) -> replace env r t refForward tForward
-                    | _                               -> (r, t) :: env
+                    | TForward tForward -> replace env r t tForward
+                    | _                 -> (r, t) :: env
                 in
                 iter result tail
     in
@@ -433,7 +438,7 @@ let sfDataReference dr : environment -> reference -> t =
     fun e ns ->
         let r = (sfReference dr) in
         match resolve e ns r with
-        | _, Type TForward (rz, tf)    -> TForward (rz, tf)
+        | _, Type TForward t  -> TForward t
         | _, Type TEnum (id, elements) -> TEnum (id, elements)
         | _, Type TBool       -> TBool
         | _, Type TInt        -> TInt
@@ -448,7 +453,7 @@ let sfDataReference dr : environment -> reference -> t =
         | _, Type TSchema ts  when (TSchema ts) <: (TSchema TObject) -> TRef ts
         | _, Type TSchema _   -> error 420 ("Dereference of " ^ !^r ^ " is a schema")
         | _, Type TUndefined  -> error 421 ("Dereference of " ^ !^r ^ " is TUndefined")
-        | _, NotFound         -> TForward (r, TRefForward)
+        | _, NotFound         -> TForward (TRefForward r)
 
 (* (Deref Link) *)
 let sfLinkReference lr : environment -> reference -> reference ->
@@ -460,7 +465,7 @@ let sfLinkReference lr : environment -> reference -> reference ->
     fun e ns r ->
         let link = sfReference lr in
         match resolve e ns link with
-        | nsp, NotFound -> (nsp @++ link, TForward (link, TLinkForward))
+        | nsp, NotFound -> (nsp @++ link, TForward (TLinkForward link))
         | nsp, Type t   -> (nsp @++ link, t)
 
 let rec sfVector vec : environment -> reference -> t =
@@ -540,20 +545,21 @@ and nuriExpression exp : reference -> reference -> t -> environment -> t =
         | Equal (exp1, exp2) ->
             (   (* TODO: Documentation *)
                 match (nuriExpression exp1 ns r t e), (nuriExpression exp2 ns r t e) with
-                | TForward _, _ -> error 441 "Left reference of '==' is indeterminate."
-                | _, TForward _ -> error 442 "Right reference of '==' is indeterminate."
-                | TUndefined, _ -> error 443 "Type of left operand of '==' is undefined."
-                | _, TUndefined -> error 444 "Type of right operand of '==' is undefined."
+                | TForward _, TForward _ -> error 441 "The types of left and right operands of '==' are indeterminate."
+                | TForward _, _ -> error 442 "The type of left operand of '==' is indeterminate."
+                | _, TForward _ -> error 443 "The type of right operand of '==' is indeterminate."
+                | TUndefined, _ -> error 444 "The type of left operand of '==' is undefined."
+                | _, TUndefined -> error 445 "The type of right operand of '==' is undefined."
                 | t1, t2 when t1 <: t2 && t2 <: t1 -> TBool
-                | _ -> error 445 "Left and right operands of '==' is not equal."
+                | _ -> error 446 "Left and right operands of '==' is not equal."
             )
         | Exp_Not exp ->
             (   (* TODO: Documentation *)
                 match (nuriExpression exp ns r t e) with
-                | TForward _ -> error 446 "The operand's type of 'not' is indeterminate."
-                | TUndefined -> error 447 "The operand's type of 'not' is undefined."
+                | TForward _ -> error 447 "The operand's type of 'not' is indeterminate."
+                | TUndefined -> error 448 "The operand's type of 'not' is undefined."
                 | t when t <: TBool -> TBool
-                | _ -> error 448 "The operand of 'not' is not a boolean."
+                | _ -> error 449 "The operand of 'not' is not a boolean."
             )
         | Add (exp1, exp2) ->
             (   (* TODO: Documentation *)
@@ -564,7 +570,7 @@ and nuriExpression exp : reference -> reference -> t -> environment -> t =
                 | TInt  , TInt   -> TInt
                 | TString, _
                 | _, TString     -> TString
-                | _              -> error 449 "Both operands of '+' is neither integer nor float."
+                | _              -> error 500 "Both operands of '+' is neither integer nor float."
             )
         | IfThenElse (exp1, exp2, exp3) ->
             (   (* TODO: Documentation *)
@@ -573,14 +579,14 @@ and nuriExpression exp : reference -> reference -> t -> environment -> t =
                       (nuriExpression exp3 ns r t e)
                 with
                 | TBool, t2, t3 when t2 <: t3 && t3 <: t2 -> t2
-                | TBool, _, _ -> error 450 "The types of 'then' and 'else' clauses are not the same."
-                | _, _, _     -> error 451 "The type of 'if' clause is not a boolean"
+                | TBool, _, _ -> error 451 "The types of 'then' and 'else' clauses are not the same."
+                | _, _, _     -> error 452 "The type of 'if' clause is not a boolean"
             )
         | MatchRegexp (exp, regexp) ->
             (   (* TODO: Documentation *)
                 match nuriExpression exp ns r t e with
                 | TString -> TBool
-                | _       -> error 452 "The expression of regexp-matching is not a string."
+                | _       -> error 453 "The expression of regexp-matching is not a string."
             )
 
 and sfValue v : reference -> reference -> t -> environment ->

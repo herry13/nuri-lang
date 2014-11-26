@@ -24,6 +24,7 @@ and value     = Basic of basic
               | Unknown
               | Nothing
               | Enum of string list
+              | Lazy of (store -> reference -> value)
 and _value    = Val of value
               | Undefined
 and cell      = ident * value
@@ -275,33 +276,64 @@ let inherit_proto store baseReference prototypeReference reference =
 	| _, _             -> error 510 ""
 ;;
 
-let rec replace_link store baseReference identifier value baseReference1 =
+module SetFunc = Set.Make
+(
+    struct
+	    type t = (store -> reference -> value)
+	    let compare = Pervasives.compare
+    end
+)
+
+let rec resolve_function ?visited:(bucket=SetFunc.empty) store baseReference func =
+    if SetFunc.exists (fun f -> f = func) bucket then
+        error 525 "Cyclic function detected."
+    else
+        match func store baseReference with
+        | Lazy f1 -> resolve_function ~visited:(SetFunc.add func bucket) store baseReference f1
+        | value -> value
+;;
+
+let rec replace_lazy store baseReference identifier value baseReference1 =
 	let rp = baseReference @+. identifier in
 	match value with
 	| Link rl  -> (
 			match resolve_link store baseReference1 rp (Link rl) with
-			| _, Undefined -> error 511 ""
-			| nsp, Val vp  -> (
-					let sp = bind store rp vp in
-					match vp with
-					| Store ssp -> accept sp rp ssp nsp
-					| _         -> sp
-				)
+            | _  , Undefined     -> error 511 ""
+            | nsp, Val Store ssp -> accept (bind store rp (Store ssp)) rp ssp nsp
+            | _  , Val Lazy func ->
+                (
+                    let vp = resolve_function store baseReference1 func in
+                    let sp = bind store rp vp in
+                    replace_lazy sp baseReference identifier vp baseReference1
+                )
+            | _  , Val vp        -> bind store rp vp
 		)
     | Basic Ref r ->
         (
             match resolve_link store baseReference1 rp (Link r) with
-            | nsp, Val Basic vp -> bind store rp (Basic vp)
-            | _, _ -> store
+            | _, Val Basic vp  -> bind store rp (Basic vp)
+            | _, Val Lazy func ->
+                (
+                    let vp = resolve_function store baseReference1 func in
+                    let sp = bind store rp vp in
+                    replace_lazy sp baseReference identifier vp baseReference1
+                )
+            | _, _             -> store
         )
 	| Store vs -> accept store rp vs rp
+    | Lazy func ->
+        (
+            let vp = resolve_function store baseReference1 func in
+            let sp = bind store rp vp in
+            replace_lazy sp baseReference identifier vp baseReference1
+        )
 	| _        -> store
 		
 and accept store baseReference store1 baseReference1 =
 	match store1 with
 	| []      -> store
 	| (id, v) :: sp ->
-		let sq = replace_link store baseReference id v baseReference1 in
+		let sq = replace_lazy store baseReference id v baseReference1 in
 		accept sq baseReference sp baseReference1
 ;;
 
@@ -386,7 +418,7 @@ let rec add ?store:(s=[]) ?namespace:(ns=[]) left right = match left, right with
     | String s1, String s2 -> String (s1 ^ s2)
     | String s, v          -> String (s ^ (string_of_basic_value v))
     | v, String s          -> String ((string_of_basic_value v) ^ s)
-    | v1, v2 -> error 519 ("Invalid operands '+': " ^ (string_of_basic_value v1) ^
+    | v1, v2 -> error 524 ("Invalid operands '+': " ^ (string_of_basic_value v1) ^
                            ", " ^ (string_of_basic_value v2))
 ;;
 

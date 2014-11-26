@@ -178,6 +178,10 @@ let main =
             prerr_endline msg;
             exit code
         )
+    | Json.JsonError (code, msg) -> (
+            prerr_endline msg;
+            exit code
+        )
 ;;
 
 let _ = main ;;

@@ -62,14 +62,14 @@ and t        = TBool
              | TList    of t
              | TSchema  of tSchema
              | TRef     of tSchema
-             | TForward of reference * tForward
+             | TForward of tForward
     
 and tSchema  = TObject
              | TRootSchema
              | TUserSchema of string * tSchema
     
-and tForward = TLinkForward
-             | TRefForward
+and tForward = TLinkForward of reference
+             | TRefForward  of reference
 
 (** trajectory **)
 and trajectory = Global of _constraint

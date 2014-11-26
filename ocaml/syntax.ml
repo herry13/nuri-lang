@@ -64,14 +64,14 @@ and t        = TBool
              | TList    of t
              | TSchema  of tSchema
              | TRef     of tSchema
-             | TForward of reference * tForward
+             | TForward of tForward
     
 and tSchema  = TObject
              | TRootSchema
              | TUserSchema of string * tSchema
     
-and tForward = TLinkForward
-             | TRefForward
+and tForward = TLinkForward of reference
+             | TRefForward  of reference
 
 and trajectory = Global of _constraint
 
@@ -179,18 +179,14 @@ and string_of_type t =
     | TList t         -> "[]" ^ (string_of_type t)
     | TSchema t       -> string_of_type_schema t
     | TRef t          -> "*" ^ (string_of_type_schema t)
-    | TForward (r, l) -> string_of_type_forward r l
+    | TForward TLinkForward r -> "forward:" ^ (String.concat "." r)
+    | TForward TRefForward r  -> "forward:*" ^ (String.concat "." r)
 
 and string_of_type_schema t =
     match t with
     | TObject -> "object"
     | TRootSchema -> "schema"
     | TUserSchema (id, super) -> id ^ "<" ^ (string_of_type_schema super)
-
-and string_of_type_forward ref label =
-    match label with
-    | TLinkForward -> "forward:" ^ (String.concat "." ref)
-    | TRefForward  -> "forward:*" ^ (String.concat "." ref)
 
 and string_of_super_schema = function
     | SID id      -> " isa " ^ id
