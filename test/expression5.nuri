@@ -1,0 +1,6 @@
+main {
+    status = "nginx is running";
+    state1 = "nginx is running" =~ /running/;
+    state2 = status =~ /running/;
+    state3 = `which ls` =~ /^\/bin\/ls$/;
+}

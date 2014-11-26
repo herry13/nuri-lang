@@ -114,6 +114,7 @@ rule token =
 	              { NURI_INCLUDE_FILE (read_string (Buffer.create 17) lexbuf) }
     | import_file white '"'
                   { IMPORT_FILE (read_string (Buffer.create 17) lexbuf) }
+    | "=~" ' '* '/' { REGEXP (read_regex (Buffer.create 17) lexbuf) }
 	| ','         { COMMA }
 	| '{'         { BEGIN }
 	| '}'         { END }
@@ -201,7 +202,20 @@ and read_shell buf =
     | '\\' '`'      { Buffer.add_char buf '`'; read_shell buf lexbuf }
     | [^ '`']+      { Buffer.add_string buf (Lexing.lexeme lexbuf); read_shell buf lexbuf }
     | _             { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
-    | eof           { raise (SyntaxError "Shell command is not terminated") }
+    | eof           { raise (SyntaxError "Shell command is not terminated.") }
+
+and read_regex buf =
+    parse
+    | '/'       { Buffer.contents buf }
+    | '\\' '\\' { Buffer.add_char buf '\\'; read_regex buf lexbuf }
+    | '\\' '/'  { Buffer.add_char buf '/'; read_regex buf lexbuf }
+    | '|'       { Buffer.add_string buf "\\|"; read_regex buf lexbuf }
+    | '('       { Buffer.add_string buf "\\("; read_regex buf lexbuf }
+    | ')'       { Buffer.add_string buf "\\)"; read_regex buf lexbuf }
+    | [^ '\\' '/' '|' '(' ')']+
+                { Buffer.add_string buf (Lexing.lexeme lexbuf); read_regex buf lexbuf }
+    | _         { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
+    | eof       { raise (SyntaxError "Regex is not terminated.") }
 
 and read_comments =
 	parse

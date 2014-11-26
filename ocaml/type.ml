@@ -576,6 +576,12 @@ and nuriExpression exp : reference -> reference -> t -> environment -> t =
                 | TBool, _, _ -> error 450 "The types of 'then' and 'else' clauses are not the same."
                 | _, _, _     -> error 451 "The type of 'if' clause is not a boolean"
             )
+        | MatchRegexp (exp, regexp) ->
+            (   (* TODO: Documentation *)
+                match nuriExpression exp ns r t e with
+                | TString -> TBool
+                | _       -> error 452 "The expression of regexp-matching is not a string."
+            )
 
 and sfValue v : reference -> reference -> t -> environment ->
     environment =

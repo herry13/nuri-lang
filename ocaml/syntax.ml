@@ -15,12 +15,13 @@ and  block         = AssignmentBlock of assignment * block
                    | TrajectoryBlock of trajectory * block
                    | EmptyBlock
 and  assignment    = reference * t * value
-and  expression    = Basic      of basicValue
-                   | Shell      of string
-                   | Equal      of expression * expression
-                   | Exp_Not    of expression
-                   | Add        of expression * expression
-                   | IfThenElse of expression * expression * expression
+and  expression    = Basic       of basicValue
+                   | Shell       of string
+                   | Equal       of expression * expression
+                   | Exp_Not     of expression
+                   | Add         of expression * expression
+                   | IfThenElse  of expression * expression * expression
+                   | MatchRegexp of expression * string
 and  value         = Expression of expression
                    | Link       of reference
                    | Prototype  of superSchema * prototype
@@ -127,6 +128,7 @@ and string_of_expression e = match e with
     | IfThenElse (e1, e2, e3) -> " if " ^ (string_of_expression e1) ^
                                  " then " ^ (string_of_expression e2) ^
                                  " else " ^ (string_of_expression e3)
+    | MatchRegexp (exp, regexp) -> " " ^ (string_of_expression exp) ^ " =~ /" ^ regexp ^ "/"
 
 and string_of_value = function
     | Expression e       -> " " ^ (string_of_expression e) ^ ";"
@@ -418,6 +420,14 @@ let json_of_nuri nuri =
                 json_of_expression e2;
                 Buffer.add_string buf ",\"else\":";
                 json_of_expression e3;
+                Buffer.add_char buf '}'
+            )
+        | MatchRegexp (exp, regexp) ->
+            (
+                Buffer.add_string buf "{\".type\":\"expression\",\"operator\":\"match-regexp\",\"expression\":";
+                json_of_expression exp;
+                Buffer.add_string buf ",\"regexp\":";
+                json_of_basic_value (String regexp);
                 Buffer.add_char buf '}'
             )
 

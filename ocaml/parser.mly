@@ -29,6 +29,7 @@ open Syntax
 %token TOK_GREATER TOK_GREATER_EQUAL TOK_LESS TOK_LESS_EQUAL
 %token TOK_COLON_EQUAL
 %token <string> SHELL
+%token <string> REGEXP
 %token COST CONDITIONS EFFECTS ACTION
 
 /* entry point to included file */
@@ -101,6 +102,7 @@ exp1
 binary_op
     : TOK_EQUAL_EQUAL exp2 binary_op { fun left -> $3 (Equal (left, $2)) }
     | TOK_PLUS exp2 binary_op        { fun left -> $3 (Add (left, $2)) }
+    | REGEXP binary_op               { fun left -> $2 (MatchRegexp (left, $1)) }
     |                                { fun v -> v }
 
 exp2

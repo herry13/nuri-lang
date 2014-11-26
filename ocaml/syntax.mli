@@ -19,6 +19,7 @@ and  expression    = Basic      of basicValue
                    | Exp_Not    of expression
                    | Add        of expression * expression
                    | IfThenElse of expression * expression * expression
+                   | MatchRegexp of expression * string
 and  value         = Expression of expression
                    | Link       of reference
                    | Prototype  of superSchema * prototype

@@ -173,6 +173,28 @@ and nuriExpression exp =
                     if condition then thenValue else elseValue
                 | _ -> Domain.error 1116 "Invalid if-then-else statement."
             )
+        | MatchRegexp (exp, regexp) ->
+            (
+                let match_regexp str =
+                     let value =
+                        try
+                            (Str.search_forward (Str.regexp regexp) str 0) >= 0
+                        with
+                            Not_found -> false
+                    in
+                    Domain.Basic (Domain.Boolean value)
+                in
+                match nuriExpression exp ns r s with
+                | Domain.Basic (Domain.String str) -> match_regexp str
+                | Domain.Basic (Domain.Ref r) ->
+                    (
+                        match Domain.resolve ~follow_ref:true s ns r with
+                        | _, Domain.Val Domain.Basic Domain.String str -> match_regexp str
+                        | _ -> Domain.error 1117 "The expression of match-regexp is not a string."
+                        
+                    )
+                | _ -> Domain.error 1118 "The expression of match-regexp is not a string."
+            )
 
 and sfValue v =
     let eval_name (r: Domain.reference) (s: Domain.store) =
