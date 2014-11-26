@@ -1,0 +1,10 @@
+main {
+    a = ! true;
+    b = ! a;
+    msg_a = "not a is " + (! a);
+    msg_b = "it is " + (!b) + " that I will go";
+
+    cmd = "which";
+    path = true;
+    result = `${cmd} ${path}`;
+}
