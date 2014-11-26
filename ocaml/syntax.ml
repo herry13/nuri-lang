@@ -400,7 +400,7 @@ let json_of_nuri nuri =
             )
         | Exp_Not e ->
             (
-                Buffer.add_string buf "{\".type\":\"expression\",\"operator\":\"!\",\"expression\":";
+                Buffer.add_string buf "{\".type\":\"expression\",\"operator\":\"not\",\"expression\":";
                 json_of_expression e;
                 Buffer.add_char buf '}'
             )

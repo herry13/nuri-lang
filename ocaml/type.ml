@@ -550,10 +550,10 @@ and nuriExpression exp : reference -> reference -> t -> environment -> t =
         | Exp_Not exp ->
             (   (* TODO: Documentation *)
                 match (nuriExpression exp ns r t e) with
-                | TForward _ -> error 446 "The expression's type of '!' is indeterminate."
-                | TUndefined -> error 447 "The expression's type of '!' is undefined."
+                | TForward _ -> error 446 "The operand's type of 'not' is indeterminate."
+                | TUndefined -> error 447 "The operand's type of 'not' is undefined."
                 | t when t <: TBool -> TBool
-                | _ -> error 448 "The expression's type of '!' is not boolean."
+                | _ -> error 448 "The operand of 'not' is not a boolean."
             )
         | Add (exp1, exp2) ->
             (   (* TODO: Documentation *)

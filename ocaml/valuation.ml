@@ -149,9 +149,9 @@ and nuriExpression exp =
                         | _, Domain.Val (Domain.Basic (Domain.Boolean b)) ->
                             Domain.Basic (Domain.Boolean (not b))
                         | _ ->
-                            Domain.error 1111 "Operand of '!' is not a boolean."
+                            Domain.error 1111 "The operand of 'not' is not a boolean."
                     )
-                | _ -> Domain.error 1112 "Operand of '!' is not a boolean."
+                | _ -> Domain.error 1112 "The operand of 'not' is not a boolean."
             )
         | Add (exp1, exp2) ->
             (
