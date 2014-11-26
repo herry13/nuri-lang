@@ -103,15 +103,15 @@ val accept : store -> reference -> store -> reference -> store
 
 val value_TBD_exists : reference -> store -> reference
 
+val add : ?store:store -> ?namespace:reference -> basic -> basic -> basic
+
 (*******************************************************************
- * domain convertion functions to string, JSON, or YAML
+ * domain convertion functions to string
  *******************************************************************)
 
 val (!^) : reference -> string
 
-(* val yaml_of_store : store -> string *)
-
-val from_json : string -> value
+val string_of_basic_value : basic -> string
 
 (*******************************************************************
  * Flat-Store domain

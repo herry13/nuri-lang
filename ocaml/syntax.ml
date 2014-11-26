@@ -18,6 +18,7 @@ and  assignment    = reference * t * value
 and  expression    = Basic      of basicValue
                    | Shell      of string
                    | Equal      of expression * expression
+                   | Exp_Not    of expression
                    | Add        of expression * expression
                    | IfThenElse of expression * expression * expression
 and  value         = Expression of expression
@@ -121,6 +122,7 @@ and string_of_expression e = match e with
     | Basic v            -> string_of_basic_value v
     | Shell s            -> " `" ^ s ^ "`;" (* TODO: use escape (\) for every backtick character *)
     | Equal (e1, e2)     -> " " ^ (string_of_expression e1) ^ " = " ^ (string_of_expression e2)
+    | Exp_Not e          -> " not " ^ (string_of_expression e)
     | Add (e1, e2)       -> " " ^ (string_of_expression e1) ^ " + " ^ (string_of_expression e2)
     | IfThenElse (e1, e2, e3) -> " if " ^ (string_of_expression e1) ^
                                  " then " ^ (string_of_expression e2) ^
@@ -392,6 +394,12 @@ let json_of_nuri nuri =
                 json_of_expression e1;
                 Buffer.add_string buf ",\"right\":";
                 json_of_expression e2;
+                Buffer.add_char buf '}'
+            )
+        | Exp_Not e ->
+            (
+                Buffer.add_string buf "{\".type\":\"expression\",\"operator\":\"!\",\"expression\":";
+                json_of_expression e;
                 Buffer.add_char buf '}'
             )
         | Add (e1, e2) ->

@@ -540,12 +540,20 @@ and nuriExpression exp : reference -> reference -> t -> environment -> t =
         | Equal (exp1, exp2) ->
             (   (* TODO: Documentation *)
                 match (nuriExpression exp1 ns r t e), (nuriExpression exp2 ns r t e) with
-                | TForward _, _ -> error 441 "Left reference is not exist."
-                | _, TForward _ -> error 442 "Right reference is not exist."
-                | TUndefined, _ -> error 443 "Type of left operand is undefined."
-                | _, TUndefined -> error 444 "Type of right operand is undefined."
+                | TForward _, _ -> error 441 "Left reference of '==' is indeterminate."
+                | _, TForward _ -> error 442 "Right reference of '==' is indeterminate."
+                | TUndefined, _ -> error 443 "Type of left operand of '==' is undefined."
+                | _, TUndefined -> error 444 "Type of right operand of '==' is undefined."
                 | t1, t2 when t1 <: t2 && t2 <: t1 -> TBool
-                | _ -> error 445 "Left and right operands of '=' is not equal."
+                | _ -> error 445 "Left and right operands of '==' is not equal."
+            )
+        | Exp_Not exp ->
+            (   (* TODO: Documentation *)
+                match (nuriExpression exp ns r t e) with
+                | TForward _ -> error 446 "The expression's type of '!' is indeterminate."
+                | TUndefined -> error 447 "The expression's type of '!' is undefined."
+                | t when t <: TBool -> TBool
+                | _ -> error 448 "The expression's type of '!' is not boolean."
             )
         | Add (exp1, exp2) ->
             (   (* TODO: Documentation *)
@@ -554,7 +562,9 @@ and nuriExpression exp : reference -> reference -> t -> environment -> t =
                 | TFloat, TInt
                 | TFloat, TFloat -> TFloat
                 | TInt  , TInt   -> TInt
-                | _              -> error 446 "Both operands of '+' is neither integer nor float."
+                | TString, _
+                | _, TString     -> TString
+                | _              -> error 449 "Both operands of '+' is neither integer nor float."
             )
         | IfThenElse (exp1, exp2, exp3) ->
             (   (* TODO: Documentation *)
@@ -563,8 +573,8 @@ and nuriExpression exp : reference -> reference -> t -> environment -> t =
                       (nuriExpression exp3 ns r t e)
                 with
                 | TBool, t2, t3 when t2 <: t3 && t3 <: t2 -> t2
-                | TBool, _, _ -> error 447 "The types of 'then' and 'else' clauses are not the same."
-                | _, _, _     -> error 448 "The type of 'if' clause is not a boolean"
+                | TBool, _, _ -> error 450 "The types of 'then' and 'else' clauses are not the same."
+                | _, _, _     -> error 451 "The type of 'if' clause is not a boolean"
             )
 
 and sfValue v : reference -> reference -> t -> environment ->

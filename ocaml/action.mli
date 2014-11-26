@@ -66,10 +66,8 @@ val empty : ts
 (** convert a collection of actions to an array of actions **)
 val to_array : ts -> t array
 
-
+(* encode action's name to string *)
 val encode_name : int -> t -> string
 
-val decode_name : string -> (int * reference * basic MapStr.t)
-
-
+(* generate the JSON of an action, and then put it in the buffer *)
 val to_string_buffer : t -> Buffer.t -> unit

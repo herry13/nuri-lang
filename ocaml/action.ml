@@ -179,6 +179,7 @@ let encode_name id a =
 	Buffer.contents buf
 ;;
 
+(*
 let decode_name (s: string): int * reference * basic MapStr.t =
 	let rec iter_param (map: basic MapStr.t) ps =
 		match ps with
@@ -204,6 +205,7 @@ let decode_name (s: string): int * reference * basic MapStr.t =
 		)
 	| _ -> error 804 "invalid action name"
 ;;
+*)
 
 (****************************************************************************
  * Functions to ground actions.
