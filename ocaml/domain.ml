@@ -319,52 +319,77 @@ let rec value_TBD_exists ns store =
 		| _        -> value_TBD_exists ns ss
 ;;
 
-
 (*******************************************************************
- * convert reference (list of string) to string
+ * domain convertion functions to string
  *******************************************************************)
 
-(* let (!^) reference = "$." ^ String.concat "." reference ;; *)
-
-let string_of_ref reference = !^reference ;;
-
-
-(*******************************************************************
- * convert JSON to the semantics domain
- *******************************************************************)
-
-(* TODO: implement this function *)
-let rec from_json store =
-    (*
-	let reference_separator = Str.regexp "\\." in
-	let rec make_vector acc vec =
-		match vec with
-		| []           -> acc
-		| head :: tail -> (
-				match nuri_of head with
-				| Basic bv -> (make_vector (bv :: acc) tail)
-				| _        -> error 512 ""
-			)
-	and make_store acc s =
-		match s with
-		| []              -> acc
-		| (id, v) :: tail -> make_store ((id, (nuri_of v)) :: acc) tail
-	and nuri_of = function
-		| `String str
-			when (String.length str) > 2 && str.[0] = '$' && str.[1] = '.' ->
-				Basic (Ref (List.tl (Str.split reference_separator str)))
-		| `String str -> Basic (String str)
-		| `Bool b     -> Basic (Boolean b)
-		| `Float f    -> Basic (Float f)
-		| `Int i      -> Basic (Int i)
-		| `Null       -> Basic Null
-		| `List vec   -> Basic (Vector (make_vector [] vec))
-		| `Assoc s    -> Store (make_store [] s)
-	in
-	nuri_of (Yojson.Basic.from_string store)
-    *)
-    Store []
+(* TODO: update semantics algebra in the documentation *)
+let rec string_of_basic_value bv = match bv with
+    | Boolean b -> if b then "true" else "false"
+    | Int i     -> string_of_int i
+    | Float f   -> string_of_float f
+    | String s  -> s
+    | Null      -> "null"
+    | Vector v  ->
+        (
+            let buf = Buffer.create 15 in
+            let rec iter v = match v with
+                | [] -> ()
+                | head :: [] -> Buffer.add_string buf (string_of_basic_value head)
+                | head :: tail -> Buffer.add_string buf (string_of_basic_value head); iter tail
+            in
+            Buffer.add_char buf '[';
+            iter v;
+            Buffer.add_char buf ']';
+            Buffer.contents buf
+        )
+    | Ref r     -> (!^) r
+    | EnumElement (enum, symbol) -> enum ^ "." ^ symbol
 ;;
+
+
+(*******************************************************************
+ * Helper functions for module valuation
+ *******************************************************************)
+
+(* TODO: update semantics algebra in the documentation *)
+let rec add ?store:(s=[]) ?namespace:(ns=[]) left right = match left, right with
+    | Ref r1, Ref r2       ->
+        (
+            match (resolve ~follow_ref:true s ns r1),
+                  (resolve ~follow_ref:true s ns r2)
+            with
+            | (_, Val Basic v1), (_, Val Basic v2) -> add ~store:s ~namespace:ns v1 v2
+            | (_, Undefined), (_, Undefined) -> error 516 "Both references of '+' are not exist."
+            | (_, Undefined), _              -> error 517 "Left reference of '+' is not exist."
+            | _             , (_, Undefined) -> error 518 "Right reference of '+' is not exist."
+            | _ -> error 519 "Operands of '+' are not basic values."
+        )
+    | Ref r1, v2 ->
+        (
+            match resolve ~follow_ref:true s ns r1 with
+            | (_, Val Basic v1) -> add ~store:s ~namespace:ns v1 v2
+            | (_, Undefined)    -> error 520 "Left reference of '+' is not exist."
+            | _                 -> error 521 "Left operand of '+' is not a basic value."
+        )
+    | v1, Ref r2 ->
+        (
+            match resolve ~follow_ref:true s ns r2 with
+            | (_, Val Basic v2) -> add ~store:s ~namespace:ns v1 v2
+            | (_, Undefined)    -> error 522 "Right reference of '+' is not exist."
+            | _                 -> error 523 "Right operand of '+' is not a basic value."
+        )
+    | Int i, Float f
+    | Float f, Int i       -> Float ((float_of_int i) +. f)
+    | Float f1, Float f2   -> Float (f1 +. f2)
+    | Int i1, Int i2       -> Int (i1 + i2)
+    | String s1, String s2 -> String (s1 ^ s2)
+    | String s, v          -> String (s ^ (string_of_basic_value v))
+    | v, String s          -> String ((string_of_basic_value v) ^ s)
+    | v1, v2 -> error 519 ("Invalid operands '+': " ^ (string_of_basic_value v1) ^
+                           ", " ^ (string_of_basic_value v2))
+;;
+
 
 
 (*******************************************************************

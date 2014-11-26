@@ -16,6 +16,7 @@ and  assignment    = reference * t * value
 and  expression    = Basic      of basicValue
                    | Shell      of string
                    | Equal      of expression * expression
+                   | Exp_Not    of expression
                    | Add        of expression * expression
                    | IfThenElse of expression * expression * expression
 and  value         = Expression of expression

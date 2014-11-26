@@ -84,10 +84,12 @@ and nuriShell command =
                         let var = Buffer.contents bufferVariable in
                         (
                             match Domain.resolve s ns (Str.split (Str.regexp "\\.") var) with
-                            | _, Domain.Val Domain.Basic Domain.String value ->
-                                Buffer.add_string bufferCommand value
-                            | _ ->
+                            | _, Domain.Val Domain.Basic value ->
+                                Buffer.add_string bufferCommand (Domain.string_of_basic_value value)
+                            | _, Domain.Undefined ->
                                 Domain.error 1109 ("'" ^ var ^ "' in `" ^ command ^ "` is not found.")
+                            | _ ->
+                                Domain.error 1110 ("'" ^ var ^ "' in `" ^ command ^ "` is not a string.")
                         );
                         Buffer.clear bufferVariable;
                         string_interpolation (index + 1) length 0
@@ -137,20 +139,29 @@ and nuriExpression exp =
                 in
                 Domain.Basic (Domain.Boolean value)
             )
+        | Exp_Not exp ->
+            (
+                match nuriExpression exp ns r s with
+                | Domain.Basic (Domain.Boolean b) -> Domain.Basic (Domain.Boolean (not b))
+                | Domain.Basic (Domain.Ref r) ->
+                    (
+                        match Domain.resolve ~follow_ref:true s ns r with
+                        | _, Domain.Val (Domain.Basic (Domain.Boolean b)) ->
+                            Domain.Basic (Domain.Boolean (not b))
+                        | _ ->
+                            Domain.error 1111 "Operand of '!' is not a boolean."
+                    )
+                | _ -> Domain.error 1112 "Operand of '!' is not a boolean."
+            )
         | Add (exp1, exp2) ->
             (
                 match (nuriExpression exp1 ns r s),
                       (nuriExpression exp2 ns r s)
                 with
-                | Domain.Basic (Domain.Int v1), Domain.Basic (Domain.Float v2) ->
-                    Domain.Basic (Domain.Float ((float_of_int v1) +. v2))
-                | Domain.Basic (Domain.Float v1), Domain.Basic (Domain.Int v2) ->
-                    Domain.Basic (Domain.Float (v1 +. (float_of_int v2)))
-                | Domain.Basic (Domain.Float v1), Domain.Basic (Domain.Float v2) ->
-                    Domain.Basic (Domain.Float (v1 +. v2))
-                | Domain.Basic (Domain.Int v1), Domain.Basic (Domain.Int v2) ->
-                    Domain.Basic (Domain.Int (v1 + v2))
-                | _ -> Domain.error 1111 "Left or right operand of '+' is neither an integer nor float."
+                | Domain.Basic v1, Domain.Basic v2 -> Domain.Basic (Domain.add ~store:s ~namespace:ns v1 v2)
+                | _, Domain.Basic _ -> Domain.error 1113 "Left operand is not a basic value."
+                | Domain.Basic _, _ -> Domain.error 1114 "Right operand is not a basic value."
+                | _, _ -> Domain.error 1115 "Both operands are not basic values."
             )
         | IfThenElse (exp1, exp2, exp3) ->
             (
@@ -160,7 +171,7 @@ and nuriExpression exp =
                 with
                 | Domain.Basic (Domain.Boolean condition), thenValue, elseValue ->
                     if condition then thenValue else elseValue
-                | _ -> Domain.error 1112 "Invalid if-then-else statement."
+                | _ -> Domain.error 1116 "Invalid if-then-else statement."
             )
 
 and sfValue v =

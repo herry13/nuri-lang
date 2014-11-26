@@ -24,7 +24,7 @@ open Syntax
 %token LBRACKET RBRACKET EOS EOF
 %token ISA SCHEMA ENUM ASTERIX COLON TBOOL TINT TFLOAT TSTR TOBJ
 %token GLOBAL SOMETIME ATLEAST ATMOST ALLDIFFERENT
-%token TOK_EQUAL_EQUAL TOK_PLUS
+%token TOK_NOT TOK_EQUAL_EQUAL TOK_PLUS
 %token EQUAL NOT_EQUAL IF THEN ELSE IN NOT LPARENTHESIS RPARENTHESIS
 %token TOK_GREATER TOK_GREATER_EQUAL TOK_LESS TOK_LESS_EQUAL
 %token TOK_COLON_EQUAL
@@ -92,10 +92,11 @@ simple_value
 
 exp
     : exp1                     { $1 }
+    | TOK_NOT exp              { Exp_Not $2 }
     | IF exp THEN exp ELSE exp { IfThenElse ($2, $4, $6) }
 
 exp1
-    : exp2 binary_op { $2 $1 }
+    : exp2 binary_op         { $2 $1 }
 
 binary_op
     : TOK_EQUAL_EQUAL exp2 binary_op { fun left -> $3 (Equal (left, $2)) }
