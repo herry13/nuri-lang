@@ -19,6 +19,9 @@ and  expression    = Basic       of basicValue
                    | Shell       of string
                    | Equal       of expression * expression
                    | Exp_Not     of expression
+                   | Exp_And    of expression * expression
+                   | Exp_Or     of expression * expression
+                   | Exp_Imply  of expression * expression
                    | Add         of expression * expression
                    | IfThenElse  of expression * expression * expression
                    | MatchRegexp of expression * string
@@ -124,6 +127,9 @@ and string_of_expression e = match e with
     | Shell s            -> " `" ^ s ^ "`;" (* TODO: use escape (\) for every backtick character *)
     | Equal (e1, e2)     -> " " ^ (string_of_expression e1) ^ " = " ^ (string_of_expression e2)
     | Exp_Not e          -> " not " ^ (string_of_expression e)
+    | Exp_And (e1, e2)   -> " " ^ (string_of_expression e1) ^ " && " ^ (string_of_expression e2)
+    | Exp_Or (e1, e2)    -> " " ^ (string_of_expression e1) ^ " || " ^ (string_of_expression e2)
+    | Exp_Imply (e1, e2) -> " " ^ (string_of_expression e1) ^ " => " ^ (string_of_expression e2)
     | Add (e1, e2)       -> " " ^ (string_of_expression e1) ^ " + " ^ (string_of_expression e2)
     | IfThenElse (e1, e2, e3) -> " if " ^ (string_of_expression e1) ^
                                  " then " ^ (string_of_expression e2) ^
@@ -378,7 +384,17 @@ let json_of_nuri nuri =
             )
         | EmptyPrototype -> ()
 
-    and json_of_expression e = match e with
+    and json_of_expression e =
+        let binary operator left right =
+            Buffer.add_string buf "{\".type\":\"expression\",\"operator\":\"";
+            Buffer.add_string buf operator;
+            Buffer.add_string buf "\",\"left\":";
+            json_of_expression left;
+            Buffer.add_string buf ",\"right\":";
+            json_of_expression right;
+            Buffer.add_char buf '}'
+        in
+        match e with
         | Basic bv -> json_of_basic_value bv
         | Shell s ->
             (
@@ -386,28 +402,17 @@ let json_of_nuri nuri =
                 Buffer.add_string buf s; (* TODO: use escape characters *)
                 Buffer.add_char buf '"'
             )
-        | Equal (e1, e2) ->
-            (
-                Buffer.add_string buf "{\".type\":\"expression\",\"operator\":\"=\",\"left\":";
-                json_of_expression e1;
-                Buffer.add_string buf ",\"right\":";
-                json_of_expression e2;
-                Buffer.add_char buf '}'
-            )
+        | Equal (e1, e2) -> binary "=" e1 e2
         | Exp_Not e ->
             (
                 Buffer.add_string buf "{\".type\":\"expression\",\"operator\":\"not\",\"expression\":";
                 json_of_expression e;
                 Buffer.add_char buf '}'
             )
-        | Add (e1, e2) ->
-            (
-                Buffer.add_string buf "{\".type\":\"expression\",\"operator\":\"+\",\"left\":";
-                json_of_expression e1;
-                Buffer.add_string buf ",\"right\":";
-                json_of_expression e2;
-                Buffer.add_char buf '}'
-            )
+        | Exp_And (e1, e2)   -> binary "&&" e1 e2
+        | Exp_Or (e1, e2)    -> binary "||" e1 e2
+        | Exp_Imply (e1, e2) -> binary "=>" e1 e2
+        | Add (e1, e2) -> binary "+" e1 e2
         | IfThenElse (e1, e2, e3) ->
             (
                 Buffer.add_string buf "{\".type\":\"expression\",\"operator\":\"ifthenelse\",\"if\":";

@@ -32,7 +32,7 @@
 (**
  * reserved characters: '/' '*' ',' '{' '}' '[' ']' '(' ')' ';' '.' ':'
  *                      '=' "!=" ">=" "<=" '>' '<' ":=" '"'
- *                      '`' '+' '==' '!'
+ *                      '`' '+' '==' '!' "&&" "||" "=>"
  *)
 
 (** regular expressions **)
@@ -135,6 +135,9 @@ rule token =
 	| '<'         { TOK_LESS }
     | ":="        { TOK_COLON_EQUAL }
     | "=="        { TOK_EQUAL_EQUAL }
+    | "&&"        { TOK_AND }
+    | "||"        { TOK_OR  }
+    | "=>"        { TOK_IMPLY }
 	| int         { INT (Lexing.lexeme lexbuf) }
 	| float       { FLOAT (Lexing.lexeme lexbuf) }
 	| true_value  { BOOL "true" }

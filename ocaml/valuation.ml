@@ -134,6 +134,27 @@ and nuriEqual exp1 exp2 =
         in
         Domain.Basic (Domain.Boolean value)
 
+and nuriExp_And left right =
+    fun s ns -> Domain.Basic (Domain.Boolean (
+        match (eval left ns s), (eval right ns s) with
+        | Domain.Basic (Domain.Boolean bLeft), Domain.Basic (Domain.Boolean bRight) -> bLeft && bRight
+        | _ -> Domain.error 1120 "Left or right operand of '&&' is not a boolean."
+    ))
+
+and nuriExp_Or left right =
+    fun s ns -> Domain.Basic (Domain.Boolean (
+        match (eval left ns s), (eval right ns s) with
+        | Domain.Basic (Domain.Boolean bLeft), Domain.Basic (Domain.Boolean bRight) -> bLeft || bRight
+        | _ -> Domain.error 1120 "Left or right operand of '||' is not a boolean."
+    ))
+
+and nuriExp_Imply left right =
+    fun s ns -> Domain.Basic (Domain.Boolean (
+        match (eval left ns s), (eval right ns s) with
+        | Domain.Basic (Domain.Boolean bLeft), Domain.Basic (Domain.Boolean bRight) -> if bLeft then bRight else true
+        | _ -> Domain.error 1120 "Left or right operand of '=>' is not a boolean."
+    ))
+
 (* TODO: documentation *)
 and nuriExp_Not exp =
     fun s ns ->
@@ -207,6 +228,9 @@ and nuriExpression exp =
         | Shell command                 -> Domain.Lazy (nuriShell command)
         | Equal (exp1, exp2)            -> Domain.Lazy (nuriEqual exp1 exp2)
         | Exp_Not exp                   -> Domain.Lazy (nuriExp_Not exp)
+        | Exp_And (left, right)         -> Domain.Lazy (nuriExp_And left right)
+        | Exp_Or (left, right)          -> Domain.Lazy (nuriExp_Or left right)
+        | Exp_Imply (left, right)       -> Domain.Lazy (nuriExp_Imply left right)
         | Add (exp1, exp2)              -> Domain.Lazy (nuriAdd exp1 exp2)
         | IfThenElse (exp1, exp2, exp3) -> Domain.Lazy (nuriIfThenElse exp1 exp2 exp3)
         | MatchRegexp (exp, regexp)     -> Domain.Lazy (nuriMatchRegexp exp regexp)

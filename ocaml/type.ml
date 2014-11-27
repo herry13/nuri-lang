@@ -539,7 +539,23 @@ let rec sfPrototype proto first t_val : reference -> reference ->
                     (inherit_env e_proto ns proto r)
 
 and nuriExpression exp : reference -> reference -> t -> environment -> t =
-    fun ns r t e -> match exp with
+    fun ns r t e ->
+        let binary_logic operator left right =
+            match (nuriExpression left ns r t e), (nuriExpression right ns r t e) with
+            | TForward _, TForward _ -> error 441 ("The types of left and right operands of '" ^
+                                                   operator ^ "' are indeterminate.")
+            | TForward _, _          -> error 442 ("The type of left operand of '" ^
+                                                   operator ^ "' is indeterminate.")
+            | _         , TForward _ -> error 443 ("The type of right operand of '" ^
+                                                   operator ^ "' is indeterminate.")
+            | TUndefined, _          -> error 444 ("The type of left operand of '" ^
+                                                   operator ^ "' is undefined.")
+            | _         , TUndefined -> error 445 ("The type of right operand of '" ^
+                                                   operator ^ "' is undefined.")
+            | TBool, TBool -> TBool
+            | _ -> error 446 ("Left and right operands of '" ^ operator ^ "' are not booleans.")
+        in
+        match exp with
         | Shell s            -> TString (* TODO: Documentation *)
         | Basic bv           -> sfBasicValue bv e ns
         | Equal (exp1, exp2) ->
@@ -561,6 +577,9 @@ and nuriExpression exp : reference -> reference -> t -> environment -> t =
                 | t when t <: TBool -> TBool
                 | _ -> error 449 "The operand of 'not' is not a boolean."
             )
+        | Exp_And   (left, right) -> binary_logic "&&" left right
+        | Exp_Or    (left, right) -> binary_logic "||" left right
+        | Exp_Imply (left, right) -> binary_logic "=>" left right
         | Add (exp1, exp2) ->
             (   (* TODO: Documentation *)
                 match (nuriExpression exp1 ns r t e), (nuriExpression exp2 ns r t e) with

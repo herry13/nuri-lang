@@ -21,6 +21,8 @@ let string_of_sequential sequentialPlan =
     let buffer = Buffer.create 42 in
     Array.iteri (fun index action ->
         if index > 0 then Buffer.add_char buffer '\n';
+        Buffer.add_string buffer (string_of_int (index + 1));
+        Buffer.add_string buffer ") ";
         Action.to_string_buffer action buffer
     ) sequentialPlan;
     Buffer.contents buffer

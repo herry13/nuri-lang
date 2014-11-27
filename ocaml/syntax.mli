@@ -17,6 +17,9 @@ and  expression    = Basic      of basicValue
                    | Shell      of string
                    | Equal      of expression * expression
                    | Exp_Not    of expression
+                   | Exp_And    of expression * expression
+                   | Exp_Or     of expression * expression
+                   | Exp_Imply  of expression * expression
                    | Add        of expression * expression
                    | IfThenElse of expression * expression * expression
                    | MatchRegexp of expression * string
