@@ -1,0 +1,34 @@
+import "common/state";
+
+schema Package {
+    version = `brew info ${name} | grep '*' | awk '{n=split($0,a,"/");print a[n];}' | awk '{n=split($0,a," ");print a[1];}'`;
+    ensure = if `brew info ${name}` =~ /(Poured from bottle|Built from source)/ then
+                if `brew outdated | grep '${name}'` =~ /^$/ then State.latest
+                else State.outdated
+             else State.uninstalled;
+
+    def install {
+        conditions this.ensure = State.uninstalled;
+        effects {
+            this.ensure = State.latest;
+        }
+    }
+
+    def uninstalled {
+        conditions (
+            this.ensure = State.outdated;
+            this.ensure = State.latest;
+        )
+        effects {
+            this.ensure = State.uninstalled;
+        }
+    }
+
+    def upgrade {
+        conditions this.ensure = State.latest;
+        effects {
+            this.ensure = State.latest;
+        }
+    }
+
+}

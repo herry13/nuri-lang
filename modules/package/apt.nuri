@@ -1,0 +1,25 @@
+import "common/state";
+
+schema Package {
+    ensure = if `/usr/bin/dpkg-query -s ${name} 2>/dev/null` =~ /Status: .* installed/ then State.latest
+             else State.uninstalled;
+
+    def install {
+        conditions {
+            this.ensure = State.uninstalled;
+        }
+        effects {
+            this.ensure = State.installed;
+        }
+    }
+
+    def uninstall {
+        conditions {
+            this.ensure = State.installed;
+        }
+        effects {
+            this.ensure = State.uninstalled;
+        }
+    }
+}
+

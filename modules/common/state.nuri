@@ -1,0 +1,7 @@
+enum State {
+    uninstalled,
+    outdated,
+    latest,
+    stopped,
+    running
+}
