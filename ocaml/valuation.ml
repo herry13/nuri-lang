@@ -76,10 +76,13 @@ and nuriShell command =
                         string_interpolation (index + 1) length 0
                     )
                 ) else if state = 1 then (
-                    if command.[index] = '{' then
+                    if command.[index] = '{' then (
                         string_interpolation (index + 1) length 2
-                    else
+                    ) else (
+                        Buffer.add_char bufferCommand '$';
+                        Buffer.add_char bufferCommand command.[index];
                         string_interpolation (index + 1) length 0
+                    )
                 ) else if state = 2 then (
                     if command.[index] = '}' then (
                         let var = Buffer.contents bufferVariable in
@@ -145,14 +148,14 @@ and nuriExp_Or left right =
     fun s ns -> Domain.Basic (Domain.Boolean (
         match (eval left ns s), (eval right ns s) with
         | Domain.Basic (Domain.Boolean bLeft), Domain.Basic (Domain.Boolean bRight) -> bLeft || bRight
-        | _ -> Domain.error 1120 "Left or right operand of '||' is not a boolean."
+        | _ -> Domain.error 1121 "Left or right operand of '||' is not a boolean."
     ))
 
 and nuriExp_Imply left right =
     fun s ns -> Domain.Basic (Domain.Boolean (
         match (eval left ns s), (eval right ns s) with
         | Domain.Basic (Domain.Boolean bLeft), Domain.Basic (Domain.Boolean bRight) -> if bLeft then bRight else true
-        | _ -> Domain.error 1120 "Left or right operand of '=>' is not a boolean."
+        | _ -> Domain.error 1122 "Left or right operand of '=>' is not a boolean."
     ))
 
 (* TODO: documentation *)
@@ -190,7 +193,7 @@ and nuriIfThenElse ifExp thenExp elseExp =
         with
         | Domain.Basic (Domain.Boolean condition), thenValue, elseValue ->
             if condition then thenValue else elseValue
-        | _ -> Domain.error 1116 "Invalid if-then-else statement."
+        | cond, _, _ -> print_endline (Json.of_value cond); Domain.error 1116 "Invalid if-then-else statement."
 
 (* TODO: documentation *)
 and nuriMatchRegexp exp regexp =
@@ -219,6 +222,13 @@ and nuriMatchRegexp exp regexp =
 and eval exp ns s =
     match nuriExpression exp ns s  with
     | Domain.Lazy func -> Domain.resolve_function s ns func
+    | Domain.Basic Domain.Ref r ->
+        (
+            match (Domain.resolve ~follow_ref:true s ns r) with
+            | _, Domain.Undefined
+            | _, Domain.Val Domain.Store _ -> Domain.Basic (Domain.Ref r)
+            | _, Domain.Val v -> v
+        )
     | value -> value
 
 (* TODO: documentation *)
@@ -231,7 +241,8 @@ and nuriExpression exp =
         | Exp_And (left, right)         -> Domain.Lazy (nuriExp_And left right)
         | Exp_Or (left, right)          -> Domain.Lazy (nuriExp_Or left right)
         | Exp_Imply (left, right)       -> Domain.Lazy (nuriExp_Imply left right)
-        | Add (exp1, exp2)              -> Domain.Lazy (nuriAdd exp1 exp2)
+        | Add (exp1, exp2)              -> Domain.Lazy (nuriAdd exp1 exp2)  (* Lazy evaluation  *)
+                                           (* nuriAdd exp1 exp2 s ns *)     (* Eager evaluation *)
         | IfThenElse (exp1, exp2, exp3) -> Domain.Lazy (nuriIfThenElse exp1 exp2 exp3)
         | MatchRegexp (exp, regexp)     -> Domain.Lazy (nuriMatchRegexp exp regexp)
 

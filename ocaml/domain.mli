@@ -148,3 +148,10 @@ val substitute_parameter_of_reference : reference -> ground_parameters ->
 	reference
 
 val substitute_parameter_of_basic_value : basic -> ground_parameters -> basic
+
+
+(*******************************************************************
+ * utility functions
+ *******************************************************************)
+
+val to_state : store -> store

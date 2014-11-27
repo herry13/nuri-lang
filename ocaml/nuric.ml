@@ -25,6 +25,7 @@ let opt_planning = ref false ;;
 let opt_simple_plan = ref false ;;
 let opt_not_eval_global_constraints = ref false ;;
 let opt_stdin = ref false ;;
+let opt_state = ref false ;;
 
 let files : string list ref = ref [] ;;
 
@@ -59,6 +60,10 @@ let generate_json ast =
         prerr_endline "[err700] The specification violates the global constraints.";
         exit 700
     );
+    let store =
+        if !opt_state then Domain.to_state store
+        else store
+    in
     print_endline (Json.of_store types store)
 ;;
 
@@ -120,6 +125,8 @@ let main =
             "    Do not evaluate global constraints.");
         ("-i", Arg.Set opt_stdin,
             "    Read from standard input (STDIN).");
+        ("-s", Arg.Set opt_state,
+            "    State only (no action or global constraints).");
         ("-d", Arg.Set opt_fdr,
             "    Generate Finite Domain Representation.");
         ("-p", Arg.Set opt_planning,

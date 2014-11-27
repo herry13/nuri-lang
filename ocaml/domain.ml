@@ -503,3 +503,18 @@ let substitute_parameter_of_basic_value basicValue groundParameters =
 		else basicValue
 	| _ -> basicValue
 
+
+(*******************************************************************
+ * utility functions
+ *******************************************************************)
+
+let to_state store =
+    let rec accept store store1 = match store with
+        | [] -> store1
+        | (_, Action _) :: s
+        | (_, Global _) :: s -> accept s store1
+        | (id, Store sp) :: s -> accept s ((id, Store (accept sp [])) :: store1)
+        | (id, v) :: s -> accept s ((id, v) :: store1)
+    in
+    accept store []
+;;
