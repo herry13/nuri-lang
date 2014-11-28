@@ -1,10 +1,10 @@
 main {
-    a = 1;
-    eager = $("value a = " + a);    // eager evaluation
-    lazy = "value a = " + a;        // lazy evaluation
-    eager_of_lazy1 = $(lazy);       // eager evaluation of variable 'lazy'
-    eager_of_lazy2 = $$(lazy);      // eager of eager evaluation of variable 'lazy'
-    lazy = "a = " + a;              // replace 'lazy' with another lazy function
-    a = 2;                          // change the value of 'a' 1 -> 2
-    crazy = $$$$$$(lazy);
+    a 1;
+    eager $("value a " + a);    // eager evaluation
+    lazy "value a " + a;        // lazy evaluation
+    eager_of_lazy1 $(lazy);       // eager evaluation of variable 'lazy'
+    eager_of_lazy2 $$(lazy);      // eager of eager evaluation of variable 'lazy'
+    lazy "a " + a;              // replace 'lazy' with another lazy function
+    a 2;                          // change the value of 'a' 1 -> 2
+    crazy $$$$$$(lazy);
 }

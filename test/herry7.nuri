@@ -1,9 +1,9 @@
 main {
     a {
-        c = 1;
+        c 1;
     }
     b { }
 
-    global a.c = 1;
-    global a = b;
+    global a.c 1;
+    global a b;
 }

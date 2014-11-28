@@ -1,14 +1,14 @@
 main {
-    path = ".";
-    path2 = path;
-    equal1 = "." == ".";
-    equal2 = path == ".";
-    equal3 = path == path;
-    add1 = 1 + 2;
-    add2 = 1.1 + 2;
-    add3 = 2 + 1.1;
-    add4 = 1.1 + 2.2;
-    ifthenelse1 = if true then 1 else 0;
-    ifthenelse2 = if false then 1 else 0;
-    state = if `which ls` == "/bin/ls" then "installed" else "uninstalled";
+    path ".";
+    path2 path;
+    equal1 "." == ".";
+    equal2 path == ".";
+    equal3 path == path;
+    add1 1 + 2;
+    add2 1.1 + 2;
+    add3 2 + 1.1;
+    add4 1.1 + 2.2;
+    ifthenelse1 if true then 1 else 0;
+    ifthenelse2 if false then 1 else 0;
+    state if `which ls` == "/bin/ls" then "installed" else "uninstalled";
 }

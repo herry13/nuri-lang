@@ -2,5 +2,5 @@ import "import1";
 import "import1";
 import "import3";
 
-main.y = true;
+main.y true;
 

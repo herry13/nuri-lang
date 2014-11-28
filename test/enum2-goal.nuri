@@ -2,14 +2,14 @@ include "enum2-model.nuri";
 main {
   s1 isa Machine {
     web isa Service {
-      running = State.stopped;
+      running State.stopped;
     }
   }
   s2 extends s1, {
-    web.running = State.running;
+    web.running State.running;
   }
   pc1 isa Client {
-    refer = s2.web;
+    refer s2.web;
   }
   pc2 := pc1;
   global {

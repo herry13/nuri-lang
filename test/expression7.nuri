@@ -1,8 +1,8 @@
 main {
-    a = 1;
-    b = (a == 1) && false;
-    c = (a == 1) || false;
-    e = (a == 1) => false;
-    x1 = `echo "${a}"`;
-    x2 = `echo "${b}"`;
+    a 1;
+    b (a == 1) && false;
+    c (a == 1) || false;
+    e (a == 1) => false;
+    x1 `echo "${a}"`;
+    x2 `echo "${b}"`;
 }

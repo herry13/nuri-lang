@@ -80,7 +80,7 @@ assignment
 	| reference type_def value { ($1, $2, $3) }
 
 value
-	: EQUAL simple_value EOS             { $2 }
+	: simple_value EOS                   { $1 }
 	| TOK_COLON_EQUAL link_reference EOS { $2 }
 	| ISA ID protos                      { Prototype (SID $2, $3) }
 	| protos                             { Prototype (EmptySchema, $1) }
@@ -266,8 +266,8 @@ t_param
     | TSTR       { T_String    }
 
 cost
-	: COST EQUAL INT EOS { Cost $3 }
-	|                    { EmptyCost }
+	: COST INT EOS { Cost $2 }
+	|              { EmptyCost }
 
 conditions
 	: CONDITIONS nuri_constraint { Condition $2 }
@@ -278,6 +278,6 @@ effects
 	| effect         { [$1] }
 
 effect
-	: reference EQUAL basic EOS { ($1, $3) }
+	: reference basic EOS { ($1, $2) }
 
 %%

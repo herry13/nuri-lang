@@ -2,11 +2,11 @@ import "clouddeploy-model";
 main {
 	cloud0 isa Cloud { }
 	vm0 isa VM {
-	  in_cloud = null;
+	  in_cloud null;
 	  lb isa MainAppService { }
 	}
 	vm0_0 isa VM {
-	  in_cloud = null;
+	  in_cloud null;
 	  app isa AppService { }
 	}
 	vm0_1 extends vm0_0

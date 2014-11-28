@@ -62,7 +62,7 @@ class Array
       operator, left, right = effect
       if operator == '='
         # left-hand side
-        buffer << "#{tab}  #{left} = "
+        buffer << "#{tab}  #{left} "
 
         # right-hand side
         buffer << "#{Nuri::string_of_basic_value(right)};\n"
@@ -100,7 +100,7 @@ class Hash
         buffer << " {\n"
 
         # cost
-        buffer << "#{tab}cost = #{self['cost']};\n"
+        buffer << "#{tab}cost #{self['cost']};\n"
 
         # conditions
         buffer << "#{tab}conditions "
@@ -161,7 +161,7 @@ class Hash
         when /^§[a-zA-Z]/
           buffer << "#{tab}#{k} := #{v[1..v.length]};\n"
         else
-          buffer << "#{tab}#{k} = #{Nuri.string_of_basic_value(v)};\n"
+          buffer << "#{tab}#{k} #{Nuri.string_of_basic_value(v)};\n"
         end
       end
     end

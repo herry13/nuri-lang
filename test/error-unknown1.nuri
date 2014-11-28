@@ -1,5 +1,5 @@
 main {
-	a = 1;
-	b = unknown;
+	a 1;
+	b unknown;
 }
 

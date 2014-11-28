@@ -4,4 +4,4 @@ main.a {
 	#include "primitive1.nuri";
 }
 
-x = 1;
+x 1;

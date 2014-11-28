@@ -1,4 +1,4 @@
 main {
-	a : int = unknown;
-	b = true;
+	a : int unknown;
+	b true;
 }

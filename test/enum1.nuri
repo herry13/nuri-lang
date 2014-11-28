@@ -4,23 +4,21 @@ enum State {
 }
 
 schema Service {
-    running : State = State.stopped;
+    running : State State.stopped;
 
     def start {
-        conditions {
-            this.running = State.stopped;
-        }
+        conditions this.running = State.stopped;
         effects {
-            this.running = State.running;
+            this.running State.running;
         }
     }
 }
 
 main {
-    a = State.stopped;
-    b : State = State.running;
+    a State.stopped;
+    b : State State.running;
     s isa Service {
-        running = State.stopped;
+        running State.stopped;
     }
 
     global a = State.stopped;

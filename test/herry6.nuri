@@ -1,16 +1,16 @@
-a = 3;
-x = this.a;
+a 3;
+x this.a;
 main {
-	a = 1;
+	a 1;
 	b {
-		a = 2;
-		d = this.parent.a;
-		e = this.root.a;
+		a 2;
+		d this.parent.a;
+		e this.root.a;
 	}
 	d {
-		c = a;
+		c a;
 	}
 	e {
-		c = root.a;
+		c root.a;
 	}
 }

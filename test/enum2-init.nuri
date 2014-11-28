@@ -4,10 +4,10 @@ main {
     web isa Service { }
   }
   s2 extends s1, {
-    web.running = State.stopped;
+    web.running State.stopped;
   }
   pc1 isa Client {
-    refer = s1.web;
+    refer s1.web;
   }
   pc2 := pc1;
 }

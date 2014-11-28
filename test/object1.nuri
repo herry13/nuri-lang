@@ -1,9 +1,9 @@
 schema X {
-	a = 1;
+	a 1;
 }
 schema Y extends X {
-	a = 2;
-	b = true;
+	a 2;
+	b true;
 }
 
 main {

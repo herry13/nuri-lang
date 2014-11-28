@@ -1,34 +1,29 @@
 // file : model.nuri
 enum State { running, stopped }
 schema Machine {
-  dns = "ns.foo";
+  dns "ns.foo";
 }
 schema Client extends Machine {
-  refer: *Service = null;
+  refer: *Service null;
   def redirect(s: Service) {
-    condition { }
     effect {
-      this.refer = s;
+      this.refer s;
     }
   }
 }
 schema Service {
-  running = State.running;
-  port = 80;
+  running State.running;
+  port 80;
   def start {
-    condition {
-      this.running = State.stopped;
-    }
+    condition this.running = State.stopped;
     effect {
-      this.running = State.running;
+      this.running State.running;
     }
   }
   def stop {
-    condition {
-      this.running = State.running;
-    }
+    condition this.running = State.running;
     effect {
-      this.running = State.stopped;
+      this.running State.stopped;
     }
   }
 }

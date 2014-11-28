@@ -1,25 +1,24 @@
 // file : model.nuri
 schema Machine {
-  dns = "ns.foo";
+  dns "ns.foo";
 }
 schema Client extends Machine {
-  refer: *Service = null;
+  refer: *Service null;
   def redirect(s: Service) {
-    condition { }
     effect {
-      this.refer = s;
+      this.refer s;
     }
   }
 }
 schema Service {
-  running = true;
-  port = 80;
+  running true;
+  port 80;
   def start {
     condition {
       this.running = false;
     }
     effect {
-      this.running = true;
+      this.running true;
     }
   }
   def stop {
@@ -27,7 +26,7 @@ schema Service {
       this.running = true;
     }
     effect {
-      this.running = false;
+      this.running false;
     }
   }
 }

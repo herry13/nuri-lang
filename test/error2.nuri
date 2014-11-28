@@ -1,9 +1,9 @@
 a extends {
-	b = 1;
+	b 1;
 }
 
 a {
-	b = 1;
+	b 1;
 }
 
 c isa a extends { }, a
@@ -12,5 +12,5 @@ c isa a extends a, {
 }, { }, b
 
 c isa a {
-	b = 1;
+	b 1;
 }

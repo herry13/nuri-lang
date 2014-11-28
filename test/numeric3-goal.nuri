@@ -1,9 +1,9 @@
 main {
-	a = 2;
-	b = 2;
+	a 2;
+	b 2;
 
 	def inc {
 		conditions { a > b; }
-		effects { a = 2; }
+		effects { a 2; }
 	}
 }

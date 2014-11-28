@@ -1,20 +1,20 @@
 main {
-    a1 = true;
-    b1 = 1;
-    c1 = 1.2;
-    d1 = "a string";
+    a1 true;
+    b1 1;
+    c1 1.2;
+    d1 "a string";
     obj1 { }
 
-    a2 = a1;
-    b2 = b1;
-    c2 = c1;
-    d2 = d1;
-    obj2 = obj1;
+    a2 a1;
+    b2 b1;
+    c2 c1;
+    d2 d1;
+    obj2 obj1;
 
     global {
-        a1 = a2;
-        b1 = b2;
-        c1 = c2;
-        d1 = d2;
+        a1 a2;
+        b1 b2;
+        c1 c2;
+        d1 d2;
     }
 }

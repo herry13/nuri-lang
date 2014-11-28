@@ -1,12 +1,12 @@
 // lazy evaluation of external-command-value
 main {
     x := loc_ls;
-    loc_ls = `${which} ls`;
-    which = "w";
-    status = `${loc_ls} .`;
-    which = "which";
+    loc_ls `${which} ls`;
+    which "w";
+    status `${loc_ls} .`;
+    which "which";
 
-    b = true;
-    a = !b;
-    b = false;
+    b true;
+    a !b;
+    b false;
 }

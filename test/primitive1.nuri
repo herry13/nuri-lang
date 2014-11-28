@@ -1,8 +1,8 @@
 main {
-	x = false;
-	x : bool = true;
-	y : float = 1;
-	y = 2;
-	y = 3.14;
-	z = x;
+	x false;
+	x : bool true;
+	y : float 1;
+	y 2;
+	y 3.14;
+	z x;
 }

@@ -1,21 +1,21 @@
 main {
 	def x {
 		effect {
-			a = 1;
+			a 1;
 		}
 	}
 
 	def y {
-		condition { a = 2; }
-		effect { a = 1; }
+		condition a = 2;
+		effect { a 1; }
 	}
 
 	def z {
-		cost = 10;
-		condition { a = 2; }
-		effect { a = 3; }
+		cost 10;
+		condition a = 2;
+		effect { a 3; }
 	}
 
-	a = 10;
+	a 10;
 }
 

@@ -1,4 +1,4 @@
 main {
-    a : object = TBD;
+    a : object TBD;
     a { }
 }

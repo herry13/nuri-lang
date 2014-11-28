@@ -5,20 +5,20 @@ schema Cloud {
       vm.running = false;
     }
     effect {
-      vm.in_cloud = this;
+      vm.in_cloud this;
     }
   }
 }
 schema VM {
-  in_cloud: *Cloud = null;
-  running = false;
+  in_cloud: *Cloud null;
+  running false;
   def start {
     condition {
       this.in_cloud != null;
       this.running = false;
     }
     effect {
-      this.running = true;
+      this.running true;
     }
   }
   def stop {
@@ -27,20 +27,20 @@ schema VM {
       this.running = true;
     }
     effect {
-      this.running = false;
+      this.running false;
     }
   }
 }
 schema Service {
-  installed = false;
-  running = false;
+  installed false;
+  running false;
   def start {
     condition {
       this.installed = true;
       this.running = false;
     }
     effect {
-      this.running = true;
+      this.running true;
     }
   }
   def stop {
@@ -49,7 +49,7 @@ schema Service {
       this.running = true;
     }
     effect {
-      this.running = false;
+      this.running false;
     }
   }
   def install {
@@ -58,7 +58,7 @@ schema Service {
       this.running = false;
     }
     effect {
-      this.installed = true;
+      this.installed true;
     }
   }
   def uninstall {
@@ -67,7 +67,7 @@ schema Service {
       this.running = false;
     }
     effect {
-      this.installed = false;
+      this.installed false;
     }
   }
 }

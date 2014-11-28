@@ -1,3 +1,3 @@
 main {
-	a : int = unknown;
+	a : int unknown;
 }

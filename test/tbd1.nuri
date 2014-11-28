@@ -1,7 +1,7 @@
 main {
-	a : int = TBD;
-	a = 1;
-	a = TBD;
-	b = 2;
+	a : int TBD;
+	a 1;
+	a TBD;
+	b 2;
 	a := b;
 }

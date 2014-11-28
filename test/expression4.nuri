@@ -1,10 +1,10 @@
 main {
-    a = !true;
-    b = !a;
-    msg_a = "!a is " + (!a);
-    msg_b = "it is " + (!b) + " that I will go";
+    a !true;
+    b !a;
+    msg_a "!a is " + (!a);
+    msg_b "it is " + (!b) + " that I will go";
 
-    cmd = "which";
-    path = true;
-    result = `${cmd} ${path}`;
+    cmd "which";
+    path true;
+    result `${cmd} ${path}`;
 }

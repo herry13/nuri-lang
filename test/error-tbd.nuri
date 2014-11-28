@@ -1,5 +1,5 @@
 main {
-	a : int = TBD;
-	a = 1;
-	a = TBD;
+	a : int TBD;
+	a 1;
+	a TBD;
 }

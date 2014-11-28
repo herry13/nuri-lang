@@ -1,14 +1,12 @@
 main {
-	a = 1;
-	b = a;
+	a 1;
+	b a;
 
 	def act (p: X) {
-		cost = 1;
-		conditions {
-			a = 1;
-		}
+		cost 1;
+		conditions a = 1;
 		effects {
-			b = 2;
+			b 2;
 		}
 	}
 }

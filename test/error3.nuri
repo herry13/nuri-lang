@@ -1,7 +1,7 @@
 schema x {
-	a = 1;
+	a 1;
 }
 
 schema x extends y {
-	a = 1;
+	a 1;
 }

@@ -1,14 +1,14 @@
 schema X {
-	a = 1;
+	a 1;
 }
 
 schema Y extends X {
-	a = 2;
+	a 2;
 }
 
 main {
 	b isa X { }
 	c isa Y {
-		d = 4;
+		d 4;
 	}
 }
