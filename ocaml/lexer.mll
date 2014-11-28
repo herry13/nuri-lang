@@ -101,6 +101,9 @@ let cost             = "cost"
 let conditions       = "conditions" | "condition"
 let effects          = "effects" | "effect"
 
+(* debug *)
+let hash_echo        = "#echo"
+
 (* lexer rules *)
 rule token =
 	parse
@@ -171,6 +174,7 @@ rule token =
 	| conditions  { CONDITIONS }
 	| effects     { EFFECTS }
 	| action      { ACTION }
+    | hash_echo   { HASH_ECHO "#echo" }
 	| '"'         { STRING (read_string (Buffer.create 17) lexbuf) }
     | '`'         { SHELL (read_shell (Buffer.create 17) lexbuf) }
 	| ident       {

@@ -40,3 +40,5 @@ val (<.) : Buffer.t -> char -> unit
 
 (** return a string of reference by concatenating all strings delimited by '.' **)
 val (!^) : string list -> string
+
+val _echo_ : string list

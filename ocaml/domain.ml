@@ -328,7 +328,7 @@ let rec eval_function ?visited:(bucket=SetFunc.empty) store baseReference func =
 
 (** Find and replace all lazy values (link-reference, reference of basic
     values, and functions) by the result of the lazy value evaluation. *)
-let rec replace_lazy store namespace identifier value namespace1 =
+let rec eval_lazy store namespace identifier value namespace1 =
     let rp = namespace @+. identifier in
     let rec replace_link link =
         match resolve_link store namespace1 rp (Link link) with
@@ -344,7 +344,7 @@ let rec replace_lazy store namespace identifier value namespace1 =
     and replace_func func =
         let vp = eval_function store namespace1 func in
         let sp = bind store rp vp in
-        replace_lazy sp namespace identifier vp namespace1
+        eval_lazy sp namespace identifier vp namespace1
     in
     match value with
     | Link link -> replace_link link
@@ -358,7 +358,7 @@ and accept store baseReference store1 baseReference1 =
     match store1 with
     | []      -> store
     | (id, v) :: sp ->
-        let sq = replace_lazy store baseReference id v baseReference1 in
+        let sq = eval_lazy store baseReference id v baseReference1 in
         accept sq baseReference sp baseReference1
 ;;
 

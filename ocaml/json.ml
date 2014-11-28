@@ -233,7 +233,7 @@ let json_action buf (_, parameters, cost, conditions, effects) =
 	Buffer.add_string buf "]}"
 ;;
 
-let rec of_value value =
+let rec of_value ?ignore_lazy:(ignore_lazy=true) value =
 	let buf = Buffer.create 42 in
 	(
 		match value with
@@ -250,7 +250,8 @@ let rec of_value value =
 		| Domain.Global c -> json_constraint buf c
 		| Domain.Action a -> json_action buf a
         | Domain.Enum _ -> Buffer.add_string buf ("\"%enum\"")
-        | Domain.Lazy _ -> error 1305 "Lazy value has not been evaluated."
+        | Domain.Lazy _ -> if ignore_lazy then error 1305 "Lazy value has not been evaluated."
+                           else buf << "lazy"
 	);
 	Buffer.contents buf
 ;;

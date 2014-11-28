@@ -31,6 +31,7 @@ open Syntax
 %token <string> SHELL
 %token <string> REGEXP
 %token COST CONDITIONS EFFECTS ACTION
+%token <string> HASH_ECHO
 
 /* entry point to included file */
 %token <Syntax.block -> Syntax.block> INCLUDE
@@ -78,6 +79,7 @@ trajectory
 assignment
 	: ACTION reference action  { ($2, T_Undefined, $3) }
 	| reference type_def value { ($1, $2, $3) }
+    | HASH_ECHO value          { ([$1], T_Undefined, $2) }
 
 value
 	: simple_value EOS                   { $1 }

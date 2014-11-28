@@ -281,7 +281,27 @@ and sfValue v =
 
 (** the type is ignored since this function only evaluates the value **)
 and sfAssignment (reference, _, value) =
-    fun ns s -> sfValue value ns (Domain.(@++) ns reference) s
+    fun ns s ->
+        if reference = _echo_ then (
+            let s1 = sfValue value ns _echo_ s in
+            let v1 = match Domain.find s1 _echo_ with
+                | Domain.Val Domain.Basic Domain.Reference r
+                | Domain.Val Domain.Link r ->
+                    (
+                        match (Domain.resolve ~follow:true s1 ns r) with
+                        | _, Domain.Undefined
+                        | _, Domain.Val Domain.Store _ -> Domain.Basic (Domain.Reference r)
+                        | _, Domain.Val v -> v
+                    )
+                | Domain.Val Domain.Lazy func -> Domain.eval_function s1 ns func
+                | Domain.Val v -> v
+                | _ -> Domain.Unknown
+            in
+            print_endline (Json.of_value ~ignore_lazy:false v1);
+            s
+        ) else (
+            sfValue value ns (Domain.(@++) ns reference) s
+        )
 
 and sfBlock block =
     fun ns s ->

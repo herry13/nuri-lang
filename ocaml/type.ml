@@ -673,7 +673,9 @@ and sfAssignment (r, t, v) : reference -> environment -> environment =
      * @param ns namespace
      * @param e  type environment
      *)
-    fun ns -> sfValue v ns (ns @++ r) t
+    fun ns ->
+        if r = _echo_ then fun e -> e
+        else sfValue v ns (ns @++ r) t
 
 and nuriBlock block : reference -> environment -> environment =
     (**

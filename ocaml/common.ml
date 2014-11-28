@@ -83,3 +83,6 @@ let (<.) buffer character = Buffer.add_char buffer character ;;
 
 (** return a string of reference by concatenating all strings delimited by '.' **)
 let (!^) r = String.concat "." r
+
+
+let _echo_ = ["#echo"] ;;

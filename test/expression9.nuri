@@ -1,0 +1,17 @@
+main {
+    a 1;
+    eager $("value a " + a);    // eager evaluation
+#echo eager;
+    lazy "value a " + a;        // lazy evaluation
+#echo lazy;
+    eager_of_lazy1 $(lazy);       // eager evaluation of variable 'lazy'
+#echo eager_of_lazy1;
+    eager_of_lazy2 $$(lazy);      // eager of eager evaluation of variable 'lazy'
+#echo eager_of_lazy2;
+    lazy "a " + a;              // replace 'lazy' with another lazy function
+#echo lazy;
+    a 2;                          // change the value of 'a' 1 -> 2
+#echo a;
+    crazy $$$$$$(lazy);
+#echo crazy;
+}

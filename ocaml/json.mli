@@ -7,7 +7,7 @@ val of_store : Type.map -> Domain.store -> string
 
 val of_constraint : Domain._constraint -> string
 
-val of_value : Domain.value -> string
+val of_value : ?ignore_lazy:bool -> Domain.value -> string
 
 val of_flatstore : Domain.flatstore -> string
 
