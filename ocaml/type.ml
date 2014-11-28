@@ -539,63 +539,65 @@ let rec sfPrototype proto first t_val : reference -> reference ->
 
 and nuriExpression exp : reference -> reference -> t -> environment -> t =
     fun ns r t e ->
-        let binary_logic operator left right =
-            match (nuriExpression left ns r t e), (nuriExpression right ns r t e) with
-            | T_Forward _, T_Forward _ -> error 441 ("The types of left and right operands of '" ^
-                                                   operator ^ "' are indeterminate.")
-            | T_Forward _, _          -> error 442 ("The type of left operand of '" ^
-                                                   operator ^ "' is indeterminate.")
-            | _         , T_Forward _ -> error 443 ("The type of right operand of '" ^
-                                                   operator ^ "' is indeterminate.")
-            | T_Undefined, _          -> error 444 ("The type of left operand of '" ^
-                                                   operator ^ "' is undefined.")
-            | _         , T_Undefined -> error 445 ("The type of right operand of '" ^
-                                                   operator ^ "' is undefined.")
-            | T_Bool, T_Bool -> T_Bool
-            | _ -> error 446 ("Left and right operands of '" ^ operator ^ "' are not booleans.")
+        let unary operator expression (checker : t -> t) =
+            match nuriExpression expression ns r t e with
+            | T_Forward _ -> error 441 ("The operand's type of '" ^ operator ^ "' is indeterminate.")
+            | T_Undefined -> error 442 ("The operand's type of '" ^ operator ^ "' is undefined.")
+            | t -> checker t
+        in
+        let binary operator exp1 exp2 (checker : t -> t -> t) =
+            match (nuriExpression exp1 ns r t e), (nuriExpression exp2 ns r t e) with
+            | T_Forward _, _ ->
+                error 443 ("The left operand's type of '" ^ operator ^ "' is indeterminate.")
+            | _, T_Forward _ ->
+                error 444 ("The right operand's type of '" ^ operator ^ "' is indeterminate.")
+            | T_Undefined, _ ->
+                error 445 ("The left operand's type of '" ^ operator ^ "' is undefined.")
+            | _, T_Undefined ->
+                error 446 ("The right operand's type of '" ^ operator ^ "' is undefined.")
+            | t1, t2 -> checker t1 t2
+        in
+        let binary_logic operator left right = binary operator left right (fun tLeft tRight ->
+                if tLeft <: T_Bool && tRight <: T_Bool then T_Bool
+                else error 447 ("Left and right operands of '" ^ operator ^ "' are not booleans.")
+            )
+        in
+        let binary_arithmetic operator left right = binary operator left right (fun tLeft tRight ->
+                match tLeft, tRight with
+                | T_Int, T_Int -> T_Int
+                | T_Int, T_Float | T_Float, T_Int | T_Float, T_Float -> T_Float
+                | _ -> error 448 ("Left or right operand of '" ^ operator ^ "' is neither an integer nor a float.")
+            )
         in
         match exp with
         | Basic bv      -> sfBasicValue bv e ns
         | Shell s       -> T_String (* TODO: Documentation *)
-        | Exp_Eager exp ->
-            (   (* TODO: Documentation *)
-                match (nuriExpression exp ns r t e) with
-                | T_Forward _ -> error 447 "The operand's type of 'not' is indeterminate."
-                | T_Undefined -> error 448 "The operand's type of 'not' is undefined."
-                | t -> t
+        | Exp_Eager exp -> unary "$" exp (fun t -> t)
+        | Exp_Not exp -> unary "!" exp (fun t ->
+                if t <: T_Bool then T_Bool
+                else error 448 "The operand of '!' is not a boolean."
             )
-        | Exp_Equal (exp1, exp2) ->
-            (   (* TODO: Documentation *)
-                match (nuriExpression exp1 ns r t e), (nuriExpression exp2 ns r t e) with
-                | T_Forward _, T_Forward _ -> error 441 "The types of left and right operands of '==' are indeterminate."
-                | T_Forward _, _ -> error 442 "The type of left operand of '==' is indeterminate."
-                | _, T_Forward _ -> error 443 "The type of right operand of '==' is indeterminate."
-                | T_Undefined, _ -> error 444 "The type of left operand of '==' is undefined."
-                | _, T_Undefined -> error 445 "The type of right operand of '==' is undefined."
-                | t1, t2 when t1 <: t2 && t2 <: t1 -> T_Bool
-                | _ -> error 446 "Left and right operands of '==' is not equal."
-            )
-        | Exp_Not exp ->
-            (   (* TODO: Documentation *)
-                match (nuriExpression exp ns r t e) with
-                | T_Forward _ -> error 447 "The operand's type of 'not' is indeterminate."
-                | T_Undefined -> error 448 "The operand's type of 'not' is undefined."
-                | t when t <: T_Bool -> T_Bool
-                | _ -> error 449 "The operand of 'not' is not a boolean."
+        | Exp_Equal (exp1, exp2) -> binary "==" exp1 exp2 (fun t1 t2 ->
+                if t1 <: t2 && t2 <: t1 then T_Bool
+                else error 450 "The types of left and right operands of '==' are not the same."
             )
         | Exp_And   (left, right) -> binary_logic "&&" left right
         | Exp_Or    (left, right) -> binary_logic "||" left right
         | Exp_Imply (left, right) -> binary_logic "=>" left right
-        | Exp_Add (exp1, exp2) ->
-            (   (* TODO: Documentation *)
-                match (nuriExpression exp1 ns r t e), (nuriExpression exp2 ns r t e) with
-                | T_Int  , T_Float
-                | T_Float, T_Int
-                | T_Float, T_Float -> T_Float
-                | T_Int  , T_Int   -> T_Int
-                | T_String, _
-                | _, T_String     -> T_String
-                | _              -> error 500 "Both operands of '+' is neither integer nor float."
+        | Exp_Add (exp1, exp2) -> binary "+" exp1 exp2 (fun t1 t2 ->
+                match t1, t2 with
+                | T_Int, T_Float | T_Float, T_Int | T_Float, T_Float -> T_Float
+                | T_Int, T_Int -> T_Int
+                | T_String, _ | _, T_String -> T_String
+                | _ -> error 451 "Both operands of '+' are neither integer, float, or string."
+            )
+        | Exp_Subtract (exp1, exp2) -> binary_arithmetic "-" exp1 exp2
+        | Exp_Multiply (exp1, exp2) -> binary_arithmetic "*" exp1 exp2
+        | Exp_Divide (exp1, exp2)   -> binary_arithmetic "/" exp1 exp2
+        | Exp_Modulo (exp1, exp2)   -> binary_arithmetic "%" exp1 exp2
+        | Exp_MatchRegexp (exp, regexp) -> unary "=~" exp (fun t ->
+                if t <: T_String then T_Bool
+                else error 452 "The left operand of '=~' is not a string."
             )
         | Exp_IfThenElse (exp1, exp2, exp3) ->
             (   (* TODO: Documentation *)
@@ -604,14 +606,8 @@ and nuriExpression exp : reference -> reference -> t -> environment -> t =
                       (nuriExpression exp3 ns r t e)
                 with
                 | T_Bool, t2, t3 when t2 <: t3 && t3 <: t2 -> t2
-                | T_Bool, _, _ -> error 451 "The types of 'then' and 'else' clauses are not the same."
-                | _, _, _     -> error 452 "The type of 'if' clause is not a boolean"
-            )
-        | Exp_MatchRegexp (exp, regexp) ->
-            (   (* TODO: Documentation *)
-                match nuriExpression exp ns r t e with
-                | T_String -> T_Bool
-                | _       -> error 453 "The expression of regexp-matching is not a string."
+                | T_Bool, _, _ -> error 453 "The types of 'then' and 'else' clauses are not the same."
+                | _, _, _     -> error 454 "The type of 'if' clause is not a boolean"
             )
 
 and sfValue v : reference -> reference -> t -> environment ->

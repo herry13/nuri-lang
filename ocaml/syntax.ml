@@ -31,8 +31,12 @@ and  expression    = Basic           of basicValue
                    | Exp_And         of expression * expression
                    | Exp_Or          of expression * expression
                    | Exp_Imply       of expression * expression
-                   | Exp_Add         of expression * expression
                    | Exp_MatchRegexp of expression * string
+                   | Exp_Add         of expression * expression
+                   | Exp_Subtract    of expression * expression
+                   | Exp_Multiply    of expression * expression
+                   | Exp_Divide      of expression * expression
+                   | Exp_Modulo      of expression * expression
                    | Exp_IfThenElse  of expression * expression * expression
 and  value         = Expression of expression
                    | Link       of reference
@@ -149,17 +153,21 @@ let rec string_of nuri =
         | Basic v            -> basic_value v
                                 (* TODO: use escape (\) for every backtick character *)
         | Shell s            -> buf << " `"; buf << s; buf << "`;"
-        | Exp_Eager e        -> buf <. '$'; expression e
-        | Exp_Equal (e1, e2) -> buf <. ' '; expression e1; buf << " = "; expression e2
-        | Exp_Not e          -> buf << " not "; expression e
-        | Exp_And (e1, e2)   -> buf <. ' '; expression e1; buf << " && "; expression e2
-        | Exp_Or (e1, e2)    -> buf <. ' '; expression e1; buf << " || "; expression e2
-        | Exp_Imply (e1, e2) -> buf <. ' '; expression e1; buf << " => "; expression e2
-        | Exp_Add (e1, e2)   -> buf <. ' '; expression e1; buf << " + "; expression e2
-        | Exp_IfThenElse (e1, e2, e3)   -> buf << " if "; expression e1; buf << " then ";
-                                           expression e2; buf << " else "; expression e3
-        | Exp_MatchRegexp (exp, regexp) -> buf <. ' '; expression exp; buf << " =~ /";
-                                           buf << regexp; buf <. '/'
+        | Exp_Eager e        -> buf << " $("; expression e; buf <. ')'
+        | Exp_Not e          -> buf << " !("; expression e; buf <. ')'
+        | Exp_Equal (e1, e2) -> buf << " ("; expression e1; buf << " = "; expression e2; buf <. ')'
+        | Exp_And (e1, e2)   -> buf << " ("; expression e1; buf << " && "; expression e2; buf <. ')'
+        | Exp_Or (e1, e2)    -> buf << " ("; expression e1; buf << " || "; expression e2; buf <. ')'
+        | Exp_Imply (e1, e2) -> buf << " ("; expression e1; buf << " => "; expression e2; buf <. ')'
+        | Exp_MatchRegexp (exp, regexp) -> buf << " ("; expression exp; buf << " =~ /";
+                                           buf << regexp; buf << "/)"
+        | Exp_Add (e1, e2)   -> buf << " ("; expression e1; buf << " + "; expression e2; buf <. ')'
+        | Exp_Subtract (e1, e2) -> buf << " ("; expression e1; buf << " - "; expression e2; buf <. ')'
+        | Exp_Multiply (e1, e2) -> buf << " ("; expression e1; buf << " - "; expression e2; buf <. ')'
+        | Exp_Divide (e1, e2) -> buf << " ("; expression e1; buf << " - "; expression e2; buf <. ')'
+        | Exp_Modulo (e1, e2) -> buf << " ("; expression e1; buf << " - "; expression e2; buf <. ')'
+        | Exp_IfThenElse (e1, e2, e3)   -> buf << " (if "; expression e1; buf << " then ";
+                                           expression e2; buf << " else "; expression e3; buf <. ')'
 
     and value v = match v with
         | Expression e       -> buf <. ' '; expression e; buf <. ';'

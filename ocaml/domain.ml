@@ -307,23 +307,12 @@ and resolve_link store namespace reference value =
     | _         -> error 505 "invalid link reference"
 ;;
 
-(** Set of functions *)
-module SetFunc = Set.Make
-(
-    struct
-        type t = (store -> reference -> value)
-        let compare = Pervasives.compare
-    end
-)
-
+(* TODO: need to detect cyclic functions *)
 (** Evaluate a function, and then return the evaluation result. *)
-let rec eval_function ?visited:(bucket=SetFunc.empty) store baseReference func =
-    if SetFunc.exists (fun f -> f = func) bucket then
-        error 525 "Cyclic function detected."
-    else
-        match func store baseReference with
-        | Lazy f -> eval_function ~visited:(SetFunc.add func bucket) store baseReference f
-        | value -> value
+let rec eval_function store baseReference func =
+    match func store baseReference with
+    | Lazy f -> eval_function store baseReference f
+    | value -> value
 ;;
 
 (** Find and replace all lazy values (link-reference, reference of basic
@@ -400,6 +389,77 @@ let rec string_of_basic_value bv = match bv with
     | Reference r     -> (!^) r
 ;;
 
+(****************************************************************
+ * Expressions evaluation functions
+ ****************************************************************)
+
+(* TODO: update semantics algebra in the documentation *)
+let rec evalr ?follow_f:(follow=false) ?acc:(visited=SetRef.empty) s ns r =
+    if SetRef.exists (fun rs -> r = rs) visited then
+        error 525 ("Cyclic references are detected: " ^ !^r)
+    else
+        match resolve ~follow:true s ns r with
+        | _, Val Link rr
+        | _, Val Basic Reference rr -> evalr ~follow_f:follow ~acc:(SetRef.add r visited) s ns rr
+        | _, Val Lazy f -> if follow then evalf ~follow_r:true ~acc:visited s ns f else Lazy f
+        | _, Val v      -> v
+        | _, Undefined  -> error 526 ("'" ^ !^r ^ "' is not exist.")
+
+(* TODO: update semantics algebra in the documentation *)
+and evalf ?follow_r:(follow=false) ?acc:(visited=SetRef.empty) s ns f =
+    let v = eval_function s ns f in
+    match v with
+    | Link r
+    | Basic Reference r -> if follow then evalr ~follow_f:true ~acc:visited s ns r else v
+    | Lazy ff -> evalf ~follow_r:follow ~acc:visited s ns ff
+    | _ -> v
+;;
+
+(* TODO: update semantics algebra in the documentation *)
+let rec unary ?store:(s=[]) ?namespace:(ns=[]) v map = match v with
+    | Basic Reference r -> unary ~store:s ~namespace:ns (evalr s ns r) map
+    | Lazy f -> Lazy (fun ss nss -> unary ~store:ss ~namespace:nss (evalf ~follow_r:true ss nss f) map)
+    | _ -> map v
+;;
+
+(* TODO: update semantics algebra in the documentation *)
+let rec binary ?store:(s=[]) ?namespace:(ns=[]) map v1 v2 = match v1, v2 with
+    | Basic Reference r1, _ -> binary ~store:s ~namespace:ns map (evalr s ns r1) v2
+    | _, Basic Reference r2 -> binary ~store:s ~namespace:ns map v1 (evalr s ns r2)
+    | Lazy f1, _ -> Lazy (fun ss nss -> binary ~store:ss ~namespace:nss map (evalf ~follow_r:true ss nss f1) v2)
+    | _, Lazy f2 -> Lazy (fun ss nss -> binary ~store:ss ~namespace:nss map v1 (evalf ~follow_r:true ss nss f2))
+    | _ -> map v1 v2
+;;
+
+(* TODO: update semantics algebra in the documentation *)
+let logic ?operator:(op="") ?store:(s=[]) ?namespace:(ns=[]) f_logic =
+    binary ~store:s ~namespace:ns (fun xx yy -> match xx, yy with
+        | Basic Boolean b1, Basic Boolean b2 -> Basic (Boolean (f_logic b1 b2))
+        | Basic Boolean _, _ -> error 528 ("Right operand of '" ^ op ^ "' is not a boolean.")
+        | _, Basic Boolean _ -> error 529 ("Left operand of '" ^ op ^ "' is not a boolean.")
+        | _, _ -> error 530 ("Both operands of '" ^ op ^ "' are not a boolean.")
+    )
+;;
+
+(* TODO: update semantics algebra in the documentation *)
+let equals ?store:(s=[]) ?namespace:(ns=[]) =
+    binary ~store:s ~namespace:ns (fun xx yy -> match xx, yy with
+        | Basic Int i, Basic Float f
+        | Basic Float f, Basic Int i -> Basic (Boolean (f = (float_of_int i)))
+        | _ -> Basic (Boolean (xx = yy))
+    )
+;;
+
+(* TODO: update semantics algebra in the documentation *)
+let math ?store:(s=[]) ?namespace:(ns=[]) f_int f_float =
+    binary ~store:s ~namespace:ns (fun xx yy -> match xx, yy with
+        | Basic Int x  , Basic Float y -> Basic (Float (f_float (float_of_int x) y))
+        | Basic Float x, Basic Int y   -> Basic (Float (f_float x (float_of_int y)))
+        | Basic Float x, Basic Float y -> Basic (Float (f_float x y))
+        | Basic Int x  , Basic Int y   -> Basic (Int (f_int x y))
+        | _ -> error 527 "Left or right operand is neither an integer nor a float."
+    )
+
 (* TODO: update semantics algebra in the documentation *)
 (** A binary operator that adds two operands. The result will be:
     - add Int Int -> Int
@@ -408,31 +468,16 @@ let rec string_of_basic_value bv = match bv with
     - add Float Float -> Float
     - add String basic -> String
     - add basic String -> String *)
-let rec add ?store:(s=[]) ?namespace:(ns=[]) left right =
-    match left, right with
-    | Reference r1, v2 ->
-        (
-            match resolve ~follow:true s ns r1 with
-            | (_, Val Basic v1) -> add ~store:s ~namespace:ns v1 v2
-            | (_, Undefined)    -> error 520 "Left reference of '+' is not exist."
-            | _                 -> error 521 "Left operand of '+' is not a basic value."
-        )
-    | v1, Reference r2 ->
-        (
-            match resolve ~follow:true s ns r2 with
-            | (_, Val Basic v2) -> add ~store:s ~namespace:ns v1 v2
-            | (_, Undefined)    -> error 522 "Right reference of '+' is not exist."
-            | _                 -> error 523 "Right operand of '+' is not a basic value."
-        )
-    | Int i, Float f
-    | Float f, Int i       -> Float ((float_of_int i) +. f)
-    | Float f1, Float f2   -> Float (f1 +. f2)
-    | Int i1, Int i2       -> Int (i1 + i2)
-    | String s1, String s2 -> String (s1 ^ s2)
-    | String s, v          -> String (s ^ (string_of_basic_value v))
-    | v, String s          -> String ((string_of_basic_value v) ^ s)
-    | v1, v2 -> error 524 ("Invalid operands '+': " ^ (string_of_basic_value v1) ^
-                           ", " ^ (string_of_basic_value v2))
+let add ?store:(s=[]) ?namespace:(ns=[]) =
+    binary ~store:s ~namespace:ns (fun xx yy -> match xx, yy with
+        | Basic Int i, Basic Float f
+        | Basic Float f, Basic Int i -> Basic (Float ((float_of_int i) +. f))
+        | Basic Float f1, Basic Float f2 -> Basic (Float (f1 +. f2))
+        | Basic Int i1, Basic Int i2 -> Basic (Int (i1 + i2))
+        | Basic String s1, Basic v2 -> Basic (String (s1 ^ (string_of_basic_value v2)))
+        | Basic v1, Basic String s2 -> Basic (String ((string_of_basic_value v1) ^ s2))
+        | _ -> error 528 "Operands of '+' are neither int, float, or string"
+    )
 ;;
 
 

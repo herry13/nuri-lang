@@ -47,178 +47,139 @@ and sfBasicValue value =
     | Vector vec  -> sfVector vec
     | Reference r -> sfDataReference r
 
-let rec sfPrototype prototypes =
-    fun ns r s ->
-        match prototypes with
-        | BlockPrototype (pb, p) -> sfPrototype p ns r (sfBlock pb r s)
-        | ReferencePrototype (pr, p) ->
-            sfPrototype p ns r (Domain.inherit_proto s ns (sfReference pr) r)
-        | EmptyPrototype -> s
+let rec sfPrototype prototypes ns r s =
+    match prototypes with
+    | BlockPrototype (pb, p) -> sfPrototype p ns r (sfBlock pb r s)
+    | ReferencePrototype (pr, p) ->
+        sfPrototype p ns r (Domain.inherit_proto s ns (sfReference pr) r)
+    | EmptyPrototype -> s
 
 (* TODO: documentation *)
-and nuriShell command =
+and nuriShell command s ns =
     let delim = Str.regexp "\\." in
-    fun s ns ->
-        let len = String.length command in
-        let bufferCommand = Buffer.create len in
-        let bufferVariable = Buffer.create 15 in
-        let substitute_variable (var : string) : unit =
-            let value : Domain._value = match Domain.resolve s ns (Str.split delim var) with
-                | _, Domain.Val Domain.Lazy func -> Domain.Val (Domain.eval_function s ns func)
-                | _, v -> v
-            in
-            match value with
-            | Domain.Val Domain.Basic v -> bufferCommand << (Domain.string_of_basic_value v)
-            | Domain.Undefined -> Domain.error 1109 ("Cannot find '" ^ var ^ "' in `" ^ command ^ "`")
-            | _ -> Domain.error 1110 ("Type of '" ^ var ^ "' in `" ^ command ^ "` is indeterminate.")
+    let len = String.length command in
+    let bufferCommand = Buffer.create len in
+    let bufferVariable = Buffer.create 15 in
+    let substitute_variable (var : string) : unit =
+        let value : Domain._value = match Domain.resolve s ns (Str.split delim var) with
+            | _, Domain.Val Domain.Lazy func -> Domain.Val (Domain.eval_function s ns func)
+            | _, v -> v
         in
-        let rec string_interpolation index length state : string =
-            if index >= length then (
-                if state = 0 then
-                    Buffer.contents bufferCommand
-                else
-                    Domain.error 1108 ("Invalid command `" ^ command ^ "`")
-            ) else (
-                if state = 0 then (
-                    if command.[index] = '$' then
-                        string_interpolation (index + 1) length 1
-                    else (
-                        bufferCommand <. command.[index];
-                        string_interpolation (index + 1) length 0
-                    )
-                ) else if state = 1 then (
-                    if command.[index] = '{' then (
-                        string_interpolation (index + 1) length 2
-                    ) else (
-                        bufferCommand <. '$';
-                        bufferCommand <. command.[index];
-                        string_interpolation (index + 1) length 0
-                    )
-                ) else if state = 2 then (
-                    if command.[index] = '}' then (
-                        substitute_variable (Buffer.contents bufferVariable);
-                        Buffer.clear bufferVariable;
-                        string_interpolation (index + 1) length 0
-                    ) else (
-                        bufferVariable <. command.[index];
-                        string_interpolation (index + 1) length 2
-                    )
+        match value with
+        | Domain.Val Domain.Basic v -> bufferCommand << (Domain.string_of_basic_value v)
+        | Domain.Undefined -> Domain.error 1102 ("Cannot find '" ^ var ^ "' in `" ^ command ^ "`")
+        | _ -> Domain.error 1103 ("Type of '" ^ var ^ "' in `" ^ command ^ "` is indeterminate.")
+    in
+    let rec string_interpolation index length state : string =
+        if index >= length then (
+            if state = 0 then
+                Buffer.contents bufferCommand
+            else
+                Domain.error 1104 ("Invalid command `" ^ command ^ "`")
+        ) else (
+            if state = 0 then (
+                if command.[index] = '$' then
+                    string_interpolation (index + 1) length 1
+                else (
+                    bufferCommand <. command.[index];
+                    string_interpolation (index + 1) length 0
+                )
+            ) else if state = 1 then (
+                if command.[index] = '{' then (
+                    string_interpolation (index + 1) length 2
                 ) else (
-                    Domain.error 1110 ("Invalid command `" ^ command ^ "`")
+                    bufferCommand <. '$';
+                    bufferCommand <. command.[index];
+                    string_interpolation (index + 1) length 0
                 )
-            )
-        in
-        let command = string_interpolation 0 len 0 in
-        try
-            Domain.Basic (Domain.String (get_process_output command))
-        with
-            Failure message -> Domain.error 1107 message
-
-(* TODO: documentation *)
-and nuriEqual exp1 exp2 =
-    fun s ns ->
-        let value = match (eval exp1 ns s), (eval exp2 ns s) with
-            | Domain.Basic (Domain.Int v1), Domain.Basic (Domain.Float v2) -> (float_of_int v1) = v2
-            | Domain.Basic (Domain.Float v1), Domain.Basic (Domain.Int v2) -> v1 = (float_of_int v2)
-            | Domain.Basic (Domain.Reference r1), Domain.Basic (Domain.Reference r2) ->
-                (
-                    match (Domain.resolve ~follow:true s ns r1),
-                          (Domain.resolve ~follow:true s ns r2)
-                    with
-                    | (_, Domain.Val v1), (_, Domain.Val v2) -> v1 = v2
-                    | _ -> false
+            ) else if state = 2 then (
+                if command.[index] = '}' then (
+                    substitute_variable (Buffer.contents bufferVariable);
+                    Buffer.clear bufferVariable;
+                    string_interpolation (index + 1) length 0
+                ) else (
+                    bufferVariable <. command.[index];
+                    string_interpolation (index + 1) length 2
                 )
-            | Domain.Basic (Domain.Reference r), v1
-            | v1, Domain.Basic (Domain.Reference r) ->
-                (
-                    match Domain.resolve ~follow:true s ns r with
-                    | _, Domain.Val v2 -> v1 = v2
-                    | _ -> false
+            ) else (
+                Domain.error 1105 ("Invalid command `" ^ command ^ "`")
+            )
+        )
+    in
+    let command = string_interpolation 0 len 0 in
+    try
+        Domain.Basic (Domain.String (get_process_output command))
+    with
+        Failure message -> Domain.error 1106 message
+
+(* TODO: documentation *)
+and nuriEqual exp1 exp2 s ns =
+    Domain.equals ~store:s ~namespace:ns (eval exp1 ns s) (eval exp2 ns s)
+
+and nuriExp_And exp1 exp2 s ns =
+    Domain.logic ~operator:"&&" ~store:s ~namespace:ns (&&) (eval exp1 ns s) (eval exp2 ns s)
+
+and nuriExp_Or exp1 exp2 s ns =
+    Domain.logic ~operator:"||" ~store:s ~namespace:ns (||) (eval exp1 ns s) (eval exp2 ns s)
+
+and nuriExp_Imply exp1 exp2 s ns =
+    Domain.unary ~store:s ~namespace:ns (eval exp1 ns s) (fun v1 -> match v1 with
+        | Domain.Basic Domain.Boolean b1 ->
+            if b1 then (
+                Domain.unary ~store:s ~namespace:ns (eval exp2 ns s) (fun v2 -> match v2 with
+                    | Domain.Basic Domain.Boolean b2 -> Domain.Basic (Domain.Boolean b2)
+                    | _ -> Domain.error 1107 "Right operand of '=>' is not a boolean."
                 )
-            | v1, v2 -> v1 = v2
-        in
-        Domain.Basic (Domain.Boolean value)
-
-and nuriExp_And left right =
-    fun s ns -> Domain.Basic (Domain.Boolean (
-        match (eval left ns s), (eval right ns s) with
-        | Domain.Basic (Domain.Boolean bLeft), Domain.Basic (Domain.Boolean bRight) -> bLeft && bRight
-        | _ -> Domain.error 1120 "Left or right operand of '&&' is not a boolean."
-    ))
-
-and nuriExp_Or left right =
-    fun s ns -> Domain.Basic (Domain.Boolean (
-        match (eval left ns s), (eval right ns s) with
-        | Domain.Basic (Domain.Boolean bLeft), Domain.Basic (Domain.Boolean bRight) -> bLeft || bRight
-        | _ -> Domain.error 1121 "Left or right operand of '||' is not a boolean."
-    ))
-
-and nuriExp_Imply left right =
-    fun s ns -> Domain.Basic (Domain.Boolean (
-        match (eval left ns s), (eval right ns s) with
-        | Domain.Basic (Domain.Boolean bLeft), Domain.Basic (Domain.Boolean bRight) -> if bLeft then bRight else true
-        | _ -> Domain.error 1122 "Left or right operand of '=>' is not a boolean."
-    ))
-
-(* TODO: documentation *)
-and nuriExp_Not exp =
-    fun s ns ->
-        match eval exp ns s with
-        | Domain.Basic (Domain.Boolean b) -> Domain.Basic (Domain.Boolean (not b))
-        | Domain.Basic (Domain.Reference r) ->
-            (
-                match Domain.resolve ~follow:true s ns r with
-                | _, Domain.Val (Domain.Basic (Domain.Boolean b)) ->
-                    Domain.Basic (Domain.Boolean (not b))
-                | _ ->
-                    Domain.error 1111 "The operand of 'not' is not a boolean."
+            ) else (
+                Domain.Basic (Domain.Boolean true)
             )
-        | _ -> Domain.error 1112 "The operand of 'not' is not a boolean."
+        | _ -> Domain.error 1108 "Left operand of '=>' is not a boolean."
+    )
 
 (* TODO: documentation *)
-and nuriExp_Add exp1 exp2 =
-    fun s ns ->
-        match (eval exp1 ns s),
-              (eval exp2 ns s)
-        with
-        | Domain.Basic v1, Domain.Basic v2 -> Domain.Basic (Domain.add ~store:s ~namespace:ns v1 v2)
-        | _, Domain.Basic _ -> Domain.error 1113 "Left operand of '+' is not a basic value."
-        | Domain.Basic _, _ -> Domain.error 1114 "Right operand of '+' is not a basic value."
-        | _, _ -> Domain.error 1115 "Both operands of '+' are not basic values."
+and nuriExp_Not exp s ns =
+    Domain.unary ~store:s ~namespace:ns (eval exp ns s) (fun v -> match v with
+        | Domain.Basic Domain.Boolean b -> Domain.Basic (Domain.Boolean (not b))
+        | _ -> Domain.error 1107 "Operand of '!' is not a boolean."
+    )
 
 (* TODO: documentation *)
-and nuriExp_IfThenElse ifExp thenExp elseExp =
-    fun s ns ->
-        match (eval ifExp ns s),
-              (eval thenExp ns s),
-              (eval elseExp ns s)
-        with
-        | Domain.Basic (Domain.Boolean condition), thenValue, elseValue ->
-            if condition then thenValue else elseValue
-        | cond, _, _ -> print_endline (Json.of_value cond); Domain.error 1116 "Invalid if-then-else statement."
+and nuriExp_Add exp1 exp2 s ns =
+    Domain.add ~store:s ~namespace:ns (eval exp1 ns s) (eval exp2 ns s)
+
+and nuriExp_Subtract exp1 exp2 s ns =
+    Domain.math ~store:s ~namespace:ns (-) (-.) (eval exp1 ns s) (eval exp2 ns s)
+
+and nuriExp_Multiply exp1 exp2 s ns =
+    Domain.math ~store:s ~namespace:ns ( * ) ( *. ) (eval exp1 ns s) (eval exp2 ns s)
+
+and nuriExp_Divide exp1 exp2 s ns =
+    Domain.math ~store:s ~namespace:ns ( / ) ( /. ) (eval exp1 ns s) (eval exp2 ns s)
+
+and nuriExp_Modulo exp1 exp2 s ns =
+    Domain.math ~store:s ~namespace:ns
+               (mod)
+               (fun _ _ -> Domain.error 1108 "Both modulo's operands must be integers.")
+               (eval exp1 ns s) (eval exp2 ns s)
 
 (* TODO: documentation *)
-and nuriExp_MatchRegexp exp regexp =
-    fun s ns ->
-        let match_regexp str =
-             let value =
-                try
-                    (Str.search_forward (Str.regexp regexp) str 0) >= 0
-                with
-                    Not_found -> false
-            in
-            Domain.Basic (Domain.Boolean value)
-        in
-        match eval exp ns s with
-        | Domain.Basic (Domain.String str) -> match_regexp str
-        | Domain.Basic (Domain.Reference r) ->
-            (
-                match Domain.resolve ~follow:true s ns r with
-                | _, Domain.Val Domain.Basic Domain.String str -> match_regexp str
-                | _ -> Domain.error 1117 "The operand of match-regexp is not a string."
-                
-            )
-        | _ -> Domain.error 1119 "The operand of match-regexp is not a string."
+and nuriExp_IfThenElse ifExp thenExp elseExp s ns =
+    Domain.unary ~store:s ~namespace:ns (eval ifExp ns s) (fun v -> match v with
+        | Domain.Basic Domain.Boolean b -> if b then (eval thenExp ns s) else (eval elseExp ns s)
+        | _ -> Domain.error 1108 "if-clause is not a boolean."
+    )
+
+(* TODO: documentation *)
+and nuriExp_MatchRegexp exp regexp s ns =
+    Domain.unary ~store:s ~namespace:ns (eval exp ns s) (fun v ->
+        Domain.Basic (Domain.Boolean (match v with
+            | Domain.Basic Domain.String str -> (
+                    try (Str.search_forward (Str.regexp regexp) str 0) >= 0
+                    with Not_found -> false
+                )
+            | _ -> false
+        ))
+    )
 
 (* helper function -- TODO: documentation *)        
 and eval (exp : Syntax.expression) ns s : Domain.value =
@@ -234,22 +195,25 @@ and eval (exp : Syntax.expression) ns s : Domain.value =
     | value -> value
 
 (* TODO: documentation *)
-and nuriExpression exp =
-    fun ns s -> match exp with
-        | Basic value             -> Domain.Basic (sfBasicValue value)
-        | Shell command           -> Domain.Lazy (nuriShell command)
-        | Exp_Eager exp           -> eval exp ns s
-        | Exp_Not exp             -> Domain.Lazy (nuriExp_Not exp)
-        | Exp_Equal (exp1, exp2)  -> Domain.Lazy (nuriEqual exp1 exp2)
-        | Exp_And (left, right)   -> Domain.Lazy (nuriExp_And left right)
-        | Exp_Or (left, right)    -> Domain.Lazy (nuriExp_Or left right)
-        | Exp_Imply (left, right) -> Domain.Lazy (nuriExp_Imply left right)
-        | Exp_Add (exp1, exp2)    -> Domain.Lazy (nuriExp_Add exp1 exp2)  (* Lazy evaluation  *)
-                                     (* nuriExp_Add exp1 exp2 s ns *)     (* Eager evaluation *)
-        | Exp_MatchRegexp (exp, regexp)     -> Domain.Lazy (nuriExp_MatchRegexp exp regexp)
-        | Exp_IfThenElse (exp1, exp2, exp3) -> Domain.Lazy (nuriExp_IfThenElse exp1 exp2 exp3)
+and nuriExpression exp ns s = match exp with
+    | Basic value             -> Domain.Basic (sfBasicValue value)
+    | Shell command           -> Domain.Lazy (nuriShell command)
+    | Exp_Eager exp           -> eval exp ns s
+    | Exp_Not exp             -> Domain.Lazy (nuriExp_Not exp)
+    | Exp_Equal (exp1, exp2)  -> Domain.Lazy (nuriEqual exp1 exp2)
+    | Exp_And (left, right)   -> Domain.Lazy (nuriExp_And left right)
+    | Exp_Or (left, right)    -> Domain.Lazy (nuriExp_Or left right)
+    | Exp_Imply (left, right) -> Domain.Lazy (nuriExp_Imply left right)
+    | Exp_Add (exp1, exp2)    -> Domain.Lazy (nuriExp_Add exp1 exp2)  (* Lazy evaluation  *)
+                                 (* nuriExp_Add exp1 exp2 s ns *)     (* Eager evaluation *)
+    | Exp_Subtract (exp1, exp2) -> Domain.Lazy (nuriExp_Subtract exp1 exp2)
+    | Exp_Multiply (exp1, exp2) -> Domain.Lazy (nuriExp_Multiply exp1 exp2)
+    | Exp_Divide (exp1, exp2)   -> Domain.Lazy (nuriExp_Divide exp1 exp2)
+    | Exp_Modulo (exp1, exp2)   -> Domain.Lazy (nuriExp_Modulo exp1 exp2)
+    | Exp_MatchRegexp (exp, regexp)     -> Domain.Lazy (nuriExp_MatchRegexp exp regexp)
+    | Exp_IfThenElse (exp1, exp2, exp3) -> Domain.Lazy (nuriExp_IfThenElse exp1 exp2 exp3)
 
-and sfValue v =
+and sfValue v ns r s =
     let eval_name (r: Domain.reference) (s: Domain.store) =
         let r_name = Domain.(@+.) r "name" in
         let rec get_name r = match r with
@@ -262,85 +226,79 @@ and sfValue v =
         | Domain.Val Domain.TBD -> Domain.bind s r_name (Domain.Basic (Domain.String (get_name r)))
         | _ -> s
     in
-    fun ns r s ->
-        match v with
-        | Expression exp -> Domain.bind s r (nuriExpression exp ns s)
-        | Link link   -> Domain.bind s r (sfLinkReference link r)
-        | Prototype (EmptySchema, p) ->
-            eval_name r (sfPrototype p ns r (Domain.bind s r (Domain.Store [])))
-        | Prototype (SID sid, p) ->
-            (
-                let s1 = Domain.bind s r (Domain.Store []) in
-                let s2 = Domain.inherit_proto s1 [] [sid] r in
-                eval_name r (sfPrototype p ns r s2)
-            )
-        | Action a -> nuriAction a ns r s
-        | TBD      -> Domain.bind s r Domain.TBD
-        | Unknown  -> Domain.bind s r Domain.Unknown
-        | None     -> Domain.bind s r Domain.None
+    match v with
+    | Expression exp -> Domain.bind s r (nuriExpression exp ns s)
+    | Link link      -> Domain.bind s r (sfLinkReference link r)
+    | Prototype (EmptySchema, p) ->
+        eval_name r (sfPrototype p ns r (Domain.bind s r (Domain.Store [])))
+    | Prototype (SID sid, p) ->
+        (
+            let s1 = Domain.bind s r (Domain.Store []) in
+            let s2 = Domain.inherit_proto s1 [] [sid] r in
+            eval_name r (sfPrototype p ns r s2)
+        )
+    | Action a -> nuriAction a ns r s
+    | TBD      -> Domain.bind s r Domain.TBD
+    | Unknown  -> Domain.bind s r Domain.Unknown
+    | None     -> Domain.bind s r Domain.None
 
 (** the type is ignored since this function only evaluates the value **)
-and sfAssignment (reference, _, value) =
-    fun ns s ->
-        if reference = _echo_ then (
-            let s1 = sfValue value ns _echo_ s in
-            let v1 = match Domain.find s1 _echo_ with
-                | Domain.Val Domain.Basic Domain.Reference r
-                | Domain.Val Domain.Link r ->
-                    (
-                        match (Domain.resolve ~follow:true s1 ns r) with
-                        | _, Domain.Undefined
-                        | _, Domain.Val Domain.Store _ -> Domain.Basic (Domain.Reference r)
-                        | _, Domain.Val v -> v
-                    )
-                | Domain.Val Domain.Lazy func -> Domain.eval_function s1 ns func
-                | Domain.Val v -> v
-                | _ -> Domain.Unknown
-            in
-            print_endline (Json.of_value ~ignore_lazy:false v1);
-            s
-        ) else (
-            sfValue value ns (Domain.(@++) ns reference) s
-        )
-
-and sfBlock block =
-    fun ns s ->
-        match block with
-        | AssignmentBlock (a, b) -> sfBlock b ns (sfAssignment a ns s)
-        | TrajectoryBlock (t, b) -> sfBlock b ns (nuriTrajectory t s)
-        | EmptyBlock             -> s
-
-and nuriSchema (name, parent, b) =
-    fun s ->
-        let refName = [name] in
-        let s1 = Domain.bind s refName (Domain.Store []) in
-        let s2 =
-            match parent with
-            | EmptySchema -> s1
-            | SID superid -> Domain.inherit_proto s1 [] [superid] refName
+and sfAssignment (reference, _, value) ns s =
+    if reference = _echo_ then (
+        let s1 = sfValue value ns _echo_ s in
+        let v1 = match Domain.find s1 _echo_ with
+            | Domain.Val Domain.Basic Domain.Reference r
+            | Domain.Val Domain.Link r ->
+                (
+                    match (Domain.resolve ~follow:true s1 ns r) with
+                    | _, Domain.Undefined
+                    | _, Domain.Val Domain.Store _ -> Domain.Basic (Domain.Reference r)
+                    | _, Domain.Val v -> v
+                )
+            | Domain.Val Domain.Lazy func -> Domain.eval_function s1 ns func
+            | Domain.Val v -> v
+            | _ -> Domain.Unknown
         in
-        sfBlock b refName s2
+        print_endline (Json.of_value ~ignore_lazy:false v1);
+        s
+    ) else (
+        sfValue value ns (Domain.(@++) ns reference) s
+    )
 
-and nuriEnum (name, elements) =
-    fun s ->
-        let refName = [name] in
-        Domain.bind s refName (Domain.Enum elements)
+and sfBlock block ns s =
+    match block with
+    | AssignmentBlock (a, b) -> sfBlock b ns (sfAssignment a ns s)
+    | TrajectoryBlock (t, b) -> sfBlock b ns (nuriTrajectory t s)
+    | EmptyBlock             -> s
 
-and nuriTrajectory t = match t with
-    | Global g -> nuriGlobal g
+and nuriSchema (name, parent, b) s =
+    let refName = [name] in
+    let s1 = Domain.bind s refName (Domain.Store []) in
+    let s2 =
+        match parent with
+        | EmptySchema -> s1
+        | SID superid -> Domain.inherit_proto s1 [] [superid] refName
+    in
+    sfBlock b refName s2
 
-and nuriContext context =
-    fun s ->
-        match context with
-        | AssignmentContext (assignment, nextContext) ->
-            nuriContext nextContext (sfAssignment assignment [] s)
-        | SchemaContext (schema, nextContext) ->
-            nuriContext nextContext (nuriSchema schema s)
-        | EnumContext (enum, nextContext) ->
-            nuriContext nextContext (nuriEnum enum s)
-        | TrajectoryContext (trajectory, nextContext) ->
-            nuriContext nextContext (nuriTrajectory trajectory s)
-        | EmptyContext -> s
+and nuriEnum (name, elements) s =
+    let refName = [name] in
+    Domain.bind s refName (Domain.Enum elements)
+
+and nuriTrajectory t s = match t with
+    | Global g -> nuriGlobal g s
+
+and nuriContext context s =
+    match context with
+    | AssignmentContext (assignment, nextContext) ->
+        nuriContext nextContext (sfAssignment assignment [] s)
+    | SchemaContext (schema, nextContext) ->
+        nuriContext nextContext (nuriSchema schema s)
+    | EnumContext (enum, nextContext) ->
+        nuriContext nextContext (nuriEnum enum s)
+    | TrajectoryContext (trajectory, nextContext) ->
+        nuriContext nextContext (nuriTrajectory trajectory s)
+    | EmptyContext -> s
 
 and nuriSpecificationFirstPass nuri = nuriContext nuri []
 
@@ -374,16 +332,15 @@ and nuriSpecification ?main:(referenceMain=["main"]) nuri =
 
 
 (** global constraints **)
-and nuriGlobal g =
-    fun s ->
-        let r = ["global"] in
-        let gc = nuriConstraint g in
-        match Domain.find s r with
-        | Domain.Val (Domain.Global gs) ->
-            let f = Domain.Global (Domain.And [gc; gs]) in
-            Domain.bind s r f
-        | Domain.Undefined -> Domain.bind s r (Domain.Global gc)
-        | _                  -> Domain.error 1106 ""
+and nuriGlobal g s =
+    let r = ["global"] in
+    let gc = nuriConstraint g in
+    match Domain.find s r with
+    | Domain.Val (Domain.Global gs) ->
+        let f = Domain.Global (Domain.And [gc; gs]) in
+        Domain.bind s r f
+    | Domain.Undefined -> Domain.bind s r (Domain.Global gc)
+    | _                  -> Domain.error 1106 ""
 
 (** constraints **)
 and nuriConstraint (c : _constraint) =

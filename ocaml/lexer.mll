@@ -32,7 +32,7 @@
 (**
  * reserved characters: '/' '*' ',' '{' '}' '[' ']' '(' ')' ';' '.' ':'
  *                      '=' "!=" ">=" "<=" '>' '<' ":=" '"' '$'
- *                      '`' '+' '==' '!' "&&" "||" "=>"
+ *                      '`' '+' '-' '*' '/' '%' '==' '!' "&&" "||" "=>"
  *)
 
 (** regular expressions **)
@@ -130,6 +130,9 @@ rule token =
 	| ':'         { COLON }
 	| '*'         { ASTERIX }
     | '+'         { TOK_PLUS }
+    | '-'         { TOK_SUBTRACT }
+    | '/'         { TOK_DIVIDER }
+    | '%'         { TOK_MODULO }
 	| '='         { EQUAL }
 	| "!="        { NOT_EQUAL }
 	| ">="        { TOK_GREATER_EQUAL }

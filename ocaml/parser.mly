@@ -24,7 +24,8 @@ open Syntax
 %token LBRACKET RBRACKET EOS EOF
 %token ISA SCHEMA ENUM ASTERIX COLON TBOOL TINT TFLOAT TSTR TOBJ
 %token GLOBAL SOMETIME ATLEAST ATMOST ALLDIFFERENT
-%token TOK_EQUAL_EQUAL TOK_AND TOK_OR TOK_IMPLY TOK_PLUS TOK_EXCLAMATION TOK_DOLLAR
+%token TOK_EQUAL_EQUAL TOK_AND TOK_OR TOK_IMPLY TOK_EXCLAMATION TOK_DOLLAR
+%token TOK_PLUS TOK_SUBTRACT TOK_DIVIDER TOK_MODULO
 %token EQUAL NOT_EQUAL IF THEN ELSE IN NOT LPARENTHESIS RPARENTHESIS
 %token TOK_GREATER TOK_GREATER_EQUAL TOK_LESS TOK_LESS_EQUAL
 %token TOK_COLON_EQUAL
@@ -105,6 +106,10 @@ exp1
 binary_op
     : TOK_EQUAL_EQUAL exp2 binary_op { fun left -> $3 (Exp_Equal (left, $2)) }
     | TOK_PLUS exp2 binary_op        { fun left -> $3 (Exp_Add (left, $2)) }
+    | TOK_SUBTRACT exp2 binary_op       { fun left -> $3 (Exp_Subtract (left, $2)) }
+    | ASTERIX exp2 binary_op         { fun left -> $3 (Exp_Multiply (left, $2)) }
+    | TOK_DIVIDER exp2 binary_op     { fun left -> $3 (Exp_Divide (left, $2)) }
+    | TOK_MODULO exp2 binary_op      { fun left -> $3 (Exp_Modulo (left, $2)) }
     | TOK_AND exp2 binary_op         { fun left -> $3 (Exp_And (left, $2)) }
     | TOK_OR exp2 binary_op          { fun left -> $3 (Exp_Or (left, $2)) }
     | TOK_IMPLY exp2 binary_op       { fun left -> $3 (Exp_Imply (left, $2)) }

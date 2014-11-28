@@ -34,8 +34,12 @@ and  expression    = Basic           of basicValue              (** Basic value 
                    | Exp_And         of expression * expression (** Conjunction (binary) *)
                    | Exp_Or          of expression * expression (** Disjunction (binary) *)
                    | Exp_Imply       of expression * expression (** Implication (binary) *)
-                   | Exp_Add         of expression * expression (** Addition (binary) *)
                    | Exp_MatchRegexp of expression * string     (** Matching (binary) *)
+                   | Exp_Add         of expression * expression (** Addition (binary) *)
+                   | Exp_Subtract    of expression * expression
+                   | Exp_Multiply    of expression * expression
+                   | Exp_Divide      of expression * expression
+                   | Exp_Modulo      of expression * expression
                    | Exp_IfThenElse  of expression * expression * expression (** Conditional (ternary) *)
 
 and  value         = Expression of expression

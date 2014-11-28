@@ -167,6 +167,19 @@ val accept : store -> reference -> store -> reference -> store
 (** Return a first variable that has value equal to 'value'. *)
 val find_value : reference -> store -> value -> reference
 
+(** Evaluate a function, and then return the evaluation result. *)
+val eval_function : store -> reference -> (store -> reference -> value) -> value
+
+(** Return a string of given basic value. *)
+val string_of_basic_value : basic -> string
+
+
+(****************************************************************
+ * Expressions evaluation functions
+ ****************************************************************)
+
+(* TODO: update semantics algebra in the documentation *)
+
 (** A binary operator that adds two operands. The result will be:
     - add Int Int -> Int
     - add Int Float -> Float
@@ -174,16 +187,21 @@ val find_value : reference -> store -> value -> reference
     - add Float Float -> Float
     - add String basic -> String
     - add basic String -> String *)
-val add : ?store:store -> ?namespace:reference -> basic -> basic -> basic
+val add : ?store:store -> ?namespace:reference -> value -> value -> value
 
-(** Set of functions. Uses {Set.S} *)
-module SetFunc : Set.S with type elt = (store -> reference -> value)
+val equals : ?store:store -> ?namespace:reference -> value -> value -> value
 
-(** Evaluate a function, and then return the evaluation result. *)
-val eval_function : ?visited:SetFunc.t -> store -> reference -> (store -> reference -> value) -> value
+val logic : ?operator:string -> ?store:store -> ?namespace:reference ->
+            (bool -> bool -> bool) -> value -> value -> value
 
-(** Return a string of given basic value. *)
-val string_of_basic_value : basic -> string
+val math : ?store:store -> ?namespace:reference ->
+           (int -> int -> int) -> (float -> float -> float) -> value -> value -> value
+
+val unary : ?store:store -> ?namespace:reference -> value ->
+            (value -> value) -> value
+
+val binary : ?store:store -> ?namespace:reference ->
+             (value -> value -> value) -> value -> value -> value
 
 
 (*******************************************************************
