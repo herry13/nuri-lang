@@ -182,9 +182,9 @@ and nuriExp_Add exp1 exp2 =
               (eval exp2 ns s)
         with
         | Domain.Basic v1, Domain.Basic v2 -> Domain.Basic (Domain.add ~store:s ~namespace:ns v1 v2)
-        | _, Domain.Basic _ -> Domain.error 1113 "Left operand is not a basic value."
-        | Domain.Basic _, _ -> Domain.error 1114 "Right operand is not a basic value."
-        | _, _ -> Domain.error 1115 "Both operands are not basic values."
+        | _, Domain.Basic _ -> Domain.error 1113 "Left operand of '+' is not a basic value."
+        | Domain.Basic _, _ -> Domain.error 1114 "Right operand of '+' is not a basic value."
+        | _, _ -> Domain.error 1115 "Both operands of '+' are not basic values."
 
 (* TODO: documentation *)
 and nuriExp_IfThenElse ifExp thenExp elseExp =
