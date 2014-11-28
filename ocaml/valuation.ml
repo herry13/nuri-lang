@@ -20,7 +20,7 @@ let sfNull = Domain.Null ;;
 
 let sfReference r = r ;;
 
-let sfDataReference dataRef = Domain.Ref (sfReference dataRef) ;;
+let sfDataReference dataRef = Domain.Reference (sfReference dataRef) ;;
 
 let sfLinkReference link =
     let linkRef = sfReference link in
@@ -57,10 +57,21 @@ let rec sfPrototype prototypes =
 
 (* TODO: documentation *)
 and nuriShell command =
+    let delim = Str.regexp "\\." in
     fun s ns ->
         let len = String.length command in
         let bufferCommand = Buffer.create len in
         let bufferVariable = Buffer.create 15 in
+        let substitute_variable (var : string) : unit =
+            let value : Domain._value = match Domain.resolve s ns (Str.split delim var) with
+                | _, Domain.Val Domain.Lazy func -> Domain.Val (Domain.eval_function s ns func)
+                | _, v -> v
+            in
+            match value with
+            | Domain.Val Domain.Basic v -> bufferCommand << (Domain.string_of_basic_value v)
+            | Domain.Undefined -> Domain.error 1109 ("Cannot find '" ^ var ^ "' in `" ^ command ^ "`")
+            | _ -> Domain.error 1110 ("Type of '" ^ var ^ "' in `" ^ command ^ "` is indeterminate.")
+        in
         let rec string_interpolation index length state : string =
             if index >= length then (
                 if state = 0 then
@@ -72,33 +83,24 @@ and nuriShell command =
                     if command.[index] = '$' then
                         string_interpolation (index + 1) length 1
                     else (
-                        Buffer.add_char bufferCommand command.[index];
+                        bufferCommand <. command.[index];
                         string_interpolation (index + 1) length 0
                     )
                 ) else if state = 1 then (
                     if command.[index] = '{' then (
                         string_interpolation (index + 1) length 2
                     ) else (
-                        Buffer.add_char bufferCommand '$';
-                        Buffer.add_char bufferCommand command.[index];
+                        bufferCommand <. '$';
+                        bufferCommand <. command.[index];
                         string_interpolation (index + 1) length 0
                     )
                 ) else if state = 2 then (
                     if command.[index] = '}' then (
-                        let var = Buffer.contents bufferVariable in
-                        (
-                            match Domain.resolve s ns (Str.split (Str.regexp "\\.") var) with
-                            | _, Domain.Val Domain.Basic value ->
-                                Buffer.add_string bufferCommand (Domain.string_of_basic_value value)
-                            | _, Domain.Undefined ->
-                                Domain.error 1109 ("Variable '" ^ var ^ "' in `" ^ command ^ "` is not found.")
-                            | _ ->
-                                Domain.error 1110 ("Variable '" ^ var ^ "' in `" ^ command ^ "` is not a string.")
-                        );
+                        substitute_variable (Buffer.contents bufferVariable);
                         Buffer.clear bufferVariable;
                         string_interpolation (index + 1) length 0
                     ) else (
-                        Buffer.add_char bufferVariable command.[index];
+                        bufferVariable <. command.[index];
                         string_interpolation (index + 1) length 2
                     )
                 ) else (
@@ -118,18 +120,18 @@ and nuriEqual exp1 exp2 =
         let value = match (eval exp1 ns s), (eval exp2 ns s) with
             | Domain.Basic (Domain.Int v1), Domain.Basic (Domain.Float v2) -> (float_of_int v1) = v2
             | Domain.Basic (Domain.Float v1), Domain.Basic (Domain.Int v2) -> v1 = (float_of_int v2)
-            | Domain.Basic (Domain.Ref r1), Domain.Basic (Domain.Ref r2) ->
+            | Domain.Basic (Domain.Reference r1), Domain.Basic (Domain.Reference r2) ->
                 (
-                    match (Domain.resolve ~follow_ref:true s ns r1),
-                          (Domain.resolve ~follow_ref:true s ns r2)
+                    match (Domain.resolve ~follow:true s ns r1),
+                          (Domain.resolve ~follow:true s ns r2)
                     with
                     | (_, Domain.Val v1), (_, Domain.Val v2) -> v1 = v2
                     | _ -> false
                 )
-            | Domain.Basic (Domain.Ref r), v1
-            | v1, Domain.Basic (Domain.Ref r) ->
+            | Domain.Basic (Domain.Reference r), v1
+            | v1, Domain.Basic (Domain.Reference r) ->
                 (
-                    match Domain.resolve ~follow_ref:true s ns r with
+                    match Domain.resolve ~follow:true s ns r with
                     | _, Domain.Val v2 -> v1 = v2
                     | _ -> false
                 )
@@ -163,9 +165,9 @@ and nuriExp_Not exp =
     fun s ns ->
         match eval exp ns s with
         | Domain.Basic (Domain.Boolean b) -> Domain.Basic (Domain.Boolean (not b))
-        | Domain.Basic (Domain.Ref r) ->
+        | Domain.Basic (Domain.Reference r) ->
             (
-                match Domain.resolve ~follow_ref:true s ns r with
+                match Domain.resolve ~follow:true s ns r with
                 | _, Domain.Val (Domain.Basic (Domain.Boolean b)) ->
                     Domain.Basic (Domain.Boolean (not b))
                 | _ ->
@@ -174,7 +176,7 @@ and nuriExp_Not exp =
         | _ -> Domain.error 1112 "The operand of 'not' is not a boolean."
 
 (* TODO: documentation *)
-and nuriAdd exp1 exp2 =
+and nuriExp_Add exp1 exp2 =
     fun s ns ->
         match (eval exp1 ns s),
               (eval exp2 ns s)
@@ -185,7 +187,7 @@ and nuriAdd exp1 exp2 =
         | _, _ -> Domain.error 1115 "Both operands are not basic values."
 
 (* TODO: documentation *)
-and nuriIfThenElse ifExp thenExp elseExp =
+and nuriExp_IfThenElse ifExp thenExp elseExp =
     fun s ns ->
         match (eval ifExp ns s),
               (eval thenExp ns s),
@@ -196,7 +198,7 @@ and nuriIfThenElse ifExp thenExp elseExp =
         | cond, _, _ -> print_endline (Json.of_value cond); Domain.error 1116 "Invalid if-then-else statement."
 
 (* TODO: documentation *)
-and nuriMatchRegexp exp regexp =
+and nuriExp_MatchRegexp exp regexp =
     fun s ns ->
         let match_regexp str =
              let value =
@@ -209,9 +211,9 @@ and nuriMatchRegexp exp regexp =
         in
         match eval exp ns s with
         | Domain.Basic (Domain.String str) -> match_regexp str
-        | Domain.Basic (Domain.Ref r) ->
+        | Domain.Basic (Domain.Reference r) ->
             (
-                match Domain.resolve ~follow_ref:true s ns r with
+                match Domain.resolve ~follow:true s ns r with
                 | _, Domain.Val Domain.Basic Domain.String str -> match_regexp str
                 | _ -> Domain.error 1117 "The operand of match-regexp is not a string."
                 
@@ -219,14 +221,14 @@ and nuriMatchRegexp exp regexp =
         | _ -> Domain.error 1119 "The operand of match-regexp is not a string."
 
 (* helper function -- TODO: documentation *)        
-and eval exp ns s =
+and eval (exp : Syntax.expression) ns s : Domain.value =
     match nuriExpression exp ns s  with
-    | Domain.Lazy func -> Domain.resolve_function s ns func
-    | Domain.Basic Domain.Ref r ->
+    | Domain.Lazy func -> Domain.eval_function s ns func
+    | Domain.Basic Domain.Reference r ->
         (
-            match (Domain.resolve ~follow_ref:true s ns r) with
+            match (Domain.resolve ~follow:true s ns r) with
             | _, Domain.Undefined
-            | _, Domain.Val Domain.Store _ -> Domain.Basic (Domain.Ref r)
+            | _, Domain.Val Domain.Store _ -> Domain.Basic (Domain.Reference r)
             | _, Domain.Val v -> v
         )
     | value -> value
@@ -234,17 +236,18 @@ and eval exp ns s =
 (* TODO: documentation *)
 and nuriExpression exp =
     fun ns s -> match exp with
-        | Basic value                   -> Domain.Basic (sfBasicValue value)
-        | Shell command                 -> Domain.Lazy (nuriShell command)
-        | Equal (exp1, exp2)            -> Domain.Lazy (nuriEqual exp1 exp2)
-        | Exp_Not exp                   -> Domain.Lazy (nuriExp_Not exp)
-        | Exp_And (left, right)         -> Domain.Lazy (nuriExp_And left right)
-        | Exp_Or (left, right)          -> Domain.Lazy (nuriExp_Or left right)
-        | Exp_Imply (left, right)       -> Domain.Lazy (nuriExp_Imply left right)
-        | Add (exp1, exp2)              -> Domain.Lazy (nuriAdd exp1 exp2)  (* Lazy evaluation  *)
-                                           (* nuriAdd exp1 exp2 s ns *)     (* Eager evaluation *)
-        | IfThenElse (exp1, exp2, exp3) -> Domain.Lazy (nuriIfThenElse exp1 exp2 exp3)
-        | MatchRegexp (exp, regexp)     -> Domain.Lazy (nuriMatchRegexp exp regexp)
+        | Basic value             -> Domain.Basic (sfBasicValue value)
+        | Shell command           -> Domain.Lazy (nuriShell command)
+        | Exp_Eager exp           -> eval exp ns s
+        | Exp_Not exp             -> Domain.Lazy (nuriExp_Not exp)
+        | Exp_Equal (exp1, exp2)  -> Domain.Lazy (nuriEqual exp1 exp2)
+        | Exp_And (left, right)   -> Domain.Lazy (nuriExp_And left right)
+        | Exp_Or (left, right)    -> Domain.Lazy (nuriExp_Or left right)
+        | Exp_Imply (left, right) -> Domain.Lazy (nuriExp_Imply left right)
+        | Exp_Add (exp1, exp2)    -> Domain.Lazy (nuriExp_Add exp1 exp2)  (* Lazy evaluation  *)
+                                     (* nuriExp_Add exp1 exp2 s ns *)     (* Eager evaluation *)
+        | Exp_MatchRegexp (exp, regexp)     -> Domain.Lazy (nuriExp_MatchRegexp exp regexp)
+        | Exp_IfThenElse (exp1, exp2, exp3) -> Domain.Lazy (nuriExp_IfThenElse exp1 exp2 exp3)
 
 and sfValue v =
     let eval_name (r: Domain.reference) (s: Domain.store) =
@@ -274,7 +277,7 @@ and sfValue v =
         | Action a -> nuriAction a ns r s
         | TBD      -> Domain.bind s r Domain.TBD
         | Unknown  -> Domain.bind s r Domain.Unknown
-        | Nothing  -> Domain.bind s r Domain.Nothing
+        | None     -> Domain.bind s r Domain.None
 
 (** the type is ignored since this function only evaluates the value **)
 and sfAssignment (reference, _, value) =
@@ -342,9 +345,9 @@ and nuriSpecificationSecondPass ?main:(referenceMain=["main"]) nuri =
 
 and nuriSpecificationThirdPass ?main:(referenceMain=["main"]) nuri =
     let s2 = nuriSpecificationSecondPass ~main:referenceMain nuri in
-    match Domain.value_TBD_exists [] s2 with
+    match Domain.find_value [] s2 Domain.TBD with
     | []  -> s2
-    | ref -> Domain.error 1105 ((Domain.(!^) ref) ^ " = TBD")
+    | ref -> Domain.error 1105 (!^ref ^ " = TBD")
 
 and nuriSpecification ?main:(referenceMain=["main"]) nuri =
     nuriSpecificationThirdPass ~main:referenceMain nuri
@@ -373,22 +376,22 @@ and nuriConstraint (c : _constraint) =
         Domain.In (sfReference r, eval vec)
     in
     match c with
-    | Eq (r, v)           -> Domain.Eq ((sfReference r), (sfBasicValue v))
-    | Ne (r, v)           -> Domain.Ne ((sfReference r), (sfBasicValue v))
-    | Greater (r, v)      -> Domain.Greater ((sfReference r), (sfBasicValue v))
-    | GreaterEqual (r, v) -> Domain.GreaterEqual ((sfReference r),
+    | C_Equal (r, v)        -> Domain.Equal ((sfReference r), (sfBasicValue v))
+    | C_NotEqual (r, v)     -> Domain.NotEqual ((sfReference r), (sfBasicValue v))
+    | C_Greater (r, v)      -> Domain.Greater ((sfReference r), (sfBasicValue v))
+    | C_GreaterEqual (r, v) -> Domain.GreaterEqual ((sfReference r),
                                  (sfBasicValue v))
-    | Less (r, v)         -> Domain.Less ((sfReference r), (sfBasicValue v))
-    | LessEqual (r, v)    -> Domain.LessEqual ((sfReference r),
+    | C_Less (r, v)         -> Domain.Less ((sfReference r), (sfBasicValue v))
+    | C_LessEqual (r, v)    -> Domain.LessEqual ((sfReference r),
                                  (sfBasicValue v))
-    | Not c1              -> Domain.Not (nuriConstraint c1)
-    | Imply (c1, c2)      -> Domain.Imply (nuriConstraint c1, nuriConstraint c2)
-    | In (r, vec)         -> nuriMembership r vec
-    | And cs              ->
+    | C_Not c1              -> Domain.Not (nuriConstraint c1)
+    | C_Imply (c1, c2)      -> Domain.Imply (nuriConstraint c1, nuriConstraint c2)
+    | C_In (r, vec)         -> nuriMembership r vec
+    | C_And cs              ->
         Domain.And (List.fold_left (
             fun acc c -> (nuriConstraint c) :: acc
         ) [] cs)
-    | Or cs               ->
+    | C_Or cs               ->
         Domain.Or (List.fold_left (
             fun acc c -> (nuriConstraint c) :: acc
         ) [] cs)

@@ -215,7 +215,7 @@ type temp_variables = {
 (** generate a collection of variables from given type environment and
     flat-store of initial and goal states **)
 let make_ts typeEnvInit flatStoreInit typeEnvGoal flatStoreGoal typeValues =
-    let typeObject = Syntax.TSchema Syntax.TObject in
+    let typeObject = Syntax.T_Schema Syntax.T_Object in
     let type_of_variable ref =
         match (Type.type_of ref typeEnvInit), (Type.type_of ref typeEnvGoal) with
         | type1, type2 when type1 = type2 ->
@@ -225,7 +225,7 @@ let make_ts typeEnvInit flatStoreInit typeEnvGoal flatStoreGoal typeValues =
                            "that can have TBD value at the goal state.")
             else
                 type1
-        | type1, Syntax.TUndefined -> type1
+        | type1, Syntax.T_Undefined -> type1
         | _, _ -> error 602 "incompatible type between initial & goal states"
     in
     let accumulator = {
@@ -238,8 +238,8 @@ let make_ts typeEnvInit flatStoreInit typeEnvGoal flatStoreGoal typeValues =
             fun r v acc ->
                 if MapRef.mem r acc._map then error 603 "";
                 match type_of_variable r with
-                | Syntax.TAction    (* action and global constraints are skipped *)
-                | Syntax.TGlobal -> acc
+                | Syntax.T_Action    (* action and global constraints are skipped *)
+                | Syntax.T_Global -> acc
                 | t when Type.subtype t typeObject ->
                     let value = static_object in
                     let variable = make r acc.nextVariableIndex [|value|] value value in

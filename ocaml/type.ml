@@ -35,12 +35,11 @@ let rec (@==) reference1 reference2 =
 let (@++)  = Domain.(@++) ;;
 let (@+.)  = Domain.(@+.) ;;
 let (@--)  = Domain.(@--) ;;
-let prefix = Domain.prefix ;;
+let (!--)  = Domain.(!--) ;;
 let (@<=)  = Domain.(@<=) ;;
 let (@<)   = Domain.(@<) ;;
-let (!!)   = Domain.(!!) ;;
 let (@<<)  = Domain.(@<<) ;;
-let (!^)   = Domain.(!^) ;;
+let (!<<)   = Domain.(!<<) ;;
 
 exception TypeError of int * string
 
@@ -64,7 +63,7 @@ let map_of environment =
 
 let type_of var map =
     if MapRef.mem var map then MapRef.find var map
-    else TUndefined
+    else T_Undefined
 ;;
 
 (*******************************************************************
@@ -96,20 +95,20 @@ let rec (<:) type1 type2 =
     let rec (<::) schema1 schema2 =
         match schema1, schema2 with
         | _, _ when schema1 = schema2 -> true               (* (Reflex)         *)
-        | TUserSchema (id1, _), TUserSchema (id2, _) when id1 = id2 -> true
-        | TUserSchema (_, _), TObject -> true               (* (Object Subtype) *)
-        | TUserSchema (_, super), _   -> super <:: schema2  (* (Trans)          *)
+        | T_UserSchema (id1, _), T_UserSchema (id2, _) when id1 = id2 -> true
+        | T_UserSchema (_, _), T_Object -> true               (* (Object Subtype) *)
+        | T_UserSchema (_, super), _   -> super <:: schema2  (* (Trans)          *)
         | _, _                        -> false
     in
     match type1, type2 with
     | _, _ when type1 = type2                       -> true      (* (Reflex)            *)
-    | TAny, _ when type2 <> TUndefined              -> true      (* TODOC (Any Subtype) *)
-    | TInt, TFloat                                  -> true      (* TODOC (IntFloat)    *)
-    | TEnum (id1, _), TEnum (id2, _) when id1 = id2 -> true      (* TODOC (Enum)        *)
-    | TSchema t1, TSchema t2                        -> t1 <:: t2
-    | TList t1, TList t2                            -> t1 <: t2  (* (List Subtype)      *)
-    | TRef t1, TRef t2                              -> t1 <:: t2 (* (Ref Subtype)       *)
-    | TNull, TRef _                                 -> true      (* (Ref Null)          *)
+    | T_Any, _ when type2 <> T_Undefined              -> true      (* TODOC (Any Subtype) *)
+    | T_Int, T_Float                                  -> true      (* TODOC (IntFloat)    *)
+    | T_Enum (id1, _), T_Enum (id2, _) when id1 = id2 -> true      (* TODOC (Enum)        *)
+    | T_Schema t1, T_Schema t2                        -> t1 <:: t2
+    | T_List t1, T_List t2                            -> t1 <: t2  (* (List Subtype)      *)
+    | T_Reference t1, T_Reference t2                              -> t1 <:: t2 (* (Ref Subtype)       *)
+    | T_Null, T_Reference _                                 -> true      (* (Ref Null)          *)
     | _, _                                          -> false
 ;;
 
@@ -122,25 +121,25 @@ let subtype type1 type2 = type1 <: type2 ;;
 (* return true if 't' is defined in the environment 'env', otherwise false *)
 let rec has_type env t =
     match t with
-    | TUndefined -> false                               (* 't' is not defined   *)
-    | TBool                                             (* (Type Bool)          *)
-    | TInt                                              (* (Type Int)           *)
-    | TFloat                                            (* (Type Float)         *)
-    | TString                                           (* (Type String)        *)
-    | TNull                                             (* (Type Null)          *)
-    | TAny                                              (* (Type Any)           *) 
-    | TAction                                           (* (Type Action)        *)
-    | TGlobal                                           (* (Type Constraint)    *)
-    | TEnum _                                           (* TODOC (Type Enum)    *)
-    | TForward _                                        (* TODOC (Type Forward) *)
-    | TSchema TObject                                   (* (Type Object)        *)
-    | TSchema TRootSchema -> true                       (* TODOC (Type Schema)  *)
-    | TList tl            -> has_type env tl            (* (Type List)          *)
-    | TRef tr             -> has_type env (TSchema tr)  (* (Type Ref)           *)
-    | TSchema TUserSchema (id1, _) -> (                 (* (Type UserSchema)    *)
+    | T_Undefined -> false                               (* 't' is not defined   *)
+    | T_Bool                                             (* (Type Bool)          *)
+    | T_Int                                              (* (Type Int)           *)
+    | T_Float                                            (* (Type Float)         *)
+    | T_String                                           (* (Type String)        *)
+    | T_Null                                             (* (Type Null)          *)
+    | T_Any                                              (* (Type Any)           *) 
+    | T_Action                                           (* (Type Action)        *)
+    | T_Global                                           (* (Type Constraint)    *)
+    | T_Enum _                                           (* TODOC (Type Enum)    *)
+    | T_Forward _                                        (* TODOC (Type Forward) *)
+    | T_Schema T_Object                                   (* (Type Object)        *)
+    | T_Schema T_RootSchema -> true                       (* TODOC (Type Schema)  *)
+    | T_List tl            -> has_type env tl            (* (Type List)          *)
+    | T_Reference tr             -> has_type env (T_Schema tr)  (* (Type Ref)           *)
+    | T_Schema T_UserSchema (id1, _) -> (                 (* (Type UserSchema)    *)
         match env with
         | [] -> false
-        | (_, TSchema (TUserSchema (id2, _))) :: tail -> if id1 = id2 then true
+        | (_, T_Schema (T_UserSchema (id2, _))) :: tail -> if id1 = id2 then true
                                                          else has_type tail t
         | (_, _) :: tail -> has_type tail t
     )
@@ -156,18 +155,18 @@ let is_well_typed env =
     iter env env
 ;;
 
-let is_schema t = t <: (TSchema TRootSchema) ;;
+let is_schema t = t <: (T_Schema T_RootSchema) ;;
 
 let rec object_of_schema t =
     let rec object_of t =
         match t with
-        | TRootSchema -> TObject
-        | TUserSchema (id, super) -> TUserSchema (id, object_of super)
+        | T_RootSchema -> T_Object
+        | T_UserSchema (id, super) -> T_UserSchema (id, object_of super)
         | _ -> error 401 "Cannot create type of object of a non-schema type"
     in
     match t with
-    | TSchema TUserSchema (id, TRootSchema) -> TSchema (TUserSchema (id, TObject))
-    | TSchema TUserSchema (id, super)       -> TSchema (TUserSchema (id, object_of super))
+    | T_Schema T_UserSchema (id, T_RootSchema) -> T_Schema (T_UserSchema (id, T_Object))
+    | T_Schema T_UserSchema (id, super)       -> T_Schema (T_UserSchema (id, object_of super))
     | _ -> error 401 "Cannot create type object of a non-schema type"
 ;;
 
@@ -182,9 +181,9 @@ let bind env var t =
     | NotFound, id :: [] -> (var, t) :: env
     | NotFound, _ ->
         (
-            match find env (prefix var) with
-            | Type TEnum (_, _) -> (var, t) :: env
-            | Type t1 when t1 <: TSchema TObject -> (var, t) :: env
+            match find env !--var with
+            | Type T_Enum (_, _) -> (var, t) :: env
+            | Type t1 when t1 <: T_Schema T_Object -> (var, t) :: env
             | NotFound -> error 403 ("Prefix of " ^ !^var ^ " is undefined.")
             | _ -> error 404 ("Prefix of " ^ !^var ^ " is not an object.")
         )
@@ -199,22 +198,22 @@ let bind env var t =
  *)
 let assign env var t tValue =
     match (find env var), t, tValue with
-    | NotFound, TUndefined, TAny ->
+    | NotFound, T_Undefined, T_Any ->
         error 490 ("An explicit type of " ^ !^var ^ " is required.")
-    | NotFound, TUndefined, _ ->                                 (* (Assign1) *)
+    | NotFound, T_Undefined, _ ->                                 (* (Assign1) *)
         bind env var tValue
     | NotFound, _, _ when tValue <: t ->                  (* (Assign3) *)
         bind env var t
-    | Type (TForward _), _, _                                    (* TODOC *)
-    | NotFound, _, TForward _ ->                            (* TODOC (Assign5) *)
+    | Type (T_Forward _), _, _                                    (* TODOC *)
+    | NotFound, _, T_Forward _ ->                            (* TODOC (Assign5) *)
         (var, t) :: (var, tValue) :: env
     | NotFound, _, _ ->
         error 406 (!^var ^ " not satisfy rule (Assign3)")
-    | Type tVar, TUndefined, _ when tValue <: tVar ->   (* (Assign2) *)
+    | Type tVar, T_Undefined, _ when tValue <: tVar ->   (* (Assign2) *)
         env
-    | Type tVar, TUndefined, TForward _ ->               (* TODOC (Assign6) *)
+    | Type tVar, T_Undefined, T_Forward _ ->               (* TODOC (Assign6) *)
         (var, tValue) :: env
-    | Type _, TUndefined, _ ->
+    | Type _, T_Undefined, _ ->
         error 407 (!^var ^ " not satisfy rule (Assign2)")
     | Type tVar, _, _
       when (tValue <: t) && (t <: tVar) ->         (* (Assign4) *)
@@ -225,8 +224,8 @@ let assign env var t tValue =
 
 (**
  * TODOC
- * Return part of type environment where the reference is the prefix of
- * the variables. The prefix of variables will be removed when 'replacePrefix'
+ * Return part of type environment where the reference is the !--of
+ * the variables. The !--of variables will be removed when 'replacePrefix'
  * is true, otherwise the variables will have original references.
  *)
 let rec env_of_ref env var replacePrefix =
@@ -245,22 +244,22 @@ let rec env_of_ref env var replacePrefix =
 (**
  * TODOC
  * @param env   type environment
- * @param base  the prefix where the variable will be resolved
+ * @param base  the !--where the variable will be resolved
  * @param var   var to be resolved
  *)
 let rec resolve env base var =
     match base, var with
-    | _, "root"   :: rs -> ([], find env !!rs)
+    | _, "root"   :: rs -> ([], find env !<<rs)
     | _, "parent" :: rs ->
         if base = []
             then error 409 "Parent of root is impossible."
         else
-            (prefix base, find env !!((prefix base) @++ rs))
-    | _, "this"   :: rs -> (base, find env !!(base @++ rs))
+            (!--base, find env !<<(!--base @++ rs))
+    | _, "this"   :: rs -> (base, find env !<<(base @++ rs))
     | [], _             -> ([], find env var)
     | _, _ ->
         match find env (base @<< var) with
-        | NotFound -> resolve env (prefix base) var
+        | NotFound -> resolve env (!--base) var
         | t        -> (base, t)
 ;;
 
@@ -285,7 +284,7 @@ let copy env proto dest =
  * Inherit attributes from prototype to an object.
  *
  * @param env   type environment
- * @param base  the base prefix where variables will be resolved
+ * @param base  the base !--where variables will be resolved
  * @param proto reference of prototype
  * @param var   target variable
  *)
@@ -293,7 +292,7 @@ let inherit_env env base proto var =
     let get_proto =
         match resolve env base proto with
         | _, NotFound -> error 410 ("Prototype is not found: " ^ !^proto)
-        | baseProto, Type t when t <: TSchema TObject -> baseProto @++ proto
+        | baseProto, Type t when t <: T_Schema T_Object -> baseProto @++ proto
         | _, Type t -> error 411 ("Invalid prototype " ^ !^proto ^ ":" ^ (string_of_type t))
     in
     copy env get_proto var 
@@ -308,7 +307,7 @@ let inherit_env env base proto var =
  * Resolve a forward type.
  *
  * @param env   type environment
- * @param base  base prefix to resolve references
+ * @param base  base !--to resolve references
  * @param var   variable of the value
  * @param accumulator  accumulator of visited variables
  *)
@@ -329,7 +328,7 @@ let rec resolve_forward_ref_type ?visited:(accumulator=SetRef.empty) env base va
             if base = [] then
                 error 433 ("Invalid variable: " ^ !^var)
             else
-                ([], (prefix base) @++ rs)
+                ([], (!--base) @++ rs)
         | "this" :: rs   -> ([], base @++ rs)
         | _              -> (base, var)
     in
@@ -338,34 +337,34 @@ let rec resolve_forward_ref_type ?visited:(accumulator=SetRef.empty) env base va
     else
         match resolve env base1 var1 with
         | _, NotFound -> error 414 (!^var1 ^ " is not found in " ^ !^base1)
-        | base2, Type TForward TRefForward var2
-        | base2, Type TForward TLinkForward var2 -> follow_forward_type base2 var2
+        | base2, Type T_Forward T_ReferenceForward var2
+        | base2, Type T_Forward T_LinkForward var2 -> follow_forward_type base2 var2
         | base2, Type t -> (base2 @++ var1, t)
 ;;
 
 (**
  * TODOC
  * Second pass: visit every element of 'typeEnv', and then resolved all variables
- * that have type TForward
+ * that have type T_Forward
  *)
 let replace_forward_type_in env mainReference =
     let rec replace env var t tForward = match tForward with
-        | TLinkForward r ->
+        | T_LinkForward r ->
             (
                 let (proto, t_val) = resolve_forward_ref_type env var r in
                 let env1 = (var, t_val) :: env in
-                if t_val <: TSchema TObject then copy env1 proto var
+                if t_val <: T_Schema T_Object then copy env1 proto var
                 else env1
             )
-        | TRefForward r ->
+        | T_ReferenceForward r ->
             (
                 let (proto, t_val) = resolve_forward_ref_type env var r in
                 let t_val = match t_val with
-                    | TSchema t -> TRef t
+                    | T_Schema t -> T_Reference t
                     | v -> v
                 in
                 let env1 = (var, t_val) :: env in
-                if t_val <: TSchema TObject then copy env1 proto var
+                if t_val <: T_Schema T_Object then copy env1 proto var
                 else env1
             )
     in
@@ -378,7 +377,7 @@ let replace_forward_type_in env mainReference =
             else
                 let result =
                     match t with
-                    | TForward tForward -> replace env r t tForward
+                    | T_Forward tForward -> replace env r t tForward
                     | _                 -> (r, t) :: env
                 in
                 iter result tail
@@ -388,7 +387,7 @@ let replace_forward_type_in env mainReference =
 
 (**
  * Perform second valuation of environment 'env':
- * - resolve all TForwards
+ * - resolve all T_Forwards
  *)
 let second_pass_eval env mainReference =
     let env1 = replace_forward_type_in env mainReference in
@@ -417,15 +416,15 @@ let get_main env mainReference =
  * type inference and valuation functions
  *******************************************************************)
 
-let sfBoolean b = TBool  (* (Bool) *)
+let sfBoolean b = T_Bool  (* (Bool) *)
 
-let sfInt i = TInt (* (Int) *)
+let sfInt i = T_Int (* (Int) *)
 
-let sfFloat f = TFloat (* (Float) *)
+let sfFloat f = T_Float (* (Float) *)
 
-let sfString s = TString    (* (Str)  *)
+let sfString s = T_String    (* (Str)  *)
 
-let sfNull = TNull       (* (Null) *)
+let sfNull = T_Null       (* (Null) *)
 
 let sfReference r = r
 
@@ -438,22 +437,22 @@ let sfDataReference dr : environment -> reference -> t =
     fun e ns ->
         let r = (sfReference dr) in
         match resolve e ns r with
-        | _, Type TForward t  -> TForward t
-        | _, Type TEnum (id, elements) -> TEnum (id, elements)
-        | _, Type TBool       -> TBool
-        | _, Type TInt        -> TInt
-        | _, Type TFloat      -> TFloat
-        | _, Type TString     -> TString
-        | _, Type TNull       -> TNull
-        | _, Type TAny        -> TAny
-        | _, Type TAction     -> TAction
-        | _, Type TGlobal -> TGlobal
-        | _, Type TList t     -> TList t
-        | _, Type TRef ts     -> TRef ts
-        | _, Type TSchema ts  when (TSchema ts) <: (TSchema TObject) -> TRef ts
-        | _, Type TSchema _   -> error 420 ("Dereference of " ^ !^r ^ " is a schema")
-        | _, Type TUndefined  -> error 421 ("Dereference of " ^ !^r ^ " is TUndefined")
-        | _, NotFound         -> TForward (TRefForward r)
+        | _, Type T_Forward t  -> T_Forward t
+        | _, Type T_Enum (id, elements) -> T_Enum (id, elements)
+        | _, Type T_Bool       -> T_Bool
+        | _, Type T_Int        -> T_Int
+        | _, Type T_Float      -> T_Float
+        | _, Type T_String     -> T_String
+        | _, Type T_Null       -> T_Null
+        | _, Type T_Any        -> T_Any
+        | _, Type T_Action     -> T_Action
+        | _, Type T_Global -> T_Global
+        | _, Type T_List t     -> T_List t
+        | _, Type T_Reference ts     -> T_Reference ts
+        | _, Type T_Schema ts  when (T_Schema ts) <: (T_Schema T_Object) -> T_Reference ts
+        | _, Type T_Schema _   -> error 420 ("Dereference of " ^ !^r ^ " is a schema")
+        | _, Type T_Undefined  -> error 421 ("Dereference of " ^ !^r ^ " is T_Undefined")
+        | _, NotFound         -> T_Forward (T_ReferenceForward r)
 
 (* (Deref Link) *)
 let sfLinkReference lr : environment -> reference -> reference ->
@@ -465,7 +464,7 @@ let sfLinkReference lr : environment -> reference -> reference ->
     fun e ns r ->
         let link = sfReference lr in
         match resolve e ns link with
-        | nsp, NotFound -> (nsp @++ link, TForward (TLinkForward link))
+        | nsp, NotFound -> (nsp @++ link, T_Forward (T_LinkForward link))
         | nsp, Type t   -> (nsp @++ link, t)
 
 let rec sfVector vec : environment -> reference -> t =
@@ -476,18 +475,18 @@ let rec sfVector vec : environment -> reference -> t =
     fun e ns ->
         let rec eval v =  (* (Vec) *)
             match v with
-            | [] -> TUndefined
+            | [] -> T_Undefined
             | head :: tail ->
                 let t_head =
                     match sfBasicValue head e ns with
-                    | TForward _ -> TUndefined
+                    | T_Forward _ -> T_Undefined
                     | t          -> t
                 in
                 if tail = [] then t_head
                 else if t_head = eval tail then t_head
                 else error 422 "types of vector elements are different"
         in
-        TList (eval vec)
+        T_List (eval vec)
 
 and sfBasicValue bv : environment -> reference -> t =
     (**
@@ -519,11 +518,11 @@ let rec sfPrototype proto first t_val : reference -> reference ->
     fun ns r e ->
         match proto with
         | EmptyPrototype -> (* (Proto1) *)
-            if first then assign e r t_val (TSchema TObject)
+            if first then assign e r t_val (T_Schema T_Object)
             else e
         | BlockPrototype (pb, p) -> (* (Proto2) *)
             let t_block =
-                if first && t_val = TUndefined then TSchema TObject
+                if first && t_val = T_Undefined then T_Schema T_Object
                 else t_val
             in
             let e1 = assign e r t_val t_block in
@@ -542,69 +541,76 @@ and nuriExpression exp : reference -> reference -> t -> environment -> t =
     fun ns r t e ->
         let binary_logic operator left right =
             match (nuriExpression left ns r t e), (nuriExpression right ns r t e) with
-            | TForward _, TForward _ -> error 441 ("The types of left and right operands of '" ^
+            | T_Forward _, T_Forward _ -> error 441 ("The types of left and right operands of '" ^
                                                    operator ^ "' are indeterminate.")
-            | TForward _, _          -> error 442 ("The type of left operand of '" ^
+            | T_Forward _, _          -> error 442 ("The type of left operand of '" ^
                                                    operator ^ "' is indeterminate.")
-            | _         , TForward _ -> error 443 ("The type of right operand of '" ^
+            | _         , T_Forward _ -> error 443 ("The type of right operand of '" ^
                                                    operator ^ "' is indeterminate.")
-            | TUndefined, _          -> error 444 ("The type of left operand of '" ^
+            | T_Undefined, _          -> error 444 ("The type of left operand of '" ^
                                                    operator ^ "' is undefined.")
-            | _         , TUndefined -> error 445 ("The type of right operand of '" ^
+            | _         , T_Undefined -> error 445 ("The type of right operand of '" ^
                                                    operator ^ "' is undefined.")
-            | TBool, TBool -> TBool
+            | T_Bool, T_Bool -> T_Bool
             | _ -> error 446 ("Left and right operands of '" ^ operator ^ "' are not booleans.")
         in
         match exp with
-        | Shell s            -> TString (* TODO: Documentation *)
-        | Basic bv           -> sfBasicValue bv e ns
-        | Equal (exp1, exp2) ->
+        | Basic bv      -> sfBasicValue bv e ns
+        | Shell s       -> T_String (* TODO: Documentation *)
+        | Exp_Eager exp ->
+            (   (* TODO: Documentation *)
+                match (nuriExpression exp ns r t e) with
+                | T_Forward _ -> error 447 "The operand's type of 'not' is indeterminate."
+                | T_Undefined -> error 448 "The operand's type of 'not' is undefined."
+                | t -> t
+            )
+        | Exp_Equal (exp1, exp2) ->
             (   (* TODO: Documentation *)
                 match (nuriExpression exp1 ns r t e), (nuriExpression exp2 ns r t e) with
-                | TForward _, TForward _ -> error 441 "The types of left and right operands of '==' are indeterminate."
-                | TForward _, _ -> error 442 "The type of left operand of '==' is indeterminate."
-                | _, TForward _ -> error 443 "The type of right operand of '==' is indeterminate."
-                | TUndefined, _ -> error 444 "The type of left operand of '==' is undefined."
-                | _, TUndefined -> error 445 "The type of right operand of '==' is undefined."
-                | t1, t2 when t1 <: t2 && t2 <: t1 -> TBool
+                | T_Forward _, T_Forward _ -> error 441 "The types of left and right operands of '==' are indeterminate."
+                | T_Forward _, _ -> error 442 "The type of left operand of '==' is indeterminate."
+                | _, T_Forward _ -> error 443 "The type of right operand of '==' is indeterminate."
+                | T_Undefined, _ -> error 444 "The type of left operand of '==' is undefined."
+                | _, T_Undefined -> error 445 "The type of right operand of '==' is undefined."
+                | t1, t2 when t1 <: t2 && t2 <: t1 -> T_Bool
                 | _ -> error 446 "Left and right operands of '==' is not equal."
             )
         | Exp_Not exp ->
             (   (* TODO: Documentation *)
                 match (nuriExpression exp ns r t e) with
-                | TForward _ -> error 447 "The operand's type of 'not' is indeterminate."
-                | TUndefined -> error 448 "The operand's type of 'not' is undefined."
-                | t when t <: TBool -> TBool
+                | T_Forward _ -> error 447 "The operand's type of 'not' is indeterminate."
+                | T_Undefined -> error 448 "The operand's type of 'not' is undefined."
+                | t when t <: T_Bool -> T_Bool
                 | _ -> error 449 "The operand of 'not' is not a boolean."
             )
         | Exp_And   (left, right) -> binary_logic "&&" left right
         | Exp_Or    (left, right) -> binary_logic "||" left right
         | Exp_Imply (left, right) -> binary_logic "=>" left right
-        | Add (exp1, exp2) ->
+        | Exp_Add (exp1, exp2) ->
             (   (* TODO: Documentation *)
                 match (nuriExpression exp1 ns r t e), (nuriExpression exp2 ns r t e) with
-                | TInt  , TFloat
-                | TFloat, TInt
-                | TFloat, TFloat -> TFloat
-                | TInt  , TInt   -> TInt
-                | TString, _
-                | _, TString     -> TString
+                | T_Int  , T_Float
+                | T_Float, T_Int
+                | T_Float, T_Float -> T_Float
+                | T_Int  , T_Int   -> T_Int
+                | T_String, _
+                | _, T_String     -> T_String
                 | _              -> error 500 "Both operands of '+' is neither integer nor float."
             )
-        | IfThenElse (exp1, exp2, exp3) ->
+        | Exp_IfThenElse (exp1, exp2, exp3) ->
             (   (* TODO: Documentation *)
                 match (nuriExpression exp1 ns r t e),
                       (nuriExpression exp2 ns r t e),
                       (nuriExpression exp3 ns r t e)
                 with
-                | TBool, t2, t3 when t2 <: t3 && t3 <: t2 -> t2
-                | TBool, _, _ -> error 451 "The types of 'then' and 'else' clauses are not the same."
+                | T_Bool, t2, t3 when t2 <: t3 && t3 <: t2 -> t2
+                | T_Bool, _, _ -> error 451 "The types of 'then' and 'else' clauses are not the same."
                 | _, _, _     -> error 452 "The type of 'if' clause is not a boolean"
             )
-        | MatchRegexp (exp, regexp) ->
+        | Exp_MatchRegexp (exp, regexp) ->
             (   (* TODO: Documentation *)
                 match nuriExpression exp ns r t e with
-                | TString -> TBool
+                | T_String -> T_Bool
                 | _       -> error 453 "The expression of regexp-matching is not a string."
             )
 
@@ -619,9 +625,9 @@ and sfValue v : reference -> reference -> t -> environment ->
     fun ns r t e ->
         let t =
             match t with
-            | TSchema TUserSchema (id, _) -> (
+            | T_Schema T_UserSchema (id, _) -> (
                 match find e [id] with
-                | Type TEnum (eid, elements) -> TEnum (eid, elements)
+                | Type T_Enum (eid, elements) -> T_Enum (eid, elements)
                 | _                          -> t
             )
             | _ -> t
@@ -629,17 +635,17 @@ and sfValue v : reference -> reference -> t -> environment ->
         let r_name = r @+. "name" in
         match v with
         | Expression exp -> assign e r t (nuriExpression exp ns r t e)
-        | TBD -> assign e r t TAny
-        | Unknown -> assign e r t TAny
-        | Nothing -> assign e r t TAny
+        | TBD -> assign e r t T_Any
+        | Unknown -> assign e r t T_Any
+        | None -> assign e r t T_Any
         | Link link ->
             (
                 let (r_link, t_link) = sfLinkReference link e ns r in
                 let e1 = assign e r t t_link in
-                if t_link <: TSchema TObject then copy e1 r_link r
+                if t_link <: T_Schema T_Object then copy e1 r_link r
                 else e1
             )
-        | Action a -> assign e r t TAction
+        | Action a -> assign e r t T_Action
         | Prototype (schema, proto) ->
             (
                 let e = match schema with
@@ -647,18 +653,18 @@ and sfValue v : reference -> reference -> t -> environment ->
                         (
                             match find e [sid] with
                             | NotFound  -> error 424 ("schema " ^ sid ^ " is not exist")
-                            | Type TSchema TUserSchema (sid, super)
-                              when (TSchema super) <: (TSchema TRootSchema) ->
-                                  let t_sid = object_of_schema (TSchema (TUserSchema (sid, super))) in
+                            | Type T_Schema T_UserSchema (sid, super)
+                              when (T_Schema super) <: (T_Schema T_RootSchema) ->
+                                  let t_sid = object_of_schema (T_Schema (T_UserSchema (sid, super))) in
                                   let e1 = inherit_env e ns [sid] r in
                                   sfPrototype proto true t_sid ns r e1
                             | _ ->
                                 error 425 (sid ^ " is not a schema")
                         )
-                    | EmptySchema -> sfPrototype proto true TUndefined ns r e
+                    | EmptySchema -> sfPrototype proto true T_Undefined ns r e
                 in
                 match find e r_name with
-                | NotFound -> assign e r_name TUndefined TString
+                | NotFound -> assign e r_name T_Undefined T_String
                 | _ -> e
             )
 
@@ -686,21 +692,21 @@ and nuriSchema s : environment -> environment =
         let r_id = [id] in
         if domain e r_id then error 426 (id ^ " is bound multiple times.");
         let define_schema id super =
-            let t = TSchema (TUserSchema (id, super)) in
-            let e1 = assign e r_id TUndefined t in
+            let t = T_Schema (T_UserSchema (id, super)) in
+            let e1 = assign e r_id T_Undefined t in
             let e2 =
                 match super with
-                | TUserSchema (super_id, _) -> inherit_env e1 [] [super_id] r_id
+                | T_UserSchema (super_id, _) -> inherit_env e1 [] [super_id] r_id
                 | _ -> e1
             in
             nuriBlock b r_id e2
         in
         match parent with
-        | EmptySchema -> define_schema id TRootSchema
+        | EmptySchema -> define_schema id T_RootSchema
         | SID super ->
             match find e [super] with
             | NotFound -> error 427 ("super schema " ^ super ^ " is not exist")
-            | Type TSchema ts -> if is_schema (TSchema ts) then define_schema id ts
+            | Type T_Schema ts -> if is_schema (T_Schema ts) then define_schema id ts
                                  else error 108 (super ^ " is not a schema")
             | _ -> error 428 (super ^ " is not a schema")
 
@@ -709,15 +715,15 @@ and nuriEnum enum : environment -> environment =
     fun e ->
         let r_id = [id] in
         if domain e r_id then error 440 (id ^ " is bound multiple times.");
-        let t_enum = TEnum (id, elements) in
-        let e1 = assign e r_id TUndefined t_enum in
+        let t_enum = T_Enum (id, elements) in
+        let e1 = assign e r_id T_Undefined t_enum in
         List.fold_left (fun acc el ->
             let r_el = [id; el] in
-            assign acc r_el TUndefined t_enum
+            assign acc r_el T_Undefined t_enum
         ) e1 elements
 
 and nuriGlobal g : environment -> environment =
-    fun e -> assign e ["global"] TUndefined TGlobal
+    fun e -> assign e ["global"] T_Undefined T_Global
 
 and nuriTrajectory t = match t with
     | Global g -> nuriGlobal g
@@ -740,7 +746,7 @@ and nuriSpecification ?main:(mainReference=["main"]) nuri =
         error 429 "main object is not exist"
     else
         let e2 = get_main (second_pass_eval e1 mainReference) mainReference in
-        let e_main = assign e2 ["global"] TUndefined TGlobal in
+        let e_main = assign e2 ["global"] T_Undefined T_Global in
         map_of e_main
 ;;
 
@@ -769,19 +775,19 @@ let add_value t value typeValues =
 let make_type_values typeEnvInit flatStoreInit typeEnvGoal flatStoreGoal =
     (** group action effects' values based on their type **)
     let add_action_values environment map =
-        let actions = values_of TAction map in
+        let actions = values_of T_Action map in
         let add_effect_values =
             List.fold_left (
                 fun acc (r, v) ->
                     match v with
                     | Domain.Boolean _ ->
-                        add_value TBool (Domain.Basic v) acc
+                        add_value T_Bool (Domain.Basic v) acc
                     | Domain.Int     _ ->
-                        add_value TInt (Domain.Basic v) acc
+                        add_value T_Int (Domain.Basic v) acc
                     | Domain.Float   _ ->
-                        add_value TFloat (Domain.Basic v) acc
+                        add_value T_Float (Domain.Basic v) acc
                     | Domain.String  _ ->
-                        add_value TString (Domain.Basic v) acc
+                        add_value T_String (Domain.Basic v) acc
                     | Domain.Vector  _ -> (* TODO *)
                         error 430 "TODO: adding vector value of effects"
                     | _         -> acc
@@ -797,22 +803,22 @@ let make_type_values typeEnvInit flatStoreInit typeEnvGoal flatStoreGoal =
     in
     let null = Domain.Basic Domain.Null in
     let rec add_object ts value map =
-        let map = add_value (TSchema ts) value map in
-        let map = add_value (TRef ts) value map in
-        let map = add_value (TRef ts) null map in
+        let map = add_value (T_Schema ts) value map in
+        let map = add_value (T_Reference ts) value map in
+        let map = add_value (T_Reference ts) null map in
         match ts with
-        | TObject -> add_value (TSchema TObject) value map
-        | TUserSchema (_, super) -> add_object super value map
+        | T_Object -> add_value (T_Schema T_Object) value map
+        | T_UserSchema (_, super) -> add_object super value map
         | _ -> map
     in
     let add_store_values typeEnv =
         MapRef.fold (
             fun r v (map: type_values) ->
                 match type_of r typeEnv with
-                | TUndefined -> error 432 ("Type of " ^ !^r ^ " is undefined.")
-                | TSchema ts when (TSchema ts) <: (TSchema TObject) ->
-                    add_object ts (Domain.Basic (Domain.Ref r)) map
-                | TSchema _ -> map
+                | T_Undefined -> error 432 ("Type of " ^ !^r ^ " is undefined.")
+                | T_Schema ts when (T_Schema ts) <: (T_Schema T_Object) ->
+                    add_object ts (Domain.Basic (Domain.Reference r)) map
+                | T_Schema _ -> map
                 | t -> add_value t v map
         )
     in
@@ -822,10 +828,10 @@ let make_type_values typeEnvInit flatStoreInit typeEnvGoal flatStoreGoal =
     let map3 = add_action_values typeEnvGoal map2 in
     MapType.fold (fun (t: Syntax.t) (values: Domain.SetValue.t) (map: type_values) ->
         match t with
-        | TEnum (id, symbols) ->
+        | T_Enum (id, symbols) ->
             (
                 List.fold_left (fun map symbol ->
-                    let v : Domain.value = Domain.Basic (Domain.Ref [id; symbol]) in
+                    let v : Domain.value = Domain.Basic (Domain.Reference [id; symbol]) in
                     add_value t v map
                 ) map symbols
             )

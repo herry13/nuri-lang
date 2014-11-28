@@ -1,37 +1,46 @@
-(* Author: Herry (herry13@gmail.com) *)
+(** Module Syntax contains the Abstract Syntax Tree (AST) of
+    the Nuri language with some functions to convert the AST
+    or its element to string.
 
-(* open Yojson.Basic *)
+    Module dependencies:
+    - Common
 
-(*******************************************************************
- * abstract syntax tree
- *******************************************************************)
+    @author Herry (herry13\@gmail.com)
+    @since 2014 *)
+
+open Common
+
+(** Abstract Syntax Tree of the Nuri language. *)
+
+(** core syntax **)
 type nuri          = context
 and  context       = AssignmentContext of assignment * context
                    | SchemaContext     of schema * context
                    | EnumContext       of enum * context
                    | TrajectoryContext of trajectory * context
                    | EmptyContext
-and  block         = AssignmentBlock of assignment * block
-                   | TrajectoryBlock of trajectory * block
+and  block         = AssignmentBlock   of assignment * block
+                   | TrajectoryBlock   of trajectory * block
                    | EmptyBlock
 and  assignment    = reference * t * value
-and  expression    = Basic       of basicValue
-                   | Shell       of string
-                   | Equal       of expression * expression
-                   | Exp_Not     of expression
-                   | Exp_And    of expression * expression
-                   | Exp_Or     of expression * expression
-                   | Exp_Imply  of expression * expression
-                   | Add         of expression * expression
-                   | IfThenElse  of expression * expression * expression
-                   | MatchRegexp of expression * string
+and  expression    = Basic           of basicValue
+                   | Shell           of string
+                   | Exp_Eager       of expression  (** Eager-evaluation expression *)
+                   | Exp_Not         of expression
+                   | Exp_Equal       of expression * expression
+                   | Exp_And         of expression * expression
+                   | Exp_Or          of expression * expression
+                   | Exp_Imply       of expression * expression
+                   | Exp_Add         of expression * expression
+                   | Exp_MatchRegexp of expression * string
+                   | Exp_IfThenElse  of expression * expression * expression
 and  value         = Expression of expression
                    | Link       of reference
-                   | Prototype  of superSchema * prototype
+                   | Prototype  of super * prototype
                    | Action     of action
                    | TBD
                    | Unknown
-                   | Nothing
+                   | None
 and  prototype     = ReferencePrototype of reference * prototype
                    | BlockPrototype     of block * prototype
                    | EmptyPrototype
@@ -46,50 +55,51 @@ and  vector        = basicValue list
 and  reference     = string list
 
 (** schema syntax **)
-and schema      = string * superSchema * block
-and superSchema = SID of string
-                | EmptySchema
+and schema = string * super * block
+and super  = SID of string
+           | EmptySchema
 
 (** enum syntax **)
 and enum = string * string list
 
 (** type syntax **)
-and t        = TBool
-             | TInt
-             | TFloat
-             | TString
-             | TNull
-             | TUndefined
-             | TAny
-             | TAction
-             | TGlobal
-             | TEnum    of string * string list
-             | TList    of t
-             | TSchema  of tSchema
-             | TRef     of tSchema
-             | TForward of tForward
+and t        = T_Bool
+             | T_Int
+             | T_Float
+             | T_String
+             | T_Null
+             | T_Undefined
+             | T_Any
+             | T_Action
+             | T_Global
+             | T_Enum      of string * string list
+             | T_List      of t
+             | T_Schema    of tSchema
+             | T_Reference of tSchema
+             | T_Forward   of tForward
     
-and tSchema  = TObject
-             | TRootSchema
-             | TUserSchema of string * tSchema
+and tSchema  = T_Object
+             | T_RootSchema
+             | T_UserSchema of string * tSchema
     
-and tForward = TLinkForward of reference
-             | TRefForward  of reference
+and tForward = T_LinkForward      of reference
+             | T_ReferenceForward of reference
 
+(** state-trajectory syntax **)
 and trajectory = Global of _constraint
 
 (** constraint syntax **)
-and _constraint = Eq of reference * basicValue
-                | Ne of reference * basicValue
-                | Greater of reference * basicValue
-                | GreaterEqual of reference * basicValue
-                | Less of reference * basicValue
-                | LessEqual of reference * basicValue
-                | Not of _constraint
-                | Imply of _constraint * _constraint
-                | And of _constraint list
-                | Or of _constraint list
-                | In of reference * vector
+and _constraint = C_Equal        of reference * basicValue
+                | C_NotEqual     of reference * basicValue
+				| C_Greater      of reference * basicValue
+				| C_GreaterEqual of reference * basicValue
+				| C_Less         of reference * basicValue
+				| C_LessEqual    of reference * basicValue
+                | C_Not          of _constraint
+                | C_Imply        of _constraint * _constraint
+                | C_And          of _constraint list
+                | C_Or           of _constraint list
+                | C_In           of reference * vector
 
 (** action syntax **)
 and action     = parameter list * cost * conditions * effect list
@@ -100,541 +110,189 @@ and conditions = Condition of _constraint
                | EmptyCondition
 and effect     = reference * basicValue
 
+
+(*******************************************************************
+ * exception and error handling function
+ *******************************************************************)
+
 exception SyntaxError of int * string
 
 let error code message =
     match message with
     | "" -> raise (SyntaxError (code, "[err" ^ (string_of_int code) ^ "]"))
-    | _  -> raise (SyntaxError (code, "[err" ^ (string_of_int code) ^ "] - " ^
-                                message))
+    | _  -> raise (SyntaxError (code, "[err" ^ (string_of_int code) ^ "] - " ^ message))
 ;;
+
 
 (*******************************************************************
  * functions to convert elements of abstract syntax tree to string
  *******************************************************************)
-let rec string_of_sf sf = string_of_block sf
 
-and string_of_block = function
-    | AssignmentBlock (a, b) -> (string_of_assignment a) ^ "\n" ^ (string_of_block b)
-    | TrajectoryBlock (t, b) -> (string_of_trajectory t) ^ "\n" ^ (string_of_block b)
-    | EmptyBlock             -> ""
+(** convert a Nuri abstract syntax tree into a string **)
+let rec string_of nuri =
+    let buf = Buffer.create 40 in
+    let rec context ctx = match ctx with
+        | AssignmentContext (a, c) -> assignment a; buf <. '\n'; context c
+        | SchemaContext (s, c)     -> schema s; buf <. '\n'; context c
+        | EnumContext (e, c)       -> enum e; buf <. '\n'; context c
+        | TrajectoryContext (t, c) -> trajectory t; buf <. '\n'; context c
+        | EmptyContext             -> ()
 
-and string_of_assignment = function
-    | (r, t, v) -> (string_of_ref r) ^ ":" ^ (string_of_type t) ^ (string_of_value v)
+    and block b = match b with
+        | AssignmentBlock (a, b) -> assignment a; buf <. '\n'; block b
+        | TrajectoryBlock (t, b) -> trajectory t; buf <. '\n'; block b
+        | EmptyBlock             -> ()
 
-and string_of_expression e = match e with
-    | Basic v            -> string_of_basic_value v
-    | Shell s            -> " `" ^ s ^ "`;" (* TODO: use escape (\) for every backtick character *)
-    | Equal (e1, e2)     -> " " ^ (string_of_expression e1) ^ " = " ^ (string_of_expression e2)
-    | Exp_Not e          -> " not " ^ (string_of_expression e)
-    | Exp_And (e1, e2)   -> " " ^ (string_of_expression e1) ^ " && " ^ (string_of_expression e2)
-    | Exp_Or (e1, e2)    -> " " ^ (string_of_expression e1) ^ " || " ^ (string_of_expression e2)
-    | Exp_Imply (e1, e2) -> " " ^ (string_of_expression e1) ^ " => " ^ (string_of_expression e2)
-    | Add (e1, e2)       -> " " ^ (string_of_expression e1) ^ " + " ^ (string_of_expression e2)
-    | IfThenElse (e1, e2, e3) -> " if " ^ (string_of_expression e1) ^
-                                 " then " ^ (string_of_expression e2) ^
-                                 " else " ^ (string_of_expression e3)
-    | MatchRegexp (exp, regexp) -> " " ^ (string_of_expression exp) ^ " =~ /" ^ regexp ^ "/"
+    and assignment (r, t, v) = reference r; buf <. ':'; _type t; value v
 
-and string_of_value = function
-    | Expression e       -> " " ^ (string_of_expression e) ^ ";"
-    | Link lr            -> " " ^ (string_of_ref lr) ^ ";"
-    | Prototype (sid, p) -> (string_of_super_schema sid) ^ (string_of_proto p)
-    | Action a           -> string_of_action a
-    | TBD                -> " TBD"
-    | Unknown            -> " Unknown"
-    | Nothing            -> " Nothing"
+    and expression e = match e with
+        | Basic v            -> basic_value v
+                                (* TODO: use escape (\) for every backtick character *)
+        | Shell s            -> buf << " `"; buf << s; buf << "`;"
+        | Exp_Eager e        -> buf <. '$'; expression e
+        | Exp_Equal (e1, e2) -> buf <. ' '; expression e1; buf << " = "; expression e2
+        | Exp_Not e          -> buf << " not "; expression e
+        | Exp_And (e1, e2)   -> buf <. ' '; expression e1; buf << " && "; expression e2
+        | Exp_Or (e1, e2)    -> buf <. ' '; expression e1; buf << " || "; expression e2
+        | Exp_Imply (e1, e2) -> buf <. ' '; expression e1; buf << " => "; expression e2
+        | Exp_Add (e1, e2)   -> buf <. ' '; expression e1; buf << " + "; expression e2
+        | Exp_IfThenElse (e1, e2, e3)   -> buf << " if "; expression e1; buf << " then ";
+                                           expression e2; buf << " else "; expression e3
+        | Exp_MatchRegexp (exp, regexp) -> buf <. ' '; expression exp; buf << " =~ /";
+                                           buf << regexp; buf <. '/'
 
-and string_of_proto = function
-    | ReferencePrototype (r, p) -> " extends " ^ (string_of_ref r) ^
-                                   (string_of_proto p)
-    | BlockPrototype (b, p)     -> " extends {\n" ^ (string_of_block b) ^
-                                   "}\n" ^ (string_of_proto p)
-    | EmptyPrototype            -> ""
+    and value v = match v with
+        | Expression e       -> buf <. ' '; expression e; buf <. ';'
+        | Link lr            -> buf <. ' '; reference lr; buf <. ';'
+        | Prototype (sid, p) -> super_schema sid; prototype p
+        | Action a           -> action a
+        | TBD                -> buf << " TBD"
+        | Unknown            -> buf << " Unknown"
+        | None               -> buf << " None"
 
-and string_of_basic_value = function
-    | Boolean x
-    | Int x
-    | Float x
-    | String x     -> x
-    | Null         -> "NULL"
-    | Vector vec   -> "[" ^ (string_of_vector vec) ^ "]"
-    | Reference dr -> "DATA " ^ (string_of_ref dr)
+    and prototype proto = match proto with
+        | ReferencePrototype (r, p) -> buf << " extends "; reference r; prototype p
+        | BlockPrototype (b, p)     -> buf << " extends {\n"; block b; prototype p
+        | EmptyPrototype            -> ()
 
-and string_of_vector = function
-    | []           -> ""
-    | head :: []   -> string_of_basic_value head
-    | head :: tail -> (string_of_basic_value head) ^ "," ^ (string_of_vector tail)
+    and basic_value bv = match bv with
+        | Boolean x | Int x | Float x | String x -> buf << x
+        | Null        -> buf << "null"
+        | Vector vec  -> buf <. '['; vector vec; buf <. ']'
+        | Reference r -> buf <. ' '; reference r
 
-and string_of_ref = String.concat "."
+    and vector vec = match vec with
+        | []           -> ()
+        | head :: []   -> basic_value head
+        | head :: tail -> basic_value head; buf <. ','; vector tail
 
-and (!^) r = string_of_ref r
+    and reference r = buf << !^r
 
-and string_of_type t =
-    match t with
-    | TBool           -> "bool"
-    | TInt            -> "int"
-    | TFloat          -> "float"
-    | TString         -> "string"
-    | TNull           -> "null"
-    | TUndefined      -> "undefined"
-    | TAny            -> "any"
-    | TAction         -> "action"
-    | TGlobal         -> "global"
-    | TEnum (id, _)   -> "enum:" ^ id
-    | TList t         -> "[]" ^ (string_of_type t)
-    | TSchema t       -> string_of_type_schema t
-    | TRef t          -> "*" ^ (string_of_type_schema t)
-    | TForward TLinkForward r -> "forward:" ^ (String.concat "." r)
-    | TForward TRefForward r  -> "forward:*" ^ (String.concat "." r)
+    and _type t = match t with
+        | T_Bool           -> buf << "bool"
+        | T_Int            -> buf << "int"
+        | T_Float          -> buf << "float"
+        | T_String         -> buf << "string"
+        | T_Null           -> buf << "null"
+        | T_Undefined      -> buf << "undefined"
+        | T_Any            -> buf << "any"
+        | T_Action         -> buf << "action"
+        | T_Global         -> buf << "global"
+        | T_Enum (id, _)   -> buf << id
+        | T_List t         -> buf << "[]"; _type t
+        | T_Schema t       -> type_schema t
+        | T_Reference t    -> buf <. '*'; type_schema t
+        | T_Forward T_LinkForward r      -> buf << "~"; reference r
+        | T_Forward T_ReferenceForward r -> buf << "~*"; reference r
 
-and string_of_type_schema t =
-    match t with
-    | TObject -> "object"
-    | TRootSchema -> "schema"
-    | TUserSchema (id, super) -> id ^ "<" ^ (string_of_type_schema super)
+    and type_schema t = match t with
+        | T_Object             -> buf << "object"
+        | T_RootSchema         -> ()
+        | T_UserSchema (id, _) -> buf << id;
 
-and string_of_super_schema = function
-    | SID id      -> " isa " ^ id
-    | EmptySchema -> ""
+    and super_schema ss = match ss with
+        | SID id      -> buf << " isa "; buf << id
+        | EmptySchema -> ()
 
-and string_of_schema (sid, ss, b) =
-    "schema " ^ sid ^ (string_of_super_schema ss) ^ " {\n" ^ (string_of_block b) ^ "}"
+    and schema (sid, super, b) = buf << "schema "; buf << sid; super_schema super;
+                                 buf << " {\n"; block b; buf <. '}'
 
-and string_of_enum (eid, elements) =
-    "enum " ^ eid ^ " {\n   " ^ (String.concat ",\n   " elements) ^ "\n}"
+    and enum (id, symbols) = buf << "enum "; buf << id; buf << " {\n  ";
+                             buf << (String.concat ",  " symbols); buf << "\n}"
 
-and string_of_context = function
-    | AssignmentContext (a, c) -> (string_of_assignment a) ^ "\n" ^
-                                      (string_of_context c)
-    | SchemaContext (s, c)     -> (string_of_schema s) ^ "\n" ^ (string_of_context c)
-    | EnumContext (enum, c)    -> (string_of_enum enum) ^ "\n" ^ (string_of_context c)
-    | TrajectoryContext (t, c) -> (string_of_trajectory t) ^ "\n" ^ (string_of_context c)
-    | EmptyContext             -> ""
+    (*** constraints ***)
 
-and string_of_nuri nuri = string_of_context nuri
+    and trajectory t = match t with
+        | Global g -> global g
 
-(** constraints *)
-and string_of_trajectory t = match t with
-    | Global g -> string_of_global g
+    and global g = buf << "global "; constraints g; buf <. '\n'
 
-and string_of_global g =
-    "global " ^ (string_of_constraint g) ^ "\n"
+    and constraints c = match c with
+        | C_Equal (r, bv)       -> reference r; buf << " = "; basic_value bv; buf <. ';'
+        | C_NotEqual (r, bv)    -> reference r; buf << " != "; basic_value bv; buf <. ';'
+        | C_Not c               -> buf << "not "; constraints c;
+        | C_Imply (c1, c2)      -> buf << "if "; constraints c1; buf << " then "; constraints c2
+        | C_And cs              -> buf << "{\n"; List.iter (fun c -> constraints c; buf <. '\n') cs; buf <. '}'
+        | C_Or cs               -> buf << "(\n"; List.iter (fun c -> constraints c; buf <. '\n') cs; buf <. ')'
+        | C_In (r, vec)         -> reference r; buf << " in "; vector vec; buf <. ';'
+        | C_Greater (r, v)      -> reference r; buf << " > "; basic_value v; buf <. ';'
+        | C_GreaterEqual (r, v) -> reference r; buf << " >= "; basic_value v; buf <. ';'
+        | C_Less (r, v)         -> reference r; buf << " < "; basic_value v; buf <. ';'
+        | C_LessEqual (r, v)    -> reference r; buf << " <= "; basic_value v; buf <. ';'
 
-and string_of_constraint c = match c with
-    | Eq (r, bv)      -> "(= " ^ !^r ^ " " ^ (string_of_basic_value bv) ^ ")"
-    | Ne (r, bv)      -> "(!= " ^ !^r ^ " " ^ (string_of_basic_value bv) ^ ")"
-    | Not c           -> "(not " ^ (string_of_constraint c) ^ ")"
-    | Imply (c1, c2)  -> "(imply " ^ (string_of_constraint c1) ^ " " ^
-                             (string_of_constraint c2) ^ ")"
-    | And cs          -> (List.fold_left (fun s c -> s ^ " " ^
-                             (string_of_constraint c)) "(and " cs) ^ ")"
-    | Or cs           -> (List.fold_left (fun s c -> s ^ " " ^
-                             (string_of_constraint c)) "(or " cs) ^ ")"
-    | In (r, vec)     -> "(in " ^ !^r ^ " " ^ (string_of_vector vec) ^ ")"
-    | Greater (r, bv) -> "(> " ^ !^r ^ " " ^ (string_of_basic_value bv) ^ ")"
-    | GreaterEqual (r, bv) -> "(>= " ^ !^r ^ " " ^
-                                  (string_of_basic_value bv) ^ ")"
-    | Less (r, bv)    -> "(< " ^ !^r ^ " " ^ (string_of_basic_value bv) ^ ")"
-    | LessEqual (r, bv) -> "(<= " ^ !^r ^ " " ^ (string_of_basic_value bv) ^
-                               ")"
+    and effect (r, v) = reference r; buf << " = "; basic_value v; buf <. ';'
 
-(** action **)
-and string_of_effect (r, bv) =
-    "(= " ^ !^r ^ " " ^ (string_of_basic_value bv) ^ ")"
+    and effects effs = buf << "{\n"; List.iter (fun e -> effect e; buf <. '\n') effs; buf <. '}'
 
-and string_of_effects effs =
-    (List.fold_left (fun s e ->
-        s ^ " " ^ (string_of_effect e)
-    ) "(effects " effs) ^
-    ")"
+    and conditions c = match c with
+        | EmptyCondition -> ()
+        | Condition c    -> buf << "conditions "; constraints c;
 
-and string_of_conditions = function
-    | EmptyCondition -> ""
-    | Condition c    -> "(conditions " ^ (string_of_constraint c) ^ ")"
+    and cost c = match c with
+        | EmptyCost -> ()
+        | Cost n    -> buf << "cost = "; buf << n; buf <. ';'
 
-and string_of_cost = function
-    | EmptyCost -> ""
-    | Cost c    -> "(cost " ^ c ^ ")"
+    and parameter (id, t) = buf << id; buf <. ':'; _type t
 
-and string_of_parameter (id, t) = "(= " ^ id ^ " " ^ (string_of_type t) ^ ")"
-
-and string_of_parameters params =
-    (
-        List.fold_left (
-            fun s p -> s ^ " " ^ (string_of_parameter p)
-        ) "(params " params
-    ) ^ ")"
-
-and string_of_action (params, cost, conds, effs) =
-    "(action " ^ (string_of_parameters params) ^ " " ^
-        (string_of_conditions conds) ^ " " ^ (string_of_effects effs) ^ ")"
-;;
-
-let json_of_nuri nuri =
-    let buf = Buffer.create 42 in
-
-    let json_of_string buf str =
-        Buffer.add_char buf '"';
-        String.iter (fun c ->
-            match c with
-            | '"'    -> Buffer.add_string buf "\\\""
-            | '/'    -> Buffer.add_string buf "\\/"
-            | '\\'    -> Buffer.add_string buf "\\\\"
-            | '\b'   -> Buffer.add_string buf "\\b"
-            | '\012' -> Buffer.add_string buf "\\f"
-            | '\n'   -> Buffer.add_string buf "\\n"
-            | '\r'   -> Buffer.add_string buf "\\r"
-            | '\t'   -> Buffer.add_string buf "\\t"
-            | _      -> Buffer.add_char buf c
-        ) str;
-        Buffer.add_char buf '"'
-    in
-
-    let rec json_of_type t =
-        match t with
-        | TBool         -> Buffer.add_string buf "\"bool\""
-        | TInt          -> Buffer.add_string buf "\"int\""
-        | TFloat        -> Buffer.add_string buf "\"float\""
-        | TString       -> Buffer.add_string buf "\"string\""
-        | TNull         -> Buffer.add_string buf "\"null\""
-        | TAny          -> Buffer.add_string buf "\"any\""
-        | TAction       -> Buffer.add_string buf "\"action\""
-        | TGlobal       -> Buffer.add_string buf "\"global-constraint\""
-        | TEnum (id, _) ->
-            (
-                Buffer.add_string buf "[\"enum\",\"";
-                Buffer.add_string buf id;
-                Buffer.add_string buf "\"]"
-            )
-        | TList t       ->
-            (
-                Buffer.add_string buf "[\"list\",";
-                json_of_type t;
-                Buffer.add_char buf ']'
-            )
-        | TSchema t     -> json_of_type_schema t
-        | TRef t        ->
-            (
-                Buffer.add_string buf "[\"reference\",";
-                json_of_type_schema t;
-                Buffer.add_char buf ']'
-            )
-        | _             -> error 302 ("invalid type: " ^ (string_of_type t))
-
-    and json_of_type_schema t =
-        match t with
-        | TObject             -> Buffer.add_string buf "\"object\""
-        | TUserSchema (id, _) -> Buffer.add_string buf ("\"" ^ id ^ "\"")
-        | _                   -> error 302 ("invalid type: " ^
-                                     (string_of_type (TSchema t)))
-
-    and json_of_basic_value v =
-        match v with
-        | Boolean x
-        | Int x
-        | Float x -> Buffer.add_string buf x
-        | String s -> json_of_string buf s
-        | Null -> Buffer.add_string buf "null"
-        | Vector vec -> (
-                Buffer.add_char buf '[';
-                json_of_vector vec;
-                Buffer.add_char buf ']'
-            )
-        | Reference r -> (
-                Buffer.add_string buf "\"$.";
-                Buffer.add_string buf (String.concat "." r);
-                Buffer.add_char buf '"'
-            )
-
-    and json_of_vector vec =
-        match vec with
+    and parameters params = match params with
         | [] -> ()
-        | head :: [] -> json_of_basic_value head
-        | head :: tail -> (
-                json_of_basic_value head;
-                Buffer.add_char buf ',';
-                json_of_vector tail
-            )
+        | head :: [] -> buf <. '('; parameter head; buf <. ')'
+        | head :: tail -> buf <. '('; parameter head; List.iter (fun p -> buf <. ','; parameter p) tail; buf <. ')'
 
-    and json_of_super_schema super =
-        match super with
-        | SID id -> (
-                Buffer.add_char buf '"';
-                Buffer.add_string buf id;
-                Buffer.add_char buf '"'
-            )
-        | EmptySchema -> Buffer.add_string buf "null"
+    and action (params, c, cond, effs) : unit =
+        buf << "def "; parameters params; buf << " {\n"; cost c; conditions cond; effects effs; buf <. '}'
 
-    and json_of_prototype ?first:(fst=true) p =
-        match p with
-        | ReferencePrototype (r, p) -> (
-                if not fst then Buffer.add_char buf ',';
-                Buffer.add_char buf '"';
-                Buffer.add_string buf !^r;
-                Buffer.add_char buf '"';
-                json_of_prototype ~first:false p
-            )
-        | BlockPrototype (b, p) -> (
-                if not fst then Buffer.add_char buf ',';
-                Buffer.add_char buf '[';
-                json_of_block b;
-                Buffer.add_char buf ']';
-                json_of_prototype ~first:false p
-            )
-        | EmptyPrototype -> ()
-
-    and json_of_expression e =
-        let binary operator left right =
-            Buffer.add_string buf "{\".type\":\"expression\",\"operator\":\"";
-            Buffer.add_string buf operator;
-            Buffer.add_string buf "\",\"left\":";
-            json_of_expression left;
-            Buffer.add_string buf ",\"right\":";
-            json_of_expression right;
-            Buffer.add_char buf '}'
-        in
-        match e with
-        | Basic bv -> json_of_basic_value bv
-        | Shell s ->
-            (
-                Buffer.add_string buf "\"§()";
-                Buffer.add_string buf s; (* TODO: use escape characters *)
-                Buffer.add_char buf '"'
-            )
-        | Equal (e1, e2) -> binary "=" e1 e2
-        | Exp_Not e ->
-            (
-                Buffer.add_string buf "{\".type\":\"expression\",\"operator\":\"not\",\"expression\":";
-                json_of_expression e;
-                Buffer.add_char buf '}'
-            )
-        | Exp_And (e1, e2)   -> binary "&&" e1 e2
-        | Exp_Or (e1, e2)    -> binary "||" e1 e2
-        | Exp_Imply (e1, e2) -> binary "=>" e1 e2
-        | Add (e1, e2) -> binary "+" e1 e2
-        | IfThenElse (e1, e2, e3) ->
-            (
-                Buffer.add_string buf "{\".type\":\"expression\",\"operator\":\"ifthenelse\",\"if\":";
-                json_of_expression e1;
-                Buffer.add_string buf ",\"then\":";
-                json_of_expression e2;
-                Buffer.add_string buf ",\"else\":";
-                json_of_expression e3;
-                Buffer.add_char buf '}'
-            )
-        | MatchRegexp (exp, regexp) ->
-            (
-                Buffer.add_string buf "{\".type\":\"expression\",\"operator\":\"match-regexp\",\"expression\":";
-                json_of_expression exp;
-                Buffer.add_string buf ",\"regexp\":";
-                json_of_basic_value (String regexp);
-                Buffer.add_char buf '}'
-            )
-
-    and json_of_value v =
-        match v with
-        | Expression e -> json_of_expression e
-        | Link r -> (
-                Buffer.add_string buf "\"§.";
-                Buffer.add_string buf !^r;
-                Buffer.add_char buf '"'
-            )
-        | Prototype (sid, p) -> (
-                Buffer.add_string buf "[\"object\",";
-                json_of_super_schema sid;
-                Buffer.add_string buf "],[";
-                json_of_prototype p;
-                Buffer.add_char buf ']'
-            )
-        | Action a -> json_of_action a
-        | TBD -> Buffer.add_string buf "\"§TBD\""
-        | Unknown -> Buffer.add_string buf "\"§unknown\""
-        | Nothing -> Buffer.add_string buf "\"§nothing\""
-
-    and json_of_action (parameters, cost, conditions, effects) =
-        Buffer.add_string buf "\"action\",{\"parameters\":{";
-        (* parameters *)
-        let rec json_of_parameters ps =
-            match ps with
-            | [] -> ()
-            | (id, t) :: [] -> (
-                    Buffer.add_string buf "\"";
-                    Buffer.add_string buf id;
-                    Buffer.add_string buf "\":";
-                    json_of_type t;
-                )
-            | (id, t) :: rest -> (
-                    Buffer.add_string buf "\"";
-                    Buffer.add_string buf id;
-                    Buffer.add_string buf "\":";
-                    json_of_type t;
-                    Buffer.add_char buf ',';
-                    json_of_parameters rest
-                )
-        in
-        json_of_parameters parameters;
-        Buffer.add_string buf "},\"cost\":";
-        (* cost *)
-        (
-            match cost with
-            | Cost c -> Buffer.add_string buf c;
-            | EmptyCost -> Buffer.add_string buf "null"
-        );
-        (* conditions *)
-        Buffer.add_string buf ",\"conditions\":";
-        (
-            match conditions with
-            | Condition c -> json_of_constraint c
-            | EmptyCondition -> Buffer.add_string buf "null"
-        );
-        (* effects *)
-        Buffer.add_string buf ",\"effects\":[";
-        let rec json_of_effects eff =
-            match eff with
-            | [] -> ()
-            | (r, v) :: [] -> formula_to_json "=" r v
-            | (r, v) :: rest -> (
-                    formula_to_json "=" r v;
-                    json_of_effects rest
-                )
-        in
-        json_of_effects effects;
-        Buffer.add_string buf "]}"
-
-    and formula_to_json operator r v =
-        Buffer.add_string buf "[\"";
-        Buffer.add_string buf operator;
-        Buffer.add_string buf "\",\"";
-        Buffer.add_string buf !^r;
-        Buffer.add_string buf "\",";
-        json_of_basic_value v;
-        Buffer.add_char buf ']'
-
-    and json_of_constraint c =
-        match c with
-        | Eq (r, v) -> formula_to_json "=" r v
-        | Ne (r, v) -> formula_to_json "!=" r v
-        | In (r, vec) -> formula_to_json "in" r (Vector vec)
-        | Greater (r, v) -> formula_to_json ">" r v
-        | GreaterEqual (r, v) -> formula_to_json ">=" r v
-        | Less (r, v) -> formula_to_json "<" r v
-        | LessEqual (r, v) -> formula_to_json "<=" r v
-        | Not c -> (
-                Buffer.add_string buf "[\"not\",";
-                json_of_constraint c;
-                Buffer.add_char buf ']'
-            )
-        | Imply (c1, c2) -> (
-                Buffer.add_string buf "[\"imply\",";
-                json_of_constraint c1;
-                Buffer.add_char buf ',';
-                json_of_constraint c2;
-                Buffer.add_char buf ']'
-            )
-        | And cs -> (
-                Buffer.add_string buf "[\"and\"";
-                List.iter (fun c ->
-                    Buffer.add_char buf ',';
-                    json_of_constraint c
-                ) cs;
-                Buffer.add_char buf ']'
-            )
-        | Or cs -> (
-                Buffer.add_string buf "[\"or\"";
-                List.iter (fun c ->
-                    Buffer.add_char buf ',';
-                    json_of_constraint c
-                ) cs;
-                Buffer.add_char buf ']'
-            )
-
-    and json_of_global g =
-        Buffer.add_string buf "[\"global\",";
-        json_of_constraint g;
-        Buffer.add_char buf ']'
-
-    and json_of_schema (sid, ss, b) =
-        Buffer.add_string buf "[\"";
-        Buffer.add_string buf sid;
-        Buffer.add_string buf "\",[\"schema\",";
-        json_of_super_schema ss;
-        Buffer.add_string buf "],[";
-        json_of_block b;
-        Buffer.add_string buf "]]"
-
-    and json_of_enum (eid, elements) =
-        Buffer.add_string buf "[\"";
-        Buffer.add_string buf eid;
-        Buffer.add_string buf "\",[\"enum\",";
-        List.iter (fun el ->
-            Buffer.add_char buf '"';
-            Buffer.add_string buf el;
-            Buffer.add_char buf '"'
-        ) elements;
-        Buffer.add_string buf "]]"
-
-    and json_of_assignment (r, t, v) =
-        Buffer.add_string buf "[\"";
-        Buffer.add_string buf !^r;
-        Buffer.add_string buf "\",";
-        match t with
-        | TUndefined -> (
-                json_of_value v;
-                Buffer.add_char buf ']'
-            )
-        | _ -> (
-                json_of_type t;
-                Buffer.add_char buf ',';
-                json_of_value v;
-                Buffer.add_char buf ']'
-            )
-
-    and json_of_block ?first:(fst=true) block = match block with
-        | AssignmentBlock (a, b) -> (
-                if not fst then Buffer.add_char buf ',';
-                json_of_assignment a;
-                json_of_block ~first:false b
-            )
-        | TrajectoryBlock (t, b) -> (
-                if not fst then Buffer.add_char buf ',';
-                json_of_trajectory t;
-                json_of_block ~first:false b
-            )
-        | EmptyBlock -> ()
-
-    and json_of_trajectory t = match t with
-        | Global g -> json_of_global g
-
-    and json_of_context ?first:(fst=true) context =
-        match context with
-        | AssignmentContext (a, c) -> (
-                if not fst then Buffer.add_char buf ',';
-                json_of_assignment a;
-                json_of_context ~first:false c
-            )
-        | SchemaContext (s, c) -> (
-                if not fst then Buffer.add_char buf ',';
-                json_of_schema s;
-                json_of_context ~first:false c
-            )
-        | EnumContext (enum, c) -> (
-                if not fst then Buffer.add_char buf ',';
-                json_of_enum enum;
-                json_of_context ~first:false c
-            )
-        | TrajectoryContext (t, c) -> (
-                if not fst then Buffer.add_char buf ',';
-                json_of_trajectory t;
-                json_of_context ~first:false c
-            )
-        | EmptyContext -> ()
     in
-    Buffer.add_char buf '[';
-    json_of_context nuri;
-    Buffer.add_char buf ']';
+    context nuri;
     Buffer.contents buf
 ;;
-    
-let nuri_of_json json =
-    EmptyContext (* TODO *)
+
+(** convert a Nuri type into a string **)
+let string_of_type t =
+    let buf = Buffer.create 5 in
+    let rec _type t = match t with
+        | T_Bool           -> buf << "bool"
+        | T_Int            -> buf << "int"
+        | T_Float          -> buf << "float"
+        | T_String         -> buf << "string"
+        | T_Null           -> buf << "null"
+        | T_Undefined      -> buf << "undefined"
+        | T_Any            -> buf << "any"
+        | T_Action         -> buf << "action"
+        | T_Global         -> buf << "global"
+        | T_Enum (id, _)   -> buf << "enum~"; buf << id
+        | T_List t         -> buf << "[]"; _type t
+        | T_Schema t       -> type_schema t
+        | T_Reference t    -> buf <. '*'; type_schema t
+        | T_Forward T_LinkForward r      -> buf << "forward~"; buf << !^r
+        | T_Forward T_ReferenceForward r -> buf << "forward~*"; buf << !^r
+
+    and type_schema t = match t with
+        | T_Object                 -> buf << "object"
+        | T_RootSchema             -> ()
+        | T_UserSchema (id, super) -> buf << id; buf <. '<'; type_schema super
+
+    in
+    _type t;
+    Buffer.contents buf
+;;

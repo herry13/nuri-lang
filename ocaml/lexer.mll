@@ -31,7 +31,7 @@
 
 (**
  * reserved characters: '/' '*' ',' '{' '}' '[' ']' '(' ')' ';' '.' ':'
- *                      '=' "!=" ">=" "<=" '>' '<' ":=" '"'
+ *                      '=' "!=" ">=" "<=" '>' '<' ":=" '"' '$'
  *                      '`' '+' '==' '!' "&&" "||" "=>"
  *)
 
@@ -138,6 +138,8 @@ rule token =
     | "&&"        { TOK_AND }
     | "||"        { TOK_OR  }
     | "=>"        { TOK_IMPLY }
+    | '!'         { TOK_EXCLAMATION }
+    | '$'         { TOK_DOLLAR }
 	| int         { INT (Lexing.lexeme lexbuf) }
 	| float       { FLOAT (Lexing.lexeme lexbuf) }
 	| true_value  { BOOL "true" }
@@ -202,6 +204,7 @@ and read_shell buf =
     parse
     | '`'           { Buffer.contents buf }
     | '\\' '`'      { Buffer.add_char buf '`'; read_shell buf lexbuf }
+    | '\\' '\\'     { Buffer.add_char buf '\\'; read_shell buf lexbuf }
     | [^ '`']+      { Buffer.add_string buf (Lexing.lexeme lexbuf); read_shell buf lexbuf }
     | _             { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
     | eof           { raise (SyntaxError "Shell command is not terminated.") }

@@ -15,8 +15,6 @@ type t = {
  * functions for translating Nuri to FDR
  *******************************************************************)
 
-let (!^) = Domain.(!^) ;;
-
 let version = "3" ;;
 
 let metric = "1" ;;

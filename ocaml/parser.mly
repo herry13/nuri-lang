@@ -24,7 +24,7 @@ open Syntax
 %token LBRACKET RBRACKET EOS EOF
 %token ISA SCHEMA ENUM ASTERIX COLON TBOOL TINT TFLOAT TSTR TOBJ
 %token GLOBAL SOMETIME ATLEAST ATMOST ALLDIFFERENT
-%token TOK_EQUAL_EQUAL TOK_AND TOK_OR TOK_IMPLY TOK_PLUS
+%token TOK_EQUAL_EQUAL TOK_AND TOK_OR TOK_IMPLY TOK_PLUS TOK_EXCLAMATION TOK_DOLLAR
 %token EQUAL NOT_EQUAL IF THEN ELSE IN NOT LPARENTHESIS RPARENTHESIS
 %token TOK_GREATER TOK_GREATER_EQUAL TOK_LESS TOK_LESS_EQUAL
 %token TOK_COLON_EQUAL
@@ -76,7 +76,7 @@ trajectory
     : GLOBAL global  { Global $2 }
 
 assignment
-	: ACTION reference action  { ($2, TUndefined, $3) }
+	: ACTION reference action  { ($2, T_Undefined, $3) }
 	| reference type_def value { ($1, $2, $3) }
 
 value
@@ -88,24 +88,25 @@ value
 simple_value
     : TOK_TBD     { TBD }
     | TOK_UNKNOWN { Unknown }
-    | TOK_NOTHING { Nothing }
+    | TOK_NOTHING { None }
     | exp         { Expression $1 }
 
 exp
     : exp1                     { $1 }
-    | NOT exp                  { Exp_Not $2 }
-    | IF exp THEN exp ELSE exp { IfThenElse ($2, $4, $6) }
+    | TOK_EXCLAMATION exp      { Exp_Not $2 }
+    | TOK_DOLLAR exp           { Exp_Eager $2 }
+    | IF exp THEN exp ELSE exp { Exp_IfThenElse ($2, $4, $6) }
 
 exp1
     : exp2 binary_op         { $2 $1 }
 
 binary_op
-    : TOK_EQUAL_EQUAL exp2 binary_op { fun left -> $3 (Equal (left, $2)) }
-    | TOK_PLUS exp2 binary_op        { fun left -> $3 (Add (left, $2)) }
+    : TOK_EQUAL_EQUAL exp2 binary_op { fun left -> $3 (Exp_Equal (left, $2)) }
+    | TOK_PLUS exp2 binary_op        { fun left -> $3 (Exp_Add (left, $2)) }
     | TOK_AND exp2 binary_op         { fun left -> $3 (Exp_And (left, $2)) }
     | TOK_OR exp2 binary_op          { fun left -> $3 (Exp_Or (left, $2)) }
     | TOK_IMPLY exp2 binary_op       { fun left -> $3 (Exp_Imply (left, $2)) }
-    | REGEXP binary_op               { fun left -> $2 (MatchRegexp (left, $1)) }
+    | REGEXP binary_op               { fun left -> $2 (Exp_MatchRegexp (left, $1)) }
     |                                { fun v -> v }
 
 exp2
@@ -170,20 +171,20 @@ super
 
 type_def
 	: COLON tau { $2 }
-	|           { TUndefined }
+	|           { T_Undefined }
 
 tau
-    : TBOOL                 { TBool }
-    | TINT                  { TInt }
-    | TFLOAT                { TFloat }
-    | TSTR                  { TString }
-    | LBRACKET RBRACKET tau { TList $3 }
-    | ASTERIX tau_schema    { TRef $2 }
-    | tau_schema            { TSchema $1 }
+    : TBOOL                 { T_Bool }
+    | TINT                  { T_Int }
+    | TFLOAT                { T_Float }
+    | TSTR                  { T_String }
+    | LBRACKET RBRACKET tau { T_List $3 }
+    | ASTERIX tau_schema    { T_Reference $2 }
+    | tau_schema            { T_Schema $1 }
 
 tau_schema
-    : TOBJ  { TObject }
-    | ID    { TUserSchema ($1, TObject) }
+    : TOBJ  { T_Object }
+    | ID    { T_UserSchema ($1, T_Object) }
 
 global
 	: nuri_constraint { $1 }
@@ -197,8 +198,8 @@ disjunction
 	|                            { [] }
 
 nuri_constraint
-	: BEGIN conjunction END                 { And $2 }
-	| LPARENTHESIS disjunction RPARENTHESIS { Or $2 }
+	: BEGIN conjunction END                 { C_And $2 }
+	| LPARENTHESIS disjunction RPARENTHESIS { C_Or $2 }
 	| equal                                 { $1 }
 	| equal_true                            { $1 }
 	| not_equal                             { $1 }
@@ -211,34 +212,34 @@ nuri_constraint
 	| less_equal                            { $1 }
 
 equal
-	: reference EQUAL basic EOS { Eq ($1, $3) }
+	: reference EQUAL basic EOS { C_Equal ($1, $3) }
 
 equal_true
-	: reference EOS { Eq ($1, Boolean "true") }
+	: reference EOS { C_Equal ($1, Boolean "true") }
 
 not_equal
-	: reference NOT_EQUAL basic EOS { Ne ($1, $3) }
+	: reference NOT_EQUAL basic EOS { C_NotEqual ($1, $3) }
 
 greater_than
-	: reference TOK_GREATER basic EOS { Greater ($1, $3) }
+	: reference TOK_GREATER basic EOS { C_Greater ($1, $3) }
 
 greater_equal
-	: reference TOK_GREATER_EQUAL basic EOS { GreaterEqual ($1, $3) }
+	: reference TOK_GREATER_EQUAL basic EOS { C_GreaterEqual ($1, $3) }
 
 less_than
-	: reference TOK_LESS basic EOS { Less ($1, $3) }
+	: reference TOK_LESS basic EOS { C_Less ($1, $3) }
 
 less_equal
-	: reference TOK_LESS_EQUAL basic EOS { LessEqual ($1, $3) }
+	: reference TOK_LESS_EQUAL basic EOS { C_LessEqual ($1, $3) }
 
 implication
-	: IF nuri_constraint THEN nuri_constraint { Imply ($2, $4) }
+	: IF nuri_constraint THEN nuri_constraint { C_Imply ($2, $4) }
 
 negation
-	: NOT nuri_constraint { Not $2 }
+	: NOT nuri_constraint { C_Not $2 }
 
 membership
-	: reference IN vector EOS { In ($1, $3) }
+	: reference IN vector EOS { C_In ($1, $3) }
 
 action
 	: parameters BEGIN cost conditions EFFECTS BEGIN effects END END
@@ -258,11 +259,11 @@ param
 	: ID COLON t_param { ($1, $3) }
 
 t_param
-    : tau_schema { TSchema $1 }
-    | TBOOL      { TBool      }
-    | TINT       { TInt       }
-    | TFLOAT     { TFloat     }
-    | TSTR       { TString    }
+    : tau_schema { T_Schema $1 }
+    | TBOOL      { T_Bool      }
+    | TINT       { T_Int       }
+    | TFLOAT     { T_Float     }
+    | TSTR       { T_String    }
 
 cost
 	: COST EQUAL INT EOS { Cost $3 }
@@ -270,7 +271,7 @@ cost
 
 conditions
 	: CONDITIONS nuri_constraint { Condition $2 }
-	|                           { EmptyCondition }
+	|                            { EmptyCondition }
 
 effects
 	: effect effects { $1 :: $2 }

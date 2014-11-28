@@ -180,7 +180,7 @@ let main =
                 (Parser_helper.ParseError (f, l, p, t)));
             exit 1501
         )
-    | Domain.SfError (code, msg)
+    | Domain.Error (code, msg)
     | Type.TypeError (code, msg) -> (
             prerr_endline msg;
             exit code

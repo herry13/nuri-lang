@@ -193,7 +193,7 @@ let decode_name (s: string): int * reference * basic MapStr.t =
 			let id = int_of_string s1 in
 			let name =
 				match from_json s2 with
-				| Basic (Ref r) -> r
+				| Basic (Reference r) -> r
 				| _ -> error 802 "invalid value"
 			in
 			let params =
@@ -216,11 +216,11 @@ let decode_name (s: string): int * reference * basic MapStr.t =
  * (identifier => value)
  *)
 let ground_parameters parameters name typeValues =
-    let this = prefix name in
-	let map1 = MapStr.add "this" [Ref this] MapStr.empty in
+    let this = !--name in
+	let map1 = MapStr.add "this" [Reference this] MapStr.empty in
     let map1 = match this with
         | [] -> map1
-        | _  -> MapStr.add "parent" [Ref (prefix this)] map1
+        | _  -> MapStr.add "parent" [Reference (!--this)] map1
     in
 	let map2 = List.fold_left (fun acc (id, t) ->
 			let values = SetValue.fold (fun v acc ->
@@ -245,7 +245,7 @@ let ground_parameters parameters name typeValues =
 (** convert a conjunction of atoms to a map **)
 let map_of_atoms = fun map _constraint ->
 	match _constraint with
-	| Eq (r, v) -> MapRef.add r v map
+	| Equal (r, v) -> MapRef.add r v map
 	| _         -> error 805 ""
 ;;
 
@@ -273,7 +273,7 @@ let create_global_actions globalConstraint actions =
 					}
 				in
 				add action acc
-			| Eq (r, v) ->
+			| Equal (r, v) ->
 				let pre1 = MapRef.add r v pre in
 				let action = {
 						name = name;
@@ -320,7 +320,7 @@ let compile_simple_implication preconditions effects variables globalImplication
 	let rec iter acc implications = match acc, implications with
         | [], _ -> acc
         | _, [] -> acc
-        | _, Imply (Eq (rp, vp), Eq (rc, vc)) :: css ->
+        | _, Imply (Equal (rp, vp), Equal (rc, vc)) :: css ->
             (
                 let evaluate map pre =
                     if has_atom rp vp map then (
@@ -419,7 +419,7 @@ let ground_action_of (name, params, cost, pre, eff) typeEnvironment variables
 		| Or cs -> List.fold_left (fun acc1 c ->
 				let pre3 =
 					match c with
-					| Eq (r, v) -> MapRef.add r v pre2
+					| Equal (r, v) -> MapRef.add r v pre2
 					| And css   -> List.fold_left map_of_atoms pre2 css
 					| _         -> error 809 ""
 				in
@@ -454,7 +454,7 @@ let ground_action_of (name, params, cost, pre, eff) typeEnvironment variables
 				in
 				add action acc1
 			) acc preconditions
-		| Eq (r, v) ->
+		| Equal (r, v) ->
 			let pre3 = MapRef.add r v pre2 in
 			let preconditions = compile_simple_implication pre3 eff2 variables
 				globalImplications
@@ -502,5 +502,5 @@ let ground_actions typeEnvironment variables typeValues globalConstraints
 			ground_action_of action typeEnvironment variables typeValues
 				addDummy globalImplications actions
 		| _ -> error 811 "not an action" (* a non-action value *)
-	) (Type.values_of Syntax.TAction typeValues) actions
+	) (Type.values_of Syntax.T_Action typeValues) actions
 ;;

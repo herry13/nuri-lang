@@ -11,20 +11,20 @@ let error code msg = raise (JsonError (code, "[err" ^ (string_of_int code) ^ "] 
 let (!^) r = String.concat "." r ;;
 
 let rec of_type t = match t with
-    | Syntax.TBool                              -> "bool"
-    | Syntax.TInt                               -> "int"
-    | Syntax.TFloat                             -> "float"
-    | Syntax.TString                            -> "string"
-    | Syntax.TNull                              -> "null"
-    | Syntax.TAny                               -> "any"
-    | Syntax.TAction                            -> "action"
-    | Syntax.TGlobal                            -> "global"
-    | Syntax.TEnum (id, _)                      -> "%" ^ id
-    | Syntax.TList t                            -> "[]" ^ (of_type t)
-    | Syntax.TSchema Syntax.TObject             -> "object"
-    | Syntax.TSchema Syntax.TUserSchema (id, _) -> id
-    | Syntax.TRef Syntax.TObject                -> "*object"
-    | Syntax.TRef Syntax.TUserSchema (id, _)    -> "*" ^ id
+    | Syntax.T_Bool                              -> "bool"
+    | Syntax.T_Int                               -> "int"
+    | Syntax.T_Float                             -> "float"
+    | Syntax.T_String                            -> "string"
+    | Syntax.T_Null                              -> "null"
+    | Syntax.T_Any                               -> "any"
+    | Syntax.T_Action                            -> "action"
+    | Syntax.T_Global                            -> "global"
+    | Syntax.T_Enum (id, _)                      -> "%" ^ id
+    | Syntax.T_List t                            -> "[]" ^ (of_type t)
+    | Syntax.T_Schema Syntax.T_Object             -> "object"
+    | Syntax.T_Schema Syntax.T_UserSchema (id, _) -> id
+    | Syntax.T_Reference Syntax.T_Object                -> "*object"
+    | Syntax.T_Reference Syntax.T_UserSchema (id, _)    -> "*" ^ id
 	| _                                         -> error 1302 "invalid type"
 
 (** private function to generate JSON of basic value **)
@@ -74,19 +74,12 @@ let rec json_basic_value buf v =
         )
 	| Domain.String s  -> json_of_string s
 	| Domain.Null      -> Buffer.add_string buf "null"
-	| Domain.Ref r     -> (
+	| Domain.Reference r     -> (
 			Buffer.add_string buf "\"$";
 			Buffer.add_string buf !^r;
 			Buffer.add_char buf '"'
 		)
 	| Domain.Vector vec -> json_vector vec
-    | Domain.EnumElement (name, element) -> (
-            Buffer.add_string buf "\"%";
-            Buffer.add_string buf name;
-            Buffer.add_char buf '.';
-            Buffer.add_string buf element;
-            Buffer.add_char buf '"'
-        )
 ;;
 
 let of_basic_value v =
@@ -97,12 +90,12 @@ let of_basic_value v =
 
 let rec json_constraint buf c =
 	match c with
-	| Domain.Eq (r, v) -> (
+	| Domain.Equal (r, v) -> (
 			constraint_left_side buf "=" r;
 			json_basic_value buf v;
 			Buffer.add_char buf ']'
 		)
-	| Domain.Ne (r, v) -> (
+	| Domain.NotEqual (r, v) -> (
 			constraint_left_side buf "!=" r;
 			json_basic_value buf v;
 			Buffer.add_char buf ']'
@@ -252,7 +245,7 @@ let rec of_value value =
 			)
 		| Domain.TBD -> Buffer.add_string buf "\"$TBD\""
 		| Domain.Unknown -> Buffer.add_string buf "\"$unknown\""
-		| Domain.Nothing -> Buffer.add_string buf "\"$nothing\""
+		| Domain.None -> Buffer.add_string buf "\"$nothing\""
 		| Domain.Store child -> Buffer.add_string buf "{}"
 		| Domain.Global c -> json_constraint buf c
 		| Domain.Action a -> json_action buf a
@@ -267,19 +260,19 @@ let of_store typeEnv store =
 	let json_variable_type ns id =
 		let r = Domain.(@+.) ns id in
 		match MapRef.find r typeEnv with
-		| Syntax.TUndefined -> error 1303 ("type of " ^ !^r ^ " is undefined")
+		| Syntax.T_Undefined -> error 1303 ("type of " ^ !^r ^ " is undefined")
 		| t -> of_type t
 	in
 	let set_json_object_type ns id =
 		let r = Domain.(@+.) ns id in
 		match MapRef.find r typeEnv with
-		| Syntax.TUndefined -> error 1304 ("type of " ^ !^r ^ " is undefined")
-        | t when Type.subtype t (Syntax.TSchema Syntax.TRootSchema) ->
+		| Syntax.T_Undefined -> error 1304 ("type of " ^ !^r ^ " is undefined")
+        | t when Type.subtype t (Syntax.T_Schema Syntax.T_RootSchema) ->
             (
                 match t with
-                | Syntax.TSchema Syntax.TUserSchema (_, Syntax.TRootSchema) ->
+                | Syntax.T_Schema Syntax.T_UserSchema (_, Syntax.T_RootSchema) ->
                     Buffer.add_string buf "\".type\":\"schema\""
-                | Syntax.TSchema Syntax.TUserSchema (_, Syntax.TUserSchema (id, _)) ->
+                | Syntax.T_Schema Syntax.T_UserSchema (_, Syntax.T_UserSchema (id, _)) ->
                     (
                         Buffer.add_string buf "\".type\":\"schema\",\".super\":\"";
                         Buffer.add_string buf id;
@@ -328,7 +321,7 @@ let of_store typeEnv store =
 				add_ident ~_type:(json_variable_type ns id) buf id;
 				Buffer.add_string buf "\"$unknown\""
 			)
-		| Domain.Nothing -> (
+		| Domain.None -> (
 				add_ident ~_type:(json_variable_type ns id) buf id;
 				Buffer.add_string buf "\"$nothing\""
 			)
