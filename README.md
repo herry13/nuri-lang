@@ -151,11 +151,11 @@ treated as prototypes which will not be included in the final compilation
 output.
 
 ```java
-x = 1;
+x 1;
 main {
-  a = 2;
-  b = true;
-  a = 3;
+  a 2;
+  b true;
+  a 3;
 }
 ```
 
@@ -186,7 +186,7 @@ will be the name of the variable that holds this object.
 main {
   a { }
   b {
-    name = 1;
+    name 1;
   }
 }
 ```
@@ -221,18 +221,18 @@ declare the type.
 
 ```java
 main {
-  a : bool = true;  // type: bool
-  b = 1;            // type: int
-  c = 2.3;          // type: float
-  d = "a string";   // type: string
-  c = 4;            // type: float
+  a : bool true;  // type: bool
+  b 1;            // type: int
+  c 2.3;          // type: float
+  d "a string";   // type: string
+  c 4;            // type: float
 }
 ```
 
 The above specification shows that the type of `a` is explicitly declared as
 `bool`. While the types of `b`, `c`, and `d` are automatically inferred by the
 compiler i.e. `int`, `float`, and `string` respectively. The last statement
-(`c = 4;`) is accepted because any float variable can be assigned with any
+(`c 4;`) is accepted because any float variable can be assigned with any
 integer value, but not vice versa.
 
 Nuri allows us to define an object, which is very useful to model a resource
@@ -257,11 +257,11 @@ enum State { stopped, running }
 // main object
 main {
   machine {
-    state = State.running;
-    ipaddress = "10.0.0.1";
-    users = ["herry", "paul"];
+    state State.running;
+    ipaddress "10.0.0.1";
+    users ["herry", "paul"];
     apache {
-      state = State.stopped;
+      state State.stopped;
     }
   }
 }
@@ -287,8 +287,8 @@ schema's structure at every step of compilation.
 
 ```java
 schema Machine {
-  name = "";
-  running = false;
+  name "";
+  running false;
 }
 ```
 
@@ -311,7 +311,7 @@ will arise.
 ```java
 schema PM extends Machine { }
 schema VM extends Machine {
-  is_on : *PM = null;
+  is_on : *PM null;
 }
 ```
 
@@ -328,11 +328,11 @@ Note that Nuri only allows single inheritance.
 
 ```java
 schema Service {
-  name = "";
-  running = false;
+  name "";
+  running false;
 }
 schema Client {
-  refer : *Service = null;
+  refer : *Service null;
 }
 ```
 
@@ -346,10 +346,10 @@ In Nuri, we can only define a reference of an object, but not a basic value.
 main {
   a1 { }
   a2 isa Service { }
-  a3 = 0;
-  b1 = a1;  // *object
-  b2 = a2;  // *Service
-  b3 = a3;  // int
+  a3 0;
+  b1 a1;  // *object
+  b2 a2;  // *Service
+  b3 a3;  // int
 }
 ```
 
@@ -366,14 +366,15 @@ value (either basic value or object) of particular variable to another
 variable. Note that Nuri allows us to have _forward link reference_.
 
 To distinguish between a link with a _normal_ reference is that a link is
-using operator `:=`, while a _normal_ reference is using operator `=`.
+using operator `:=`, while a _normal_ reference is without an operator.
 
 ```java
 main {
-  x := a;
+  x := a;  // link-reference
   a {
-    b = 1;
+    b 1;
   }
+  y a; // reference
 }
 ```
 
@@ -438,18 +439,18 @@ import "schemas"; // import file schemas.nuri that contains schema:
                   // 'machine', 'PM', 'VM', 'Service', and 'Client'
 main {
   pm1 isa PM {
-    name = "Physical Machine #1";
-    running = true;
+    name "Physical Machine #1";
+    running true;
   }
   vm1 isa VM {
-    name = "Virtual Machine #1";
-    is_on = pm1;
+    name "Virtual Machine #1";
+    is_on pm1;
     httpd isa Service {
-      name = "HTTP Server";
+      name "HTTP Server";
     }
   }
   pc isa Client {
-    refer = vm1.httpd;
+    refer vm1.httpd;
   }
 }
 ```
@@ -482,25 +483,31 @@ specification.
 
 ```java
 schema Service {
-  name = "";
-  running = false;
+  name "";
+  running false;
 
   def start {
-    conditions { this.running = false; }
-    effects    { this.running = true;  }
+    conditions this.running = false;
+    effects {
+      this.running true;
+    }
   }
   def stop {
-    conditions { this.running = true;  }
-    effects    { this.running = false; }
+    conditions this.running = true;
+    effects {
+      this.running false;
+    }
   }
 }
 	
 schema Client {
-  refer : *Service = null;
+  refer : *Service null;
 	
   def redirect ( s : Service ) {
-    conditions { s.running = true; }
-    effects    { this.refer = s;   }
+    conditions s.running = true;
+    effects {
+      this.refer s;
+    }
   }
 }
 ```
@@ -508,13 +515,13 @@ schema Client {
 The above specification shows that schema `Service` has two common actions i.e.
 `start` and `stop` which will be inherited by all objects that implement
 `Service`. Action `start` has a precondition where the object (referred by
-`this`) must be stopped (`this.running = false`). After execution, the action
-changes the object's state to running (`this.running = true`). A similar thing
+`this`) must be stopped (`this.running false;`). After execution, the action
+changes the object's state to running (`this.running true;`). A similar thing
 is applied to action `stop`.
 
 Action `redirect` of schema `Client` has a parameter which is an object of
 `Service`. It has a precondition where the object `Service` (referred by `s`)
-must be running (`s.running = true`). After execution, the action changes the
+must be running (`s.running true;`). After execution, the action changes the
 client object's state by setting attribute `refer` with value of a reference
 of the parameter value.
 
@@ -539,17 +546,17 @@ are described in the following subsections.
 The following tables show conversions of Nuri simple values to JSON and vice
 versa.
 
-| Nuri       | JSON    | Example                                              |
-|:----------:|:-------:|:----------------------------------------------------:|
-| bool       | bool    | `a = true;`            <-> `{"a": true}`             |
-| int        | int     | `a = 1;`               <-> `{"a": 1}`                |
-| float      | float   | `a = 1.0;`             <-> `{"a": 1.0}`              |
-| string     | string  | `a = "a string";`      <-> `{"a": "a string"}`       |
-| array      | array   | `a = [1, 2];`          <-> `{"a": [1, 2]}`           |
-| reference  | $string | `a = b.c.d;`           <-> `{"a": "$b.c.d"}`         |
-| null       | null    | `a : *Service = null;` <-> `{"a:*Service": null}`    |
-| TBD        | $string | `a : int = TBD;`       <-> `{"a:int": "$TBD"}`       |
-| enum-value | $string | `a = State.running;`   <-> `{"a": "$State.running"}` |
+| Nuri       | JSON    | Example                                            |
+|:----------:|:-------:|:--------------------------------------------------:|
+| bool       | bool    | `a true;`            <-> `{"a": true}`             |
+| int        | int     | `a 1;`               <-> `{"a": 1}`                |
+| float      | float   | `a 1.0;`             <-> `{"a": 1.0}`              |
+| string     | string  | `a "a string";`      <-> `{"a": "a string"}`       |
+| array      | array   | `a [1, 2];`          <-> `{"a": [1, 2]}`           |
+| reference  | $string | `a b.c.d;`           <-> `{"a": "$b.c.d"}`         |
+| null       | null    | `a : *Service null;` <-> `{"a:*Service": null}`    |
+| TBD        | $string | `a : int TBD;`       <-> `{"a:int": "$TBD"}`       |
+| enum-value | $string | `a State.running;`   <-> `{"a": "$State.running"}` |
 
 
 ### Object
@@ -560,10 +567,10 @@ be `schema`, `action`, or `enum`.
 
 ```java
 a {
-  b = 1;
+  b 1;
 }
 c isa Service {
-  state = State.running;
+  state State.running;
 }
 ```
 
@@ -605,7 +612,7 @@ Every Nuri schema is converted into JSON object which has a _hidden_ attribute
 
 ```java
 schema Service {
-  running = false;
+  running false;
 }
 schema Apache extends Service { }
 ```
@@ -698,12 +705,10 @@ attribute `.type` whose value is `action`.
 
 ```java
 def redirect (s : Service) {
-  cost = 1;
-  conditions {
-    s.running = true;
-  }
+  cost 1;
+  conditions s.running true;
   effects {
-    this.running = true;
+    this.running true;
   }
 }
 ```
@@ -836,31 +841,26 @@ enum State {
 }
 
 schema Client {
-  refer: *Service = null;
+  refer: *Service null;
   def redirect(s : Service) {
-    condition { }
     effect {
-      this.refer = s;
+      this.refer s;
     }
   }
 }
 
 schema Service {
-  state = State.stopped;
+  state State.stopped;
   def start {
-    condition {
-      this.state = State.stopped;
-    }
+    condition this.state = State.stopped;
     effect {
-      this.state = State.running;
+      this.state State.running;
     }
   }
   def stop {
-    condition {
-      this.state = State.running;
-    }
+    condition this.state = State.running;
     effect {
-      this.state = State.stopped;
+      this.state State.stopped;
     }
   }
 }
@@ -877,13 +877,13 @@ import "schemas";
 
 main {
   service1 isa Service {
-    state = State.running;
+    state State.running;
   }
   service2 isa Service {
-    state = State.stopped;
+    state State.stopped;
   }
   client1 isa Client {
-    refer = service1;
+    refer service1;
   }
   client2 extends client1  // use client1 as prototype
 }
@@ -900,13 +900,13 @@ import "schemas";
 
 main {
   service1 isa Service {
-    state = State.stopped;
+    state State.stopped;
   }
   service2 isa Service {
-    state = State.running;
+    state State.running;
   }
   client1 isa Client {
-    refer = service2;
+    refer service2;
   }
   client2 extends client1
   
@@ -918,9 +918,9 @@ main {
 }
 ```
 
-The above specification defines the desired state of the system where `service1` is stopped (`state = State.stopped;`), `service2` is running (`state = State.running;`), while `client1` and `client2` are referring `service2` (`refer = service2;`).
+The above specification defines the desired state of the system where `service1` is stopped (`state State.stopped;`), `service2` is running (`state State.running;`), while `client1` and `client2` are referring `service2` (`refer service2;`).
 
-The global constraints are defined in scope `global` where in this case the constraint is a conjunction of two equality statements. The first statement i.e. `client1.refer.state = State.running;` states that `client1` must always refer to a running service. The second statement i.e. `client2.refer.state = State.running;` states that `client2` must always refer to a running service. Since the constraint is a conjunction of logic formula, then the order is insignificant.
+The global constraints are defined in scope `global` where in this case the constraint is a conjunction of two equality statements. The first statement i.e. `client1.refer.state State.running;` states that `client1` must always refer to a running service. The second statement i.e. `client2.refer.state State.running;` states that `client2` must always refer to a running service. Since the constraint is a conjunction of logic formula, then the order is insignificant.
 
 
 #### Solution Plan
@@ -1061,7 +1061,7 @@ Let us focus on the second action i.e. `client2.redirect`:
 }
 ```
 
-The above action descriptions shows that the `name` of the action is `client2.redirect` (action `redirect` owned by object `client2`). It has a single parameter `s` with value `$service2` -- the value is a reference to object `service2` (in JSON, every Nuri reference is represented as a string started with `$` character). The `cost` of the action is `1`. The `conditions` before execution is `service2.state = State.running`. The `effects` after execution is `client2.refer = service2`. `before` gives a list of action indexes that must be successfully executed before this action -- in this case, action `service2.start` that has index `0` must be successfully executed before executing action `client2.redirect`. `after` gives a list of action indexes that should be executed after this action has been successfully executed -- in this case, action `service1.stop`.
+The above action descriptions shows that the `name` of the action is `client2.redirect` (action `redirect` owned by object `client2`). It has a single parameter `s` with value `$service2` -- the value is a reference to object `service2` (in JSON, every Nuri reference is represented as a string started with `$` character). The `cost` of the action is `1`. The `conditions` before execution is `service2.state State.running;`. The `effects` after execution is `client2.refer service2;`. `before` gives a list of action indexes that must be successfully executed before this action -- in this case, action `service2.start` that has index `0` must be successfully executed before executing action `client2.redirect`. `after` gives a list of action indexes that should be executed after this action has been successfully executed -- in this case, action `service1.stop`.
 
 By using partial-ordering constraints which are defined in `before` and `after` of all actions, the following partial-order plan can be executed using a parallel execution algorithm in order to decrease the execution time.
 
@@ -1094,14 +1094,12 @@ schema Client {
 schema Service {
   ...
   
-  version : int = TBD;
+  version : int TBD;
   
   def upgrade (ver : int) {
-    condition {
-      this.state = State.stopped;
-    }
+    condition this.state = State.stopped;
     effect {
-      this.version = ver;
+      this.version ver;
     }
   }
 }
@@ -1121,23 +1119,23 @@ import "schemas";
 
 main {
   service1a isa Service {
-    state = State.running;
-    version = 1;
+    state State.running;
+    version 1;
   }
   service1b isa Service {
-    state = State.running;
-    version = 1;
+    state State.running;
+    version 1;
   }
   service2a isa Service {
-    state = State.running;
-    version = 1;
+    state State.running;
+    version 1;
   }
   service2b isa Service {
-    state = State.running;
-    version = 1;
+    state State.running;
+    version 1;
   }
   client isa Client {
-    refer = service1a;
+    refer service1a;
   }
 }
 ```
@@ -1153,23 +1151,23 @@ import "schemas";
 
 main {
   service1a isa Service {
-    state = State.running;
-    version = 1;
+    state State.running;
+    version 1;
   }
   service1b isa Service {
-    state = State.running;
-    version = 2;  // upgrade to version 2
+    state State.running;
+    version 2;  // upgrade to version 2
   }
   service2a isa Service {
-    state = State.running;
-    version = 1;
+    state State.running;
+    version 1;
   }
   service2b isa Service {
-    state = State.running;
-    version = 2;  // upgrade to version 2
+    state State.running;
+    version 2;  // upgrade to version 2
   }
   client isa Client {
-    refer = service1a;
+    refer service1a;
   }
   
   // global constraints
