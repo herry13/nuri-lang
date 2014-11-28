@@ -1,0 +1,7 @@
+main {
+    a : bool true;
+    b : bool true;
+
+    a !b;
+    b !a;
+}
