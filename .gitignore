@@ -1,2 +1,5 @@
 # VIM swap file
 .*.swp
+
+# Documentation files
+/doc

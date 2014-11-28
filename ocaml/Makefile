@@ -156,3 +156,14 @@ travis: dist
 
 test:
 	@bash ../test/test-ocaml.sh
+
+DOC_OPTIONS=-html
+
+DOC_SOURCE_FILES= \
+    syntax.mli \
+    domain.mli \
+
+doc:
+	ocamldoc $(DOC_OPTIONS) $(DOC_SOURCE_FILES)
+	@mkdir -p ../doc
+	@mv -f *.{html,css} ../doc
