@@ -7,6 +7,6 @@ main {
     which = "which";
 
     b = true;
-    a = not b;
+    a = !b;
     b = false;
 }
