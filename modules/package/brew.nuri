@@ -16,17 +16,13 @@ schema Package {
   }
 
   def uninstalled {
-    conditions (
-      this.ensure = State.outdated;
-      this.ensure = State.latest;
-    )
     effects {
       this.ensure State.uninstalled;
     }
   }
 
   def upgrade {
-    conditions this.ensure = State.latest;
+    conditions this.ensure = State.outdated;
     effects {
       this.ensure State.latest;
     }

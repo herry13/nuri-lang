@@ -2,7 +2,8 @@ import 'common/state';
 
 schema Package {
   name : string TBD;
-  ensure if `/usr/bin/dpkg-query -s ${name} 2>/dev/null` =~ /Status: .* installed/ then State.latest
+  ensure if `/usr/bin/dpkg-query -s ${name} 2>/dev/null` =~ /Status: .* installed/
+         then State.installed
          else State.uninstalled;
 
   def install {
