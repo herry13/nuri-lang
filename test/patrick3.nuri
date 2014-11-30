@@ -1,0 +1,14 @@
+// example of forward link-reference (not supported)
+A extends {
+	foo bar;
+}
+
+main extends {
+	bar 2;
+	a2 test.a1;
+	test extends {
+		bar 1;
+		a1 extends A
+	}
+}
+

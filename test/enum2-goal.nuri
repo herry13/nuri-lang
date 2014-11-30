@@ -1,4 +1,4 @@
-include "enum2-model.nuri";
+include 'enum2-model.nuri';
 main {
   s1 isa Machine {
     web isa Service {

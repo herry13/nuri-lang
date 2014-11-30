@@ -1,4 +1,4 @@
-import "clouddeploy-model";
+import 'clouddeploy-model';
 main {
 	cloud0 isa Cloud { }
 	vm0 isa VM {

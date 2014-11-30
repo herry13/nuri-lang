@@ -2,7 +2,6 @@ main {
     a 1;
     b (a == 1) && false;
     c (a == 1) || false;
-#echo a;
     e (a == 1) => false;
     f (a == 1) => true;
     x1 `echo "${a}"`;

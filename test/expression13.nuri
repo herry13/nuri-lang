@@ -1,0 +1,20 @@
+main {
+    a 1;
+    b a + 2;
+    #echo b;
+    c b + 3;
+    #echo c;
+    d c + 4;
+    #echo d;
+    #echo $(4 % 2);
+
+    e "abcd";
+    f (e =~ /^a/);
+
+    x1 1;
+    x2 x1 + 2;
+    x3 $(x1 + 2);
+    #echo x2;
+    #echo x3;
+    x1 2;
+}

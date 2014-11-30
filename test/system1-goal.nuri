@@ -1,4 +1,4 @@
-import "system1-model";
+import 'system1-model';
 main {
   s1 isa Machine {
     web isa Service {

@@ -1,6 +1,6 @@
-import "import1";
-import "import1";
-import "import3";
+import 'import1';
+import 'import1';
+import 'import3';
 
 main.y true;
 

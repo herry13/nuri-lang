@@ -63,7 +63,7 @@ for file in $(cat $filelist); do
         test $file "complete "
 
         # generate JSON and convert JSON to Nuri
-       test_json2nuri $file "json2nuri"
+#       test_json2nuri $file "json2nuri"
     fi
 done
 echo "=== done ==="

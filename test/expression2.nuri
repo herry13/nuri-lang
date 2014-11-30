@@ -1,13 +1,13 @@
 main {
     a 1;
-    b "total is ";
-    c "total is " + 1;
+    b 'total is ';
+    c 'total is ' + 1;
     d b + a + 2;
     e a + 2 + b;
     f 1;
-    g "g " + f;
-    i "a " + "string " + f;
+    g 'g ' + f;
+    i 'a ' + 'string ' + f;
 
-    path "/";
+    path '/';
     ls_path `ls ${path}`;
 }

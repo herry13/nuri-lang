@@ -1,5 +1,5 @@
-include "include2.nuri";
+include 'include2.nuri';
 
 main {
-	#include "include1.nuri";
+	#include 'include1.nuri';
 }
