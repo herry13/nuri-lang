@@ -1,10 +1,10 @@
-import "system2-schemas";
+import 'system2-schemas';
 
 main {
   machine1 isa Machine {
-    state = State.running;
+    state State.running;
     service isa Service {
-      state = State.running;
+      state State.running;
     }
   }
   machine2 extends machine1

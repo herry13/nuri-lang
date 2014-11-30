@@ -1,14 +1,14 @@
-import "system1-schemas";
+import 'system1-schemas';
 
 main {
   service1 isa Service {
-    state = State.stopped;
+    state State.stopped;
   }
   service2 isa Service {
-    state = State.running;
+    state State.running;
   }
   client1 isa Client {
-    refer = service2;
+    refer service2;
   }
   client2 extends client1
   global {

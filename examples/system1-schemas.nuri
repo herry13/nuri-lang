@@ -4,31 +4,26 @@ enum State {
 }
 
 schema Client {
-  refer: *Service = null;
+  refer: *Service null;
   def redirect(s : Service) {
-    condition { }
     effect {
-      this.refer = s;
+      this.refer s;
     }
   }
 }
 
 schema Service {
-  state = State.stopped;
+  state State.stopped;
   def start {
-    condition {
-      this.state = State.stopped;
-    }
+    condition this.state = State.stopped;
     effect {
-      this.state = State.running;
+      this.state State.running;
     }
   }
   def stop {
-    condition {
-      this.state = State.running;
-    }
+    condition this.state = State.running;
     effect {
-      this.state = State.stopped;
+      this.state State.stopped;
     }
   }
 }

@@ -1,10 +1,10 @@
-import "system2-schemas";
+import 'system2-schemas';
 
 main {
   machine1 isa Machine {
-    state = State.stopped;
+    state State.stopped;
     service isa Service {
-      state = State.uninstalled;
+      state State.uninstalled;
     }
   }
   machine2 extends machine1

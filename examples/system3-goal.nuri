@@ -1,24 +1,24 @@
-import "system3-schemas";
+import 'system3-schemas';
 
 main {
   service1a isa Service {
-    state = State.running;
-    version = 1;
+    state State.running;
+    version 1;
   }
   service1b isa Service {
-    state = State.running;
-    version = 2;
+    state State.running;
+    version 2;
   }
   service2a isa Service {
-    state = State.running;
-    version = 1;
+    state State.running;
+    version 1;
   }
   service2b isa Service {
-    state = State.running;
-    version = 2;
+    state State.running;
+    version 2;
   }
   client isa Client {
-    refer = service1a;
+    refer service1a;
   }
   global {
     if service1a.state = State.running;

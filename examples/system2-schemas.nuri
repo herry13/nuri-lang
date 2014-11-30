@@ -9,21 +9,17 @@ enum State {
  *   stopped <-> running
  */
 schema Machine {
-  state = State.stopped;
+  state State.stopped;
   def start {
-    condition {
-      this.state = State.stopped;
-    }
+    condition this.state = State.stopped;
     effect {
-      this.state = State.running;
+      this.state State.running;
     }
   }
   def stop {
-    condition {
-      this.state = State.running;
-    }
+    condition this.state = State.running;
     effect {
-      this.state = State.stopped;
+      this.state State.stopped;
     }
   }
 }
@@ -33,14 +29,14 @@ schema Machine {
  *   uninstalled <-> stopped <-> running
  */
 schema Service {
-  state = State.uninstalled;
+  state State.uninstalled;
   def start {
     condition {
       parent.state = State.running;
       this.state = State.stopped;
     }
     effect {
-      this.state = State.running;
+      this.state State.running;
     }
   }
   def stop {
@@ -49,7 +45,7 @@ schema Service {
       this.state = State.running;
     }
     effect {
-      this.state = State.stopped;
+      this.state State.stopped;
     }
   }
   def install {
@@ -58,7 +54,7 @@ schema Service {
       this.state = State.uninstalled;
     }
     effect {
-      this.state = State.stopped;
+      this.state State.stopped;
     }
   }
   def uninstall {
@@ -67,7 +63,7 @@ schema Service {
       this.state = State.stopped;
     }
     effect {
-      this.state = State.uninstalled;
+      this.state State.uninstalled;
     }
   }
 }
