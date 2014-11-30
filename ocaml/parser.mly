@@ -15,6 +15,7 @@ open Syntax
 %token <string> INT
 %token <string> FLOAT
 %token <string> STRING
+%token <string> ISTRING
 %token <string> ID
 %token NULL TOK_TBD TOK_UNKNOWN TOK_NOTHING
 %token <string> INCLUDE_FILE
@@ -106,7 +107,7 @@ exp1
 binary_op
     : TOK_EQUAL_EQUAL exp2 binary_op { fun left -> $3 (Exp_Equal (left, $2)) }
     | TOK_PLUS exp2 binary_op        { fun left -> $3 (Exp_Add (left, $2)) }
-    | TOK_SUBTRACT exp2 binary_op       { fun left -> $3 (Exp_Subtract (left, $2)) }
+    | TOK_SUBTRACT exp2 binary_op    { fun left -> $3 (Exp_Subtract (left, $2)) }
     | ASTERIX exp2 binary_op         { fun left -> $3 (Exp_Multiply (left, $2)) }
     | TOK_DIVIDER exp2 binary_op     { fun left -> $3 (Exp_Divide (left, $2)) }
     | TOK_MODULO exp2 binary_op      { fun left -> $3 (Exp_Modulo (left, $2)) }
@@ -122,7 +123,8 @@ exp2
     | LPARENTHESIS exp RPARENTHESIS { $2 }
 
 func
-    : SHELL { Shell $1 }
+    : SHELL   { Shell $1 }
+    | ISTRING { Exp_IString $1 }
 
 protos
 	: EXTENDS prototypes { $2 }

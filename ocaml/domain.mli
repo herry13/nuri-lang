@@ -249,3 +249,5 @@ val substitute_parameter_of_basic_value : basic -> ground_parameters -> basic
 
 (** Remove actions and global constraints from store. *)
 val to_state : store -> store
+
+val interpolate_string : string -> store -> reference -> string

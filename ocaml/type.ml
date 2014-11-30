@@ -571,8 +571,9 @@ and nuriExpression exp : reference -> reference -> t -> environment -> t =
         in
         match exp with
         | Basic bv      -> sfBasicValue bv e ns
-        | Shell s       -> T_String (* TODO: Documentation *)
+        | Shell _       -> T_String (* TODO: Documentation *)
         | Exp_Eager exp -> unary "$" exp (fun t -> t)
+        | Exp_IString _ -> T_String
         | Exp_Not exp -> unary "!" exp (fun t ->
                 if t <: T_Bool then T_Bool
                 else error 448 "The operand of '!' is not a boolean."

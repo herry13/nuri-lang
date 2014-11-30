@@ -1,6 +1,7 @@
 (* Author: Herry (herry13@gmail.com) *)
 
 {
+    open Common
 	open Lexing
 	open Parser
 
@@ -29,11 +30,19 @@
     ;;
 }
 
-(**
- * reserved characters: '/' '*' ',' '{' '}' '[' ']' '(' ')' ';' '.' ':'
- *                      '=' "!=" ">=" "<=" '>' '<' ":=" '"' '$'
- *                      '`' '+' '-' '*' '/' '%' '==' '!' "&&" "||" "=>"
- *)
+(*************************************************************************
+ * reserved symbols
+ * - assignment:  ';'
+ * - type      :  ':'
+ * - vector    :  "[]"  ','
+ * - reference :  '.'  ":="
+ * - function  :  '$'
+ * - constraint:  '='  "!="  ">="  "<="  '>'  '<'  "{}"  "()" "not" "if-then"
+ * - string    :  '\''  '"'  '`'
+ * - arithmetic:  '+'  '-'  '*'  '/'  '%'
+ * - logic     :  '!'  "&&"  "||"  "=>"
+ * - comparison:  "=="
+ *************************************************************************)
 
 (** regular expressions **)
 
@@ -49,10 +58,10 @@ let comment          = "//" [^'\n''\r']*
 let comments         = '/' '*'+ (('*'[^'/'])+|[^'*']+)* '*'+ '/'
 
 (* file inclusion *)
-let include_file     = "#include"
-let sfp_include_file = "include"
-let import_file      = "import"
-let include_string   = '"' ('\\'_|[^'\\' '"'])+ '"'
+let include_file      = "#include"
+let nuri_include_file = "include"
+let import_file       = "import"
+let include_string    = '"' ('\\'_|[^'\\' '"'])+ '"'
 
 (* built-in values *)
 let true_value       = "true"
@@ -111,11 +120,11 @@ rule token =
 	| newline     { next_line lexbuf; token lexbuf }
 	| comment     { token lexbuf }
 	| '/' '*'+    { read_comments lexbuf; token lexbuf }
-	| include_file white '"'
+	| include_file white '\''
 	              { INCLUDE_FILE (read_string (Buffer.create 17) lexbuf) }
-	| sfp_include_file white '"'
+	| nuri_include_file white '\''
 	              { NURI_INCLUDE_FILE (read_string (Buffer.create 17) lexbuf) }
-    | import_file white '"'
+    | import_file white '\''
                   { IMPORT_FILE (read_string (Buffer.create 17) lexbuf) }
     | "=~" ' '* '/' { REGEXP (read_regex (Buffer.create 17) lexbuf) }
 	| ','         { COMMA }
@@ -178,7 +187,8 @@ rule token =
 	| effects     { EFFECTS }
 	| action      { ACTION }
     | hash_echo   { HASH_ECHO "#echo" }
-	| '"'         { STRING (read_string (Buffer.create 17) lexbuf) }
+	| '\''        { STRING (read_string (Buffer.create 17) lexbuf) }
+    | '"'         { ISTRING (read_interpolated_string (Buffer.create 17) lexbuf) }
     | '`'         { SHELL (read_shell (Buffer.create 17) lexbuf) }
 	| ident       {
 	              	let id = Lexing.lexeme lexbuf in
@@ -187,32 +197,42 @@ rule token =
 	              }
 	| eof         { EOF }
 
-and read_string buf =
+and read_interpolated_string buf =
 	parse
 	| '"'           { Buffer.contents buf }
-	| '\\' '/'      { Buffer.add_char buf '/'; read_string buf lexbuf }
-	| '\\' '\\'     { Buffer.add_char buf '\\'; read_string buf lexbuf }
-	| '\\' 'b'      { Buffer.add_char buf '\b'; read_string buf lexbuf }
-	| '\\' 'f'      { Buffer.add_char buf '\012'; read_string buf lexbuf }
-	| '\\' 'n'      { Buffer.add_char buf '\n'; read_string buf lexbuf }
-	| '\\' 'r'      { Buffer.add_char buf '\r'; read_string buf lexbuf }
-	| '\\' 't'      { Buffer.add_char buf '\t'; read_string buf lexbuf }
-	| '\n'          { Buffer.add_char buf '\n'; next_line lexbuf; read_string buf lexbuf }
-	| '\r'          { Buffer.add_char buf '\r'; read_string buf lexbuf }
+	| '\\' '/'      { Buffer.add_char buf '/'; read_interpolated_string buf lexbuf }
+	| '\\' '\\'     { Buffer.add_char buf '\\'; read_interpolated_string buf lexbuf }
+	| '\\' 'b'      { Buffer.add_char buf '\b'; read_interpolated_string buf lexbuf }
+	| '\\' 'f'      { Buffer.add_char buf '\012'; read_interpolated_string buf lexbuf }
+	| '\\' 'n'      { Buffer.add_char buf '\n'; read_interpolated_string buf lexbuf }
+	| '\\' 'r'      { Buffer.add_char buf '\r'; read_interpolated_string buf lexbuf }
+	| '\\' 't'      { Buffer.add_char buf '\t'; read_interpolated_string buf lexbuf }
+	| '\n'          { Buffer.add_char buf '\n'; next_line lexbuf; read_interpolated_string buf lexbuf }
+	| '\r'          { Buffer.add_char buf '\r'; read_interpolated_string buf lexbuf }
 	| [^ '"' '\\' '\n' '\r']+
 	                {
 	                	Buffer.add_string buf (Lexing.lexeme lexbuf);
-	                	read_string buf lexbuf
+	                	read_interpolated_string buf lexbuf
 	                }
 	| _             { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
 	| eof           { raise (SyntaxError "String is not terminated") }
+
+and read_string buf =
+    parse
+    | '\''          { Buffer.contents buf }
+    | '\\' '\''     { buf <. '\''; read_string buf lexbuf }
+    | '\\' '\\'     { buf <. '\\'; read_string buf lexbuf }
+    | [^ '\'' '\\']+
+                    { buf << (Lexing.lexeme lexbuf); read_string buf lexbuf }
+    | _             { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
+    | eof           { raise (SyntaxError "String is not terminated.") }
 
 and read_shell buf =
     parse
     | '`'           { Buffer.contents buf }
     | '\\' '`'      { Buffer.add_char buf '`'; read_shell buf lexbuf }
     | '\\' '\\'     { Buffer.add_char buf '\\'; read_shell buf lexbuf }
-    | [^ '`']+      { Buffer.add_string buf (Lexing.lexeme lexbuf); read_shell buf lexbuf }
+    | [^ '`' '\\']+ { Buffer.add_string buf (Lexing.lexeme lexbuf); read_shell buf lexbuf }
     | _             { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
     | eof           { raise (SyntaxError "Shell command is not terminated.") }
 

@@ -578,3 +578,50 @@ let to_state store =
     in
     accept store []
 ;;
+
+let interpolate_string str s ns =
+    let delim = Str.regexp "\\." in
+    let len = String.length str in
+    let result = Buffer.create len in
+    let variable = Buffer.create 20 in
+    let substitute var =
+        match evalr ~follow_f:true s ns (Str.split delim var) with
+        | Basic v -> result << (string_of_basic_value v)
+        | _       -> error 1152 ("Variable '" ^ var ^ "' is not exist or not a basic value.")
+    in
+    let rec interpolate (index : int) (length : int) (state : int) : string =    
+        if index >= length then (
+            if state = 0 then Buffer.contents result
+            else error 1150 ("Invalid string: '" ^ str ^ "'")
+        ) else (
+            if state = 0 then (
+                if str.[index] = '$' then (
+                    interpolate (index + 1) length 1
+                ) else (
+                    result <. str.[index];
+                    interpolate (index + 1) length 0
+                )
+            ) else if state = 1 then (
+                if str.[index] = '{' then (
+                    interpolate (index + 1) length 2
+                ) else (
+                    result <. '$';
+                    result <. str.[index];
+                    interpolate (index + 1) length 0
+                )
+            ) else if state = 2 then (
+                if str.[index] = '}' then (
+                    substitute (Buffer.contents variable);
+                    Buffer.clear variable;
+                    interpolate (index + 1) length 0
+                ) else (
+                    variable <. str.[index];
+                    interpolate (index + 1) length 2
+                )
+            ) else (
+                error 1151 ("Invalid string: '" ^ str ^ "'")
+            )
+        )
+    in
+    interpolate 0 len 0
+;;

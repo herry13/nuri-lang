@@ -26,6 +26,7 @@ and  assignment    = reference * t * value
 and  expression    = Basic           of basicValue
                    | Shell           of string
                    | Exp_Eager       of expression  (** Eager-evaluation expression *)
+                   | Exp_IString     of string      (** Interpolated string *)
                    | Exp_Not         of expression
                    | Exp_Equal       of expression * expression
                    | Exp_And         of expression * expression
@@ -147,13 +148,14 @@ let rec string_of nuri =
         | TrajectoryBlock (t, b) -> trajectory t; buf <. '\n'; block b
         | EmptyBlock             -> ()
 
-    and assignment (r, t, v) = reference r; buf <. ':'; _type t; value v
+    and assignment (r, t, v) = reference r; buf <. ':'; _type t; value v; buf <. ';'
 
     and expression e = match e with
         | Basic v            -> basic_value v
                                 (* TODO: use escape (\) for every backtick character *)
-        | Shell s            -> buf << " `"; buf << s; buf << "`;"
+        | Shell s            -> buf << " `"; buf << s; buf <. '`'
         | Exp_Eager e        -> buf << " $("; expression e; buf <. ')'
+        | Exp_IString s      -> buf << " \""; buf << s; buf <. '"'
         | Exp_Not e          -> buf << " !("; expression e; buf <. ')'
         | Exp_Equal (e1, e2) -> buf << " ("; expression e1; buf << " = "; expression e2; buf <. ')'
         | Exp_And (e1, e2)   -> buf << " ("; expression e1; buf << " && "; expression e2; buf <. ')'
@@ -170,8 +172,8 @@ let rec string_of nuri =
                                            expression e2; buf << " else "; expression e3; buf <. ')'
 
     and value v = match v with
-        | Expression e       -> buf <. ' '; expression e; buf <. ';'
-        | Link lr            -> buf <. ' '; reference lr; buf <. ';'
+        | Expression e       -> buf <. ' '; expression e
+        | Link lr            -> buf <. ' '; reference lr
         | Prototype (sid, p) -> super_schema sid; prototype p
         | Action a           -> action a
         | TBD                -> buf << " TBD"
@@ -184,7 +186,8 @@ let rec string_of nuri =
         | EmptyPrototype            -> ()
 
     and basic_value bv = match bv with
-        | Boolean x | Int x | Float x | String x -> buf << x
+        | Boolean x | Int x | Float x -> buf << x
+        | String x    -> buf <. '\''; buf << x; buf <. '\''
         | Null        -> buf << "null"
         | Vector vec  -> buf <. '['; vector vec; buf <. ']'
         | Reference r -> buf <. ' '; reference r

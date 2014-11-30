@@ -29,6 +29,7 @@ and  assignment    = reference * t * value  (** Variable, user-defined type, and
 and  expression    = Basic           of basicValue              (** Basic value *)
                    | Shell           of string                  (** External-command-value (via shell) *)
                    | Exp_Eager       of expression              (** Eager-evaluation expression *)
+                   | Exp_IString     of string                  (** Interpolated string *)
                    | Exp_Not         of expression              (** Negation (unary) *)
                    | Exp_Equal       of expression * expression (** Equality (binary) *)
                    | Exp_And         of expression * expression (** Conjunction (binary) *)

@@ -56,58 +56,8 @@ let rec sfPrototype prototypes ns r s =
 
 (* TODO: documentation *)
 and nuriShell command s ns =
-    let delim = Str.regexp "\\." in
-    let len = String.length command in
-    let bufferCommand = Buffer.create len in
-    let bufferVariable = Buffer.create 15 in
-    let substitute_variable (var : string) : unit =
-        let value : Domain._value = match Domain.resolve s ns (Str.split delim var) with
-            | _, Domain.Val Domain.Lazy func -> Domain.Val (Domain.eval_function s ns func)
-            | _, v -> v
-        in
-        match value with
-        | Domain.Val Domain.Basic v -> bufferCommand << (Domain.string_of_basic_value v)
-        | Domain.Undefined -> Domain.error 1102 ("Cannot find '" ^ var ^ "' in `" ^ command ^ "`")
-        | _ -> Domain.error 1103 ("Type of '" ^ var ^ "' in `" ^ command ^ "` is indeterminate.")
-    in
-    let rec string_interpolation index length state : string =
-        if index >= length then (
-            if state = 0 then
-                Buffer.contents bufferCommand
-            else
-                Domain.error 1104 ("Invalid command `" ^ command ^ "`")
-        ) else (
-            if state = 0 then (
-                if command.[index] = '$' then
-                    string_interpolation (index + 1) length 1
-                else (
-                    bufferCommand <. command.[index];
-                    string_interpolation (index + 1) length 0
-                )
-            ) else if state = 1 then (
-                if command.[index] = '{' then (
-                    string_interpolation (index + 1) length 2
-                ) else (
-                    bufferCommand <. '$';
-                    bufferCommand <. command.[index];
-                    string_interpolation (index + 1) length 0
-                )
-            ) else if state = 2 then (
-                if command.[index] = '}' then (
-                    substitute_variable (Buffer.contents bufferVariable);
-                    Buffer.clear bufferVariable;
-                    string_interpolation (index + 1) length 0
-                ) else (
-                    bufferVariable <. command.[index];
-                    string_interpolation (index + 1) length 2
-                )
-            ) else (
-                Domain.error 1105 ("Invalid command `" ^ command ^ "`")
-            )
-        )
-    in
-    let command = string_interpolation 0 len 0 in
     try
+        let command = Domain.interpolate_string command s ns in
         Domain.Basic (Domain.String (get_process_output command))
     with
         Failure message -> Domain.error 1106 message
@@ -165,8 +115,10 @@ and nuriExp_Modulo exp1 exp2 s ns =
 (* TODO: documentation *)
 and nuriExp_IfThenElse ifExp thenExp elseExp s ns =
     Domain.unary ~store:s ~namespace:ns (eval ifExp ns s) (fun v -> match v with
-        | Domain.Basic Domain.Boolean b -> if b then (eval thenExp ns s) else (eval elseExp ns s)
-        | _ -> Domain.error 1108 "if-clause is not a boolean."
+        | Domain.Basic Domain.Boolean b ->
+            if b then (eval thenExp ns s) else (eval elseExp ns s)
+        | _ ->
+            Domain.error 1108 "if-clause is not a boolean."
     )
 
 (* TODO: documentation *)
@@ -180,6 +132,9 @@ and nuriExp_MatchRegexp exp regexp s ns =
             | _ -> false
         ))
     )
+
+and nuriExp_IString str s ns : Domain.value =
+    Domain.Basic (Domain.String (Domain.interpolate_string str s ns))
 
 (* helper function -- TODO: documentation *)        
 and eval (exp : Syntax.expression) ns s : Domain.value =
@@ -199,6 +154,7 @@ and nuriExpression exp ns s = match exp with
     | Basic value             -> Domain.Basic (sfBasicValue value)
     | Shell command           -> Domain.Lazy (nuriShell command)
     | Exp_Eager exp           -> eval exp ns s
+    | Exp_IString str         -> Domain.Lazy (nuriExp_IString str)
     | Exp_Not exp             -> Domain.Lazy (nuriExp_Not exp)
     | Exp_Equal (exp1, exp2)  -> Domain.Lazy (nuriEqual exp1 exp2)
     | Exp_And (left, right)   -> Domain.Lazy (nuriExp_And left right)

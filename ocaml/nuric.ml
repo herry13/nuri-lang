@@ -26,6 +26,7 @@ let opt_simple_plan = ref false ;;
 let opt_not_eval_global_constraints = ref false ;;
 let opt_stdin = ref false ;;
 let opt_state = ref false ;;
+let opt_out_file = ref "" ;;
 
 let files : string list ref = ref [] ;;
 
@@ -133,6 +134,8 @@ let main =
             "    Planning.");
         ("-sp", Arg.Set opt_simple_plan,
             "   Simple plan (a list of actions).");
+        ("-o", Arg.Set_string opt_out_file,
+            "    Output file.");
     ]
     in
     Arg.parse options (fun f -> files := f :: !files) usage_msg_with_options;
