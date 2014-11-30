@@ -3,7 +3,7 @@
 open Array
 open Common
 
-let version = "0.7.3" ;;
+let version = "0.8.0" ;;
 
 let usage_msg =
     "Nuri compiler (version " ^ version ^ ")\n" ^
