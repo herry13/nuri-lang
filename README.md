@@ -219,12 +219,12 @@ a variable is determined by its first declaration. We can let the compiler to
 automatically infer the type of the variable based on its value, or explicitly
 declare the type.
 
-```java
+```javascript
 main {
   a : bool true;  // type: bool
   b 1;            // type: int
   c 2.3;          // type: float
-  d "a string";   // type: string
+  d 'a string';   // type: string
   c 4;            // type: float
 }
 ```
@@ -258,8 +258,8 @@ enum State { stopped, running }
 main {
   machine {
     state State.running;
-    ipaddress "10.0.0.1";
-    users ["herry", "paul"];
+    ipaddress '10.0.0.1';
+    users ['herry', 'paul'];
     apache {
       state State.stopped;
     }
@@ -287,7 +287,7 @@ schema's structure at every step of compilation.
 
 ```java
 schema Machine {
-  name "";
+  name '';
   running false;
 }
 ```
@@ -295,7 +295,7 @@ schema Machine {
 You can define a schema by declaring its name and attributes. The above is an
 example of schema `Machine` which has two attributes i.e. `name` (type
 `string`) and `running` (type `bool`), where their default values are an empty
-string (`""`) and `false` respectively. Note that the Nuri compiler uses
+string (`''`) and `false` respectively. Note that the Nuri compiler uses
 type-inference technique to determine the type of `name` and `running`, where
 in this case their types are obtained from the values.
 
@@ -328,7 +328,7 @@ Note that Nuri only allows single inheritance.
 
 ```java
 schema Service {
-  name "";
+  name '';
   running false;
 }
 schema Client {
@@ -394,6 +394,111 @@ The compilation output of the above specification is:
 ```
 
 
+### Function
+
+A variable can be assigned with a function. Currently, there are three types supported functions:
+- arithmetic
+- string manipulation
+- shell-command
+- conditional
+
+#### Arithmetic Functions
+
+Nuri supports basic arithmetic functions:
+- addition `+`
+- subtraction `-`
+- multiplication `*`
+- division `/`
+- modulo `%`
+
+Note that the operands of the arithmetic functions should be integers, floats, or mixed.
+
+```javascript
+main {
+  a 1;           // integer: 1
+  b (a + 2);     // integer: 3
+  c (b - 1);     // integer: 2
+  d (c * 6);     // integer: 12
+  e (d / 3) + 1; // integer: 5
+  f (e % 2);     // integer: 1
+}
+```
+
+Above specification is using arithmetic functions where all results are integers (including division). This is because both left and right operands are integers. However, if one or both operands are float, then the result will be a float. For example:
+
+```javascript
+main {
+  a (2 * 3.1);  // float: 6.2
+  b (a / 2);    // float: 3.1
+}
+```
+
+#### String Manipulation Functions
+
+There are two string functions:
+- string concatenation `1 + ' is an integer, but ' + true + ' is a boolean.'`
+- string interpolation `"a string with a ${basic-value} or a ${variable}"`
+- regular expression matching `'a string is matched with' =~ /regular expression/`
+
+The string concatenation resembles Java syntax where any basic value (boolean, integer, float, string, array, or reference) can be concatenated with a string. It uses the same symbol with arithmetic addition function i.e. `+`. To distinguish between arithmetric or string, the left association is used where if any operand (left or right) is a string then it will be string concatenation, otherwise it will be arithmetic addition.
+
+A value or a variable can be used in the string interpolation if it is a basic value i.e. a boolean, an integer, a float, a string, an array, or a reference of object.
+
+In the regexp matching function, the left operand should be a string, a variable with type of string, or a function with type of string. The symbols that can be used in the regular expression are:
+- `.` any character except newline
+- `*` matches the preceding expression zero, one or several times
+- `+` matches the preceding expression one or several times
+- `?` matches the preceding expression once or not at all
+- `[...]` matches one of the character set
+- `^` match at the beginning of line
+- `$` match at the end of line
+- `|` alternative between two expression
+- `(...)` grouping expression
+- `\` quotes special characters
+
+
+#### Shell-Command Function
+
+We can execute a shell-command and then assign the (string) result to a variable. The command should be declared between two backticks.
+
+```javascript
+main {
+  apache {
+    status `service status apache`;   // get apache service's status
+    running (status =~ /is running/); // check the status with regular expression
+  }
+}
+```
+
+Note that we can use interpolation in the command. For example:
+
+```javascript
+main {
+  service {
+    name 'apache';                    // assign the name of the service
+    status `service status ${name}`;  // use variable 'name' in the shell command
+    running (status =~ /is running/); // check the status with regular expression
+}
+```
+
+#### Lazy vs Eager Evaluation
+
+In default, all functions are **lazy evaluated**: the functions will not be evaluated until the last stage of compilation. This is very useful because functions inside schemas or prototype objects will not be evaluated during compilation. In addition, this can minimise the compilation time because only necessary functions that will be evaluated.
+
+However, we can explicitly specify that a function is **eager evaluated** using symbol `$(...)`. The compiler will directly evaluate the function inside the scope and return the result.
+
+```javascript
+main {
+  a 1;
+  b a + 2;    // lazy evaluated
+  c $(a + 2); // eager evaluated
+  a 2;        // change a's value to 2
+}
+```
+
+In the above example, `b` and `c` have the same functions but the former is lazy evaluated and the later is eager evaluated. Because `c` is eager evaluated, then its final value is `3` since `a`'s value is `1` when the function is evaluated. On the other hand, `b`'s final value is `4` since `a`'s final value is `2`.
+
+
 ### File Inclusion
 
 Nuri provides a way to include a specification in another file. There are two
@@ -404,7 +509,7 @@ added). The compiler first searches the file in current working directory.
 If it is not found, the compiler searches in the directories defined in
 environment variable `NURI_LIB`.
 
-For example, if we declares `import "file";`, then the following priorities
+For example, if we declares `import 'file';`, then the following priorities
 are applied:
 
 1. `file.nuri` in the current working directory
@@ -422,7 +527,7 @@ explicitly define the file extension.
 ```java
 main {
   a {
-    #include "attributes_a";
+    #include 'attributes_a';
   }
 }
 ```
@@ -431,22 +536,27 @@ Note that all imported/included files must be a **legal specification**. This
 is different from other such as C-preprocessor.
 
 
+### Debugging
 
-### Declarative Specification of Configuration State
+If we have a large specification, then it is very useful to have a way to debug the compilation process. The Nuri provides function `#echo <value or variable>;` that will print the value or the variable's value to the standard output (STDOUT) for debugging purpose.
+
+
+
+### Declarative Configuration State
 
 ```java
-import "schemas"; // import file schemas.nuri that contains schema:
+import 'schemas'; // import file schemas.nuri that contains schema:
                   // 'machine', 'PM', 'VM', 'Service', and 'Client'
 main {
   pm1 isa PM {
-    name "Physical Machine #1";
+    name 'Physical Machine #1';
     running true;
   }
   vm1 isa VM {
-    name "Virtual Machine #1";
+    name 'Virtual Machine #1';
     is_on pm1;
     httpd isa Service {
-      name "HTTP Server";
+      name 'HTTP Server';
     }
   }
   pc isa Client {
@@ -483,7 +593,7 @@ specification.
 
 ```java
 schema Service {
-  name "";
+  name '';
   running false;
 
   def start {
@@ -551,7 +661,7 @@ versa.
 | bool       | bool    | `a true;`            <-> `{"a": true}`             |
 | int        | int     | `a 1;`               <-> `{"a": 1}`                |
 | float      | float   | `a 1.0;`             <-> `{"a": 1.0}`              |
-| string     | string  | `a "a string";`      <-> `{"a": "a string"}`       |
+| string     | string  | `a 'a string';`      <-> `{"a": "a string"}`       |
 | array      | array   | `a [1, 2];`          <-> `{"a": [1, 2]}`           |
 | reference  | $string | `a b.c.d;`           <-> `{"a": "$b.c.d"}`         |
 | null       | null    | `a : *Service null;` <-> `{"a:*Service": null}`    |
@@ -751,10 +861,10 @@ such as the specification of the current state of the system.
 The above JSON is equivalent with the following Nuri specification.
 
 ```java
-import "schemas";
+import 'schemas';
 
 main {
-  #include "subsystem.nuri";
+  #include 'subsystem.nuri';
   ...
 }
 ```
@@ -873,7 +983,7 @@ The above specification is in file `schemas.nuri`. It has an _enum_ `State` that
 
 ```java
 // file initial.nuri
-import "schemas";
+import 'schemas';
 
 main {
   service1 isa Service {
@@ -896,7 +1006,7 @@ The above specification models the current state of the system where all resourc
 
 ```java
 // file : goal.nuri
-import "schemas";
+import 'schemas';
 
 main {
   service1 isa Service {
@@ -1115,7 +1225,7 @@ Note that the compiler will automatically set the parameter with any possible va
 
 ```java
 // file : initial.nuri
-import "schemas";
+import 'schemas';
 
 main {
   service1a isa Service {
@@ -1147,7 +1257,7 @@ The above specification describes that the current state of the system. The prim
 
 ```java
 // file : goal.nuri
-import "schemas";
+import 'schemas';
 
 main {
   service1a isa Service {
