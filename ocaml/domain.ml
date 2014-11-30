@@ -403,7 +403,7 @@ let rec evalr ?follow_f:(follow=false) ?acc:(visited=SetRef.empty) s ns r =
         | _, Val Basic Reference rr -> evalr ~follow_f:follow ~acc:(SetRef.add r visited) s ns rr
         | _, Val Lazy f -> if follow then evalf ~follow_r:true ~acc:visited s ns f else Lazy f
         | _, Val v      -> v
-        | _, Undefined  -> error 526 ("'" ^ !^r ^ "' is not exist.")
+        | _, Undefined  -> error 526 ("'" ^ !^r ^ "' is not found.")
 
 (* TODO: update semantics algebra in the documentation *)
 and evalf ?follow_r:(follow=false) ?acc:(visited=SetRef.empty) s ns f =
@@ -587,7 +587,7 @@ let interpolate_string str s ns =
     let substitute var =
         match evalr ~follow_f:true s ns (Str.split delim var) with
         | Basic v -> result << (string_of_basic_value v)
-        | _       -> error 1152 ("Variable '" ^ var ^ "' is not exist or not a basic value.")
+        | _       -> error 1152 ("Variable '" ^ var ^ "' is not found or it is not a basic value.")
     in
     let rec interpolate (index : int) (length : int) (state : int) : string =    
         if index >= length then (

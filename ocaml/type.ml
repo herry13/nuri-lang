@@ -649,7 +649,7 @@ and sfValue v : reference -> reference -> t -> environment ->
                     | SID sid ->
                         (
                             match find e [sid] with
-                            | NotFound  -> error 424 ("schema " ^ sid ^ " is not exist")
+                            | NotFound  -> error 424 ("schema " ^ sid ^ " is not found.")
                             | Type T_Schema T_UserSchema (sid, super)
                               when (T_Schema super) <: (T_Schema T_RootSchema) ->
                                   let t_sid = object_of_schema (T_Schema (T_UserSchema (sid, super))) in
@@ -704,7 +704,7 @@ and nuriSchema s : environment -> environment =
         | EmptySchema -> define_schema id T_RootSchema
         | SID super ->
             match find e [super] with
-            | NotFound -> error 427 ("super schema " ^ super ^ " is not exist")
+            | NotFound -> error 427 ("Super schema " ^ super ^ " is not found.")
             | Type T_Schema ts -> if is_schema (T_Schema ts) then define_schema id ts
                                  else error 108 (super ^ " is not a schema")
             | _ -> error 428 (super ^ " is not a schema")
@@ -742,7 +742,7 @@ and nuriSpecification ?main:(mainReference=["main"]) nuri =
         let e2 = second_pass_eval e1 mainReference in
         map_of e2
     else if not (domain e1 mainReference) then
-        error 429 "main object is not exist"
+        error 429 ("Object '" ^ (!^mainReference) ^ "' is not found.")
     else
         let e2 = get_main (second_pass_eval e1 mainReference) mainReference in
         let e_main = assign e2 ["global"] T_Undefined T_Global in
