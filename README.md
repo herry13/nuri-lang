@@ -150,7 +150,7 @@ In Nuri, the configuration of the target system must be defined inside object
 treated as prototypes which will not be included in the final compilation
 output.
 
-```java
+```javascript
 x 1;
 main {
   a 2;
@@ -182,7 +182,7 @@ For practical purpose, attribute `name` will be automatically added by the
 compiler whenever **it is not defined explicitly**. The value object `name`
 will be the name of the variable that holds this object.
 
-```java
+```javascript
 main {
   a { }
   b {
@@ -250,7 +250,7 @@ compatible with an m-dimension array.
 There is another way to define a custom type i.e. using _enum_. _Enum_ allows
 us to define a set of symbols that can only be used by particular variable.
 
-```java
+```javascript
 // enum type with two symbols: stopped & running
 enum State { stopped, running }
 
@@ -273,6 +273,41 @@ Its IP address is `10.0.0.1`. It has two users i.e. `herry` and `paul`.
 It also has an apache  server whose state is `stopped`. Note that the compiler
 automatically infers the type of variable `state` i.e. `enum State`.
 
+Note that references of basic values (`bool`, `int`, `float`, `string`, `array`) and enum are using **assign-by-value** semantics. On the other hand, references of objects are using **assign-by-reference** semantics. The following example shows this difference:
+
+```javascript
+main {
+  a 1;
+  b { c 2; }
+  d a;    // reference of a basic value (int) - assign by value
+  e b;    // reference of an object           - assign by reference
+  f := a; // link-reference of a basic value
+  g := b; // link-reference of an object
+}
+```
+
+The above specification shows that since `d`'s value is a reference of `a`, then the compiler will assign the value of `a` to `d` (assign-by-value). On the other hand, since `e`'s value is a reference of object `b`, then the compiler will assign the reference of `b` to `e`. `f` and `g` are assigned with link-references. Thus, the compiler will copy and assign the values from the source either for the basic-value or the object. The following is the compilation result.
+
+```json
+{
+  ".type": "object",
+  "a": 1,
+  "b": {
+    ".type": "object",
+    "c": 2,
+    "name": "b"
+  },
+  "d": 1,
+  "e": "$b",
+  "f": 1,
+  "g": {
+    ".type": "object",
+    "c": 2,
+    "name": "b"
+  },
+  "name": "main"
+}
+```
 
 #### Schema
 
@@ -285,7 +320,7 @@ group objects (resources) that have similar properties, for example: `Machine`,
 declared, it cannot be modified. This is for keeping consistency of the
 schema's structure at every step of compilation.
 
-```java
+```javascript
 schema Machine {
   name '';
   running false;
@@ -299,7 +334,7 @@ string (`''`) and `false` respectively. Note that the Nuri compiler uses
 type-inference technique to determine the type of `name` and `running`, where
 in this case their types are obtained from the values.
 
-An attribute (or in general, all variable) can be assigned with value `TBD`
+An attribute (or in general, any variable) can be assigned with value `TBD`
 (_To Be Defined_), which means that we must replace this value with a non-`TBD`
 value later. The compiler will ensure that the final output does not have
 variable with `TBD` value. If such situation exists, then a compilation error
@@ -308,7 +343,7 @@ will arise.
 
 ### Inheritance and Reference
 
-```java
+```javascript
 schema PM extends Machine { }
 schema VM extends Machine {
   is_on : *PM null;
@@ -326,7 +361,7 @@ reference of an object that implements schema `PM` or other sub-schemas of
 
 Note that Nuri only allows single inheritance.
 
-```java
+```javascript
 schema Service {
   name '';
   running false;
@@ -342,7 +377,7 @@ value is `null`.
 
 In Nuri, we can only define a reference of an object, but not a basic value.
 
-```java
+```javascript
 main {
   a1 { }
   a2 isa Service { }
@@ -368,7 +403,7 @@ variable. Note that Nuri allows us to have _forward link reference_.
 To distinguish between a link with a _normal_ reference is that a link is
 using operator `:=`, while a _normal_ reference is without an operator.
 
-```java
+```javascript
 main {
   x := a;  // link-reference
   a {
@@ -389,14 +424,15 @@ The compilation output of the above specification is:
   "a": {
     ".type": "object",
     "b": 1
-  }
+  },
+  "y": "$a"
 }
 ```
 
 
 ### Function
 
-A variable can be assigned with a function. Currently, there are three types supported functions:
+A variable can be assigned with a function. Currently, Nuri supports four types of function:
 - arithmetic
 - string manipulation
 - shell-command
@@ -411,7 +447,9 @@ Nuri supports basic arithmetic functions:
 - division `/`
 - modulo `%`
 
-Note that the operands of the arithmetic functions should be integers, floats, or mixed.
+TODO: other arithmetic functions such as _power_ and _square-root_ will be supported in the next version.
+
+Note that the operands of the arithmetic functions should be integers, floats, or both.
 
 ```javascript
 main {
@@ -435,31 +473,31 @@ main {
 
 #### String Manipulation Functions
 
-There are two string functions:
-- string concatenation `1 + ' is an integer, but ' + true + ' is a boolean.'`
-- string interpolation `"a string with a ${basic-value} or a ${variable}"`
-- regular expression matching `'a string is matched with' =~ /regular expression/`
+There are two string manipulation functions:
+- string concatenation: `1 + ' is an integer, but ' + true + ' is a boolean.'`
+- string interpolation: `"a string with a ${basic-value} or a ${variable}"`
+- regular expression (regexp) matching: `'a string is matched with' =~ /regular expression/`
 
-The string concatenation resembles Java syntax where any basic value (boolean, integer, float, string, array, or reference) can be concatenated with a string. It uses the same symbol with arithmetic addition function i.e. `+`. To distinguish between arithmetric or string, the left association is used where if any operand (left or right) is a string then it will be string concatenation, otherwise it will be arithmetic addition.
+The string concatenation resembles Java syntax where any basic value (boolean, integer, float, string, array, or reference) can be concatenated with a string. It uses the same symbol with arithmetic addition function i.e. `+`. To distinguish between arithmetric or string, the left association is used where if any operand (left or right) is a string then it will be a string concatenation, otherwise it will be an arithmetic addition.
 
 A value or a variable can be used in the string interpolation if it is a basic value i.e. a boolean, an integer, a float, a string, an array, or a reference of object.
 
-In the regexp matching function, the left operand should be a string, a variable with type of string, or a function with type of string. The symbols that can be used in the regular expression are:
-- `.` any character except newline
-- `*` matches the preceding expression zero, one or several times
-- `+` matches the preceding expression one or several times
-- `?` matches the preceding expression once or not at all
-- `[...]` matches one of the character set
-- `^` match at the beginning of line
-- `$` match at the end of line
-- `|` alternative between two expression
-- `(...)` grouping expression
-- `\` quotes special characters
+In the regular expression matching function, the left operand should be a string, a variable with type of string, or a function with type of string. It always returns a boolean `true` if the string matched the regular expression, otherwise `false`. The symbols that can be used in the regular expression are:
+- `.` any character except newline,
+- `*` matches the preceding expression zero, one or several times,
+- `+` matches the preceding expression one or several times,
+- `?` matches the preceding expression once or not at all,
+- `[...]` matches one of the character set,
+- `^` match at the beginning of line,
+- `$` match at the end of line,
+- `|` alternative between two expressions,
+- `(...)` grouping expressions,
+- `\` quotes special characters.
 
 
 #### Shell-Command Function
 
-We can execute a shell-command and then assign the (string) result to a variable. The command should be declared between two backticks.
+We can execute a shell-command and then assign the result (as a `string` value) to a variable. The command should be declared between two backticks (`` `...` ``).
 
 ```javascript
 main {
@@ -470,7 +508,9 @@ main {
 }
 ```
 
-Note that we can use interpolation in the command. For example:
+The above example shows how to get the status of Apache service and then assign the result to variable `status`. Then this variable is matched with particular regular expression where the matching result (i.e. `true` or `false`) is assigned to variable `running`.
+
+Note that we can use string interpolation in the command. For example:
 
 ```javascript
 main {
@@ -524,7 +564,8 @@ are applied:
 Keyword `#include` is used inside any object declaration. However, we must
 explicitly define the file extension.
 
-```java
+```javascript
+import 'schemas';
 main {
   a {
     #include 'attributes_a';
@@ -532,19 +573,29 @@ main {
 }
 ```
 
-Note that all imported/included files must be a **legal specification**. This
-is different from other such as C-preprocessor.
+Note that all imported/included files must have **legal statements**, which is
+different from others such as file-inclusion of C-preprocessor.
 
 
 ### Debugging
 
-If we have a large specification, then it is very useful to have a way to debug the compilation process. The Nuri provides function `#echo <value or variable>;` that will print the value or the variable's value to the standard output (STDOUT) for debugging purpose.
+If we have a large specification, then it is very useful to have a way to debug the compilation process. The Nuri provides function `#echo <value or variable>;` that will print the value or the variable's value to the standard output (STDOUT) for debugging purpose. For example:
 
+```javascript
+main {
+  a 1;      // assign '1' to 'a'
+  #echo a;  // print the value of 'a' i.e. '1' to standard output
+  a 2;      // assign '2' to 'a'
+  #echo a;  // this will print '2'
+}
+```
 
 
 ### Declarative Configuration State
 
-```java
+The Nuri language can be used to specify a declarative configuration state of a system.
+
+```javascript
 import 'schemas'; // import file schemas.nuri that contains schema:
                   // 'machine', 'PM', 'VM', 'Service', and 'Client'
 main {
@@ -591,7 +642,7 @@ to define the actions inside a schema so that every object can inherit the
 actions through schema. This will allow us to implement _design pattern_ in our
 specification.
 
-```java
+```javascript
 schema Service {
   name '';
   running false;
@@ -675,7 +726,7 @@ Every Nuri object is converted into JSON object which has a _hidden_ attribute
 `.type` whose value is either `object` or a schema name. The schema name cannot
 be `schema`, `action`, or `enum`.
 
-```java
+```javascript
 a {
   b 1;
 }
@@ -706,7 +757,7 @@ The above Nuri specification is equivalent with the following JSON.
 Although a link-reference will be compiled and not exist in the compilation
 output, but we can express it in JSON data format.
 
-```java
+```javascript
 a := b.c.d;
 ```
 
@@ -720,7 +771,7 @@ a := b.c.d;
 Every Nuri schema is converted into JSON object which has a _hidden_ attribute
 `.type` whose value is `schema`.
 
-```java
+```javascript
 schema Service {
   running false;
 }
@@ -748,7 +799,7 @@ The above Nuri schema is converted to the following JSON.
 Every enum-type is converted into a JSON object which has a _hidden_
 attribute `.type` whose value is `enum`.
 
-```java
+```javascript
 enum State {
   stopped,
   running
@@ -813,7 +864,7 @@ The followings are the examples of global constraints.
 Every Nuri action is converted into a JSON object which has a _hidden_
 attribute `.type` whose value is `action`.
 
-```java
+```javascript
 def redirect (s : Service) {
   cost 1;
   conditions s.running true;
@@ -860,7 +911,7 @@ such as the specification of the current state of the system.
 
 The above JSON is equivalent with the following Nuri specification.
 
-```java
+```javascript
 import 'schemas';
 
 main {
@@ -943,7 +994,7 @@ service.
 The first step to model the planning problem is to model resources through
 schemas.
 
-```java
+```javascript
 // file schemas.nuri
 enum State {
     stopped,
@@ -981,7 +1032,7 @@ The above specification is in file `schemas.nuri`. It has an _enum_ `State` that
 
 #### Current State
 
-```java
+```javascript
 // file initial.nuri
 import 'schemas';
 
@@ -1004,7 +1055,7 @@ The above specification models the current state of the system where all resourc
 
 #### Desired State
 
-```java
+```javascript
 // file : goal.nuri
 import 'schemas';
 
@@ -1191,7 +1242,7 @@ Due to a bug, we have to upgrade the second layer services (`service1b` and `ser
 
 We can reuse the schemas that have been used in the first example. However, we need to modify schema `Service` in order to add attribute `version` and action `upgrade`.
 
-```java
+```javascript
 // file : schemas.nuri
 enum State {
   ...
@@ -1223,7 +1274,7 @@ Note that the compiler will automatically set the parameter with any possible va
 
 #### Current State
 
-```java
+```javascript
 // file : initial.nuri
 import 'schemas';
 
@@ -1255,7 +1306,7 @@ The above specification describes that the current state of the system. The prim
 
 #### Desired State
 
-```java
+```javascript
 // file : goal.nuri
 import 'schemas';
 
