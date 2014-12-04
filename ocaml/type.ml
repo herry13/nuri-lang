@@ -606,9 +606,13 @@ and nuriExpression exp : reference -> reference -> t -> environment -> t =
                       (nuriExpression exp2 ns r t e),
                       (nuriExpression exp3 ns r t e)
                 with
+                | T_Bool, T_Forward _, _ -> error 453 ("The type of 'then' expression is indeterminate.")
+                | T_Bool, _, T_Forward _ -> error 454 ("The type of 'else' expression is indeterminate.")
                 | T_Bool, t2, t3 when t2 <: t3 && t3 <: t2 -> t2
-                | T_Bool, _, _ -> error 453 "The types of 'then' and 'else' clauses are not the same."
-                | _, _, _     -> error 454 "The type of 'if' clause is not a boolean"
+                | T_Bool, t2, t3 -> error 455 ("The types of 'then' (" ^ (string_of_type t2) ^ ") " ^
+                                               "and 'else' (" ^ (string_of_type t3) ^ ") expressions " ^
+                                               "are not the same."
+                | _, _, _ -> error 456 "The type of 'if' expression is not a boolean."
             )
 
 and sfValue v : reference -> reference -> t -> environment ->
