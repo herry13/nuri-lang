@@ -611,7 +611,7 @@ and nuriExpression exp : reference -> reference -> t -> environment -> t =
                 | T_Bool, t2, t3 when t2 <: t3 && t3 <: t2 -> t2
                 | T_Bool, t2, t3 -> error 455 ("The types of 'then' (" ^ (string_of_type t2) ^ ") " ^
                                                "and 'else' (" ^ (string_of_type t3) ^ ") expressions " ^
-                                               "are not the same."
+                                               "are not the same.")
                 | _, _, _ -> error 456 "The type of 'if' expression is not a boolean."
             )
 
