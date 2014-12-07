@@ -59,9 +59,7 @@ let comments         = '/' '*'+ (('*'[^'/'])+|[^'*']+)* '*'+ '/'
 
 (* file inclusion *)
 let include_file      = "#include"
-let nuri_include_file = "include"
 let import_file       = "import"
-let include_string    = '"' ('\\'_|[^'\\' '"'])+ '"'
 
 (* built-in values *)
 let true_value       = "true"
@@ -122,8 +120,6 @@ rule token =
 	| '/' '*'+    { read_comments lexbuf; token lexbuf }
 	| include_file white '\''
 	              { INCLUDE_FILE (read_string (Buffer.create 17) lexbuf) }
-	| nuri_include_file white '\''
-	              { NURI_INCLUDE_FILE (read_string (Buffer.create 17) lexbuf) }
     | import_file white '\''
                   { IMPORT_FILE (read_string (Buffer.create 17) lexbuf) }
     | "=~" ' '* '/' { REGEXP (read_regex (Buffer.create 17) lexbuf) }

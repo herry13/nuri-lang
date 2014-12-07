@@ -76,12 +76,12 @@ let library_paths : string list ref = ref [] ;;
  * or if file '<dir>/x/x.nuri' exists then return the path,
  * or return an empty string.
  *)
-let find_file_in_directory file dir =
+let find_file_in_directory ?extension:(ext=file_extension) file dir =
     let dir = dir ^ "/" in
-    let file1 = dir ^ file ^ file_extension in
+    let file1 = dir ^ file ^ ext in
     if Sys.file_exists file1 then file1
     else
-        let file2 = dir ^ file ^ "/" ^ file ^ file_extension in
+        let file2 = dir ^ file ^ "/" ^ file ^ ext in
         if Sys.file_exists file2 then file2
         else ""
 ;;
@@ -97,6 +97,10 @@ let find_file_in_directory file dir =
  * 7. ...and so on
  *)
 let find_imported_file file =
+    let regexp = Str.regexp ".+\\.nuri" in
+    let ext = if Str.string_match regexp file 0 then ""
+              else file_extension
+    in
     let rec find_file paths =
         match paths with
         | [] ->
@@ -106,7 +110,7 @@ let find_imported_file file =
             )
         | path :: rest ->
             (
-                let file1 = find_file_in_directory file path in
+                let file1 = find_file_in_directory ~extension:ext file path in
                 if file1 <> "" then file1
                 else find_file rest
             )
@@ -147,19 +151,11 @@ let rec get_token ls dummy_lexbuf =
 		(
 			let lexstack = create file Lexer.token in
 			try 
-				Parser.inblock_included (get_token lexstack) dummy_lexbuf
+				Parser.include_file (get_token lexstack) dummy_lexbuf
 			with e -> check_error_include_file e lexstack
 		)
-	| Parser.NURI_INCLUDE_FILE file ->
-		Parser.NURI_INCLUDE
-		(
-			let lexstack = create file Lexer.token in
-			try
-				Parser.incontext_included (get_token lexstack) dummy_lexbuf
-			with e -> check_error_root_include_file e lexstack
-		)
     | Parser.IMPORT_FILE file ->
-        Parser.NURI_INCLUDE
+        Parser.IMPORT
         (
             let imported_file = get_imported_file file in
             if imported_file <> "" then (
@@ -167,7 +163,7 @@ let rec get_token ls dummy_lexbuf =
                     create imported_file Lexer.token
                 in
                 try
-                    Parser.incontext_included (get_token lexstack) dummy_lexbuf
+                    Parser.import_file (get_token lexstack) dummy_lexbuf
                 with e -> check_error_root_include_file e lexstack
             )
             else (fun c -> c)

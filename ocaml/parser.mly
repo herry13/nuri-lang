@@ -19,7 +19,6 @@ open Syntax
 %token <string> ID
 %token NULL TOK_TBD TOK_UNKNOWN TOK_NOTHING
 %token <string> INCLUDE_FILE
-%token <string> NURI_INCLUDE_FILE
 %token <string> IMPORT_FILE
 %token EXTENDS COMMA DATA BEGIN END SEP
 %token LBRACKET RBRACKET EOS EOF
@@ -37,37 +36,37 @@ open Syntax
 
 /* entry point to included file */
 %token <Syntax.block -> Syntax.block> INCLUDE
-%token <Syntax.context -> Syntax.context> NURI_INCLUDE
+%token <Syntax.context -> Syntax.context> IMPORT
 
 /**
  * entry point for:
  * - main-file is 'nuri'
- * - included file (at root) is 'incontext_included'
- * - included file (inside a block) is 'inblock_included'
+ * - import file (at root) is 'import_file'
+ * - included file (inside a block) is 'include_file'
  */
-%start inblock_included nuri incontext_included
-%type <Syntax.block -> Syntax.block> inblock_included
+%start nuri import_file include_file
 %type <Syntax.nuri> nuri
-%type <Syntax.context -> Syntax.context> incontext_included
+%type <Syntax.context -> Syntax.context> import_file
+%type <Syntax.block -> Syntax.block> include_file
 
 %%
 
 nuri
 	: context EOF { $1 EmptyContext }
 
-incontext_included
-	: context EOF { $1 }
+import_file
+    : context EOF { $1 }
+
+include_file
+	: block EOF { $1 }
 
 context
-	: SCHEMA schema context     { fun c -> SchemaContext ($2, $3 c) }
-    | ENUM enum context         { fun c -> EnumContext ($2, $3 c) }
-	| trajectory context        { fun c -> TrajectoryContext ($1, $2 c) }
-	| NURI_INCLUDE EOS context  { fun c -> $1 ($3 c) }
-	| assignment context        { fun c -> AssignmentContext ($1, $2 c) }
-	|                           { fun c -> c }
-
-inblock_included
-	: block EOF { $1 }
+	: SCHEMA schema context { fun c -> SchemaContext ($2, $3 c) }
+    | ENUM enum context     { fun c -> EnumContext ($2, $3 c) }
+	| trajectory context    { fun c -> TrajectoryContext ($1, $2 c) }
+	| IMPORT EOS context    { fun c -> $1 ($3 c) }
+	| assignment context    { fun c -> AssignmentContext ($1, $2 c) }
+	|                       { fun c -> c }
 
 block
 	: assignment block   { fun b -> AssignmentBlock ($1, $2 b) }
