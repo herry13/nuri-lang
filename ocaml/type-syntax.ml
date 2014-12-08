@@ -10,13 +10,13 @@ t        = TBool
          | TConstraint
 
          | TList t
-         | TSchema tSchema
-         | TRef tSchema
-         | TForward of reference * tForward
+         | TSchema t_object
+         | TRef t_object
+         | TForward of reference * t_forward
 
-tSchema  = TObject
-         | TRootSchema
-         | TUserSchema of string * tSchema
+t_object  = TObject
+         | TRoot_object
+         | TUserSchema of string * t_object
 
-tForward = TLinkForward
+t_forward = TLinkForward
          | TRefForward

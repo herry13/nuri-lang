@@ -188,11 +188,11 @@ tau
     | TSTR                  { T_String }
     | LBRACKET RBRACKET tau { T_List $3 }
     | ASTERIX tau_schema    { T_Reference $2 }
-    | tau_schema            { T_Schema $1 }
+    | tau_schema            { T_Object $1 }
 
 tau_schema
-    : TOBJ  { T_Object }
-    | ID    { T_UserSchema ($1, T_Object) }
+    : TOBJ  { T_PlainObject }
+    | ID    { T_Schema ($1, T_PlainObject) }
 
 global
 	: nuri_constraint { $1 }
@@ -267,7 +267,7 @@ param
 	: ID COLON t_param { ($1, $3) }
 
 t_param
-    : tau_schema { T_Schema $1 }
+    : tau_schema { T_Object $1 }
     | TBOOL      { T_Bool      }
     | TINT       { T_Int       }
     | TFLOAT     { T_Float     }

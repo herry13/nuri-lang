@@ -51,9 +51,9 @@ and  value         = Expression of expression
                    | Unknown    (** Unknown : used when the variable's value is indeterminate *)
                    | None       (** None : the variable is not exist *)
 
-and  prototype     = ReferencePrototype of reference * prototype    (** Reference prototype *)
-                   | BlockPrototype     of block * prototype        (** Anonymous prototype *)
-                   | EmptyPrototype                                 (** No prototype *)
+and  prototype     = ReferencePrototype of reference * prototype  (** Reference prototype *)
+                   | BlockPrototype     of block * prototype      (** Anonymous prototype *)
+                   | EmptyPrototype                               (** No prototype *)
 
 and  basic_value   = Boolean   of string
                    | Int       of string
@@ -68,35 +68,35 @@ and  vector        = basic_value list
 and  reference     = string list
 
 (* schema syntax *)
-and schema = string * super * block     (** User defined schema *)
+and schema = string * super * block  (** User defined schema *)
 and super  = SID of string
            | EmptySchema
 
 (* enum syntax *)
-and enum = string * string list     (** User-defined Enum *)
+and enum = string * string list  (** User-defined Enum *)
 
 (* type syntax *)
-and t        = T_Bool           (** bool *)
-             | T_Int            (** int *)
-             | T_Float          (** float *)
-             | T_String         (** string *)
-             | T_Null           (** null-type *)
-             | T_Undefined      (** It is used when a reference's type is indeterminate. *)
-             | T_Any            (** Value 'Unknown' & 'None' has type 'T_Any' *)
-             | T_Action         (** Every action has this type *)
-             | T_Constraint     (** The global constraints *)
+and t        = T_Bool        (** bool *)
+             | T_Int         (** int *)
+             | T_Float       (** float *)
+             | T_String      (** string *)
+             | T_Null        (** null-type *)
+             | T_Undefined   (** It is used when a reference's type is indeterminate. *)
+             | T_Any         (** Value 'Unknown' & 'None' has type 'T_Any' *)
+             | T_Action      (** Every action has this type *)
+             | T_Constraint  (** The elements of global constraints has type 'T_Constraint' *)
              | T_Enum      of string * string list  (** Enum *)
              | T_List      of t                     (** Every vector has this type *)
-             | T_Schema    of tSchema               (** For object or schema *)
-             | T_Reference of tSchema               (** Reference *)
-             | T_Forward   of tForward              (** For forward references *)
-    
-and tSchema  = T_Object                         (** Plain built-in object *)
-             | T_RootSchema                     (** Every schema is the sub-type of this *)
-             | T_UserSchema of string * tSchema (** User-defined schema *)
-    
-and tForward = T_LinkForward      of reference  (** Forward link-reference *)
-             | T_ReferenceForward of reference  (** Forward (data) reference *)
+             | T_Object    of t_object              (** For object or schema *)
+             | T_Reference of t_object              (** Reference *)
+             | T_Forward   of t_forward             (** For forward references *)
+
+and t_object = T_PlainObject                  (** Plain built-in object *)
+             | T_PlainSchema                  (** Every static schema is the sub-type of this *)
+             | T_Schema of string * t_object  (** User-defined schema *)
+
+and t_forward = T_LinkForward      of reference  (** Forward link-reference *)
+              | T_ReferenceForward of reference  (** Forward (data) reference *)
 
 (* state-trajectory syntax *)
 and trajectory = Global of _constraint
@@ -128,8 +128,8 @@ and effect     = reference * basic_value
  * functions to convert elements of abstract syntax tree to string
  *******************************************************************)
 
-(** Convert a Nuri abstract syntax tree into a string. *)
+(** Convert an abstract syntax tree into a string. *)
 val string_of : nuri -> string
 
-(** Convert a Nuri type into a string. *)
+(** Convert a type into a string. *)
 val string_of_type : t -> string

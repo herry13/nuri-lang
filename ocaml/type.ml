@@ -95,9 +95,9 @@ let rec (<:) type1 type2 =
     let rec (<::) schema1 schema2 =
         match schema1, schema2 with
         | _, _ when schema1 = schema2 -> true               (* (Reflex)         *)
-        | T_UserSchema (id1, _), T_UserSchema (id2, _) when id1 = id2 -> true
-        | T_UserSchema (_, _), T_Object -> true               (* (Object Subtype) *)
-        | T_UserSchema (_, super), _   -> super <:: schema2  (* (Trans)          *)
+        | T_Schema (id1, _), T_Schema (id2, _) when id1 = id2 -> true
+        | T_Schema (_, _), T_PlainObject -> true               (* (Object Subtype) *)
+        | T_Schema (_, super), _   -> super <:: schema2  (* (Trans)          *)
         | _, _                        -> false
     in
     match type1, type2 with
@@ -105,7 +105,7 @@ let rec (<:) type1 type2 =
     | T_Any, _ when type2 <> T_Undefined              -> true      (* TODOC (Any Subtype) *)
     | T_Int, T_Float                                  -> true      (* TODOC (IntFloat)    *)
     | T_Enum (id1, _), T_Enum (id2, _) when id1 = id2 -> true      (* TODOC (Enum)        *)
-    | T_Schema t1, T_Schema t2                        -> t1 <:: t2
+    | T_Object t1, T_Object t2                        -> t1 <:: t2
     | T_List t1, T_List t2                            -> t1 <: t2  (* (List Subtype)      *)
     | T_Reference t1, T_Reference t2                              -> t1 <:: t2 (* (Ref Subtype)       *)
     | T_Null, T_Reference _                                 -> true      (* (Ref Null)          *)
@@ -132,14 +132,14 @@ let rec has_type env t =
     | T_Constraint                                           (* (Type Constraint)    *)
     | T_Enum _                                           (* TODOC (Type Enum)    *)
     | T_Forward _                                        (* TODOC (Type Forward) *)
-    | T_Schema T_Object                                   (* (Type Object)        *)
-    | T_Schema T_RootSchema -> true                       (* TODOC (Type Schema)  *)
+    | T_Object T_PlainObject                                   (* (Type Object)        *)
+    | T_Object T_PlainSchema -> true                       (* TODOC (Type Schema)  *)
     | T_List tl            -> has_type env tl            (* (Type List)          *)
-    | T_Reference tr             -> has_type env (T_Schema tr)  (* (Type Ref)           *)
-    | T_Schema T_UserSchema (id1, _) -> (                 (* (Type UserSchema)    *)
+    | T_Reference tr             -> has_type env (T_Object tr)  (* (Type Ref)           *)
+    | T_Object T_Schema (id1, _) -> (                 (* (Type UserSchema)    *)
         match env with
         | [] -> false
-        | (_, T_Schema (T_UserSchema (id2, _))) :: tail -> if id1 = id2 then true
+        | (_, T_Object (T_Schema (id2, _))) :: tail -> if id1 = id2 then true
                                                          else has_type tail t
         | (_, _) :: tail -> has_type tail t
     )
@@ -155,18 +155,18 @@ let is_well_typed env =
     iter env env
 ;;
 
-let is_schema t = t <: (T_Schema T_RootSchema) ;;
+let is_schema t = t <: (T_Object T_PlainSchema) ;;
 
 let rec object_of_schema t =
     let rec object_of t =
         match t with
-        | T_RootSchema -> T_Object
-        | T_UserSchema (id, super) -> T_UserSchema (id, object_of super)
+        | T_PlainSchema -> T_PlainObject
+        | T_Schema (id, super) -> T_Schema (id, object_of super)
         | _ -> error 401 "Cannot create type of object of a non-schema type"
     in
     match t with
-    | T_Schema T_UserSchema (id, T_RootSchema) -> T_Schema (T_UserSchema (id, T_Object))
-    | T_Schema T_UserSchema (id, super)       -> T_Schema (T_UserSchema (id, object_of super))
+    | T_Object T_Schema (id, T_PlainSchema) -> T_Object (T_Schema (id, T_PlainObject))
+    | T_Object T_Schema (id, super)       -> T_Object (T_Schema (id, object_of super))
     | _ -> error 401 "Cannot create type object of a non-schema type"
 ;;
 
@@ -183,7 +183,7 @@ let bind env var t =
         (
             match find env !--var with
             | Type T_Enum (_, _) -> (var, t) :: env
-            | Type t1 when t1 <: T_Schema T_Object -> (var, t) :: env
+            | Type t1 when t1 <: T_Object T_PlainObject -> (var, t) :: env
             | NotFound -> error 403 ("Prefix of " ^ !^var ^ " is undefined.")
             | _ -> error 404 ("Prefix of " ^ !^var ^ " is not an object.")
         )
@@ -292,7 +292,7 @@ let inherit_env env base proto var =
     let get_proto =
         match resolve env base proto with
         | _, NotFound -> error 410 ("Prototype is not found: " ^ !^proto)
-        | baseProto, Type t when t <: T_Schema T_Object -> baseProto @++ proto
+        | baseProto, Type t when t <: T_Object T_PlainObject -> baseProto @++ proto
         | _, Type t -> error 411 ("Invalid prototype " ^ !^proto ^ ":" ^ (string_of_type t))
     in
     copy env get_proto var 
@@ -348,23 +348,23 @@ let rec resolve_forward_ref_type ?visited:(accumulator=SetRef.empty) env base va
  * that have type T_Forward
  *)
 let replace_forward_type_in env mainReference =
-    let rec replace env var t tForward = match tForward with
+    let rec replace env var t t_forward = match t_forward with
         | T_LinkForward r ->
             (
                 let (proto, t_val) = resolve_forward_ref_type env var r in
                 let env1 = (var, t_val) :: env in
-                if t_val <: T_Schema T_Object then copy env1 proto var
+                if t_val <: T_Object T_PlainObject then copy env1 proto var
                 else env1
             )
         | T_ReferenceForward r ->
             (
                 let (proto, t_val) = resolve_forward_ref_type env var r in
                 let t_val = match t_val with
-                    | T_Schema t -> T_Reference t
+                    | T_Object t -> T_Reference t
                     | v -> v
                 in
                 let env1 = (var, t_val) :: env in
-                if t_val <: T_Schema T_Object then copy env1 proto var
+                if t_val <: T_Object T_PlainObject then copy env1 proto var
                 else env1
             )
     in
@@ -377,7 +377,7 @@ let replace_forward_type_in env mainReference =
             else
                 let result =
                     match t with
-                    | T_Forward tForward -> replace env r t tForward
+                    | T_Forward t_forward -> replace env r t t_forward
                     | _                 -> (r, t) :: env
                 in
                 iter result tail
@@ -449,8 +449,8 @@ let sfDataReference dr : environment -> reference -> t =
         | _, Type T_Constraint -> T_Constraint
         | _, Type T_List t     -> T_List t
         | _, Type T_Reference ts     -> T_Reference ts
-        | _, Type T_Schema ts  when (T_Schema ts) <: (T_Schema T_Object) -> T_Reference ts
-        | _, Type T_Schema _   -> error 420 ("Dereference of " ^ !^r ^ " is a schema")
+        | _, Type T_Object ts  when (T_Object ts) <: (T_Object T_PlainObject) -> T_Reference ts
+        | _, Type T_Object _   -> error 420 ("Dereference of " ^ !^r ^ " is a schema")
         | _, Type T_Undefined  -> error 421 ("Dereference of " ^ !^r ^ " is T_Undefined")
         | _, NotFound         -> T_Forward (T_ReferenceForward r)
 
@@ -518,11 +518,11 @@ let rec sfPrototype proto first t_val : reference -> reference ->
     fun ns r e ->
         match proto with
         | EmptyPrototype -> (* (Proto1) *)
-            if first then assign e r t_val (T_Schema T_Object)
+            if first then assign e r t_val (T_Object T_PlainObject)
             else e
         | BlockPrototype (pb, p) -> (* (Proto2) *)
             let t_block =
-                if first && t_val = T_Undefined then T_Schema T_Object
+                if first && t_val = T_Undefined then T_Object T_PlainObject
                 else t_val
             in
             let e1 = assign e r t_val t_block in
@@ -626,7 +626,7 @@ and sfValue v : reference -> reference -> t -> environment ->
     fun ns r t e ->
         let t =
             match t with
-            | T_Schema T_UserSchema (id, _) -> (
+            | T_Object T_Schema (id, _) -> (
                 match find e [id] with
                 | Type T_Enum (eid, elements) -> T_Enum (eid, elements)
                 | _                          -> t
@@ -643,7 +643,7 @@ and sfValue v : reference -> reference -> t -> environment ->
             (
                 let (r_link, t_link) = sfLinkReference link e ns r in
                 let e1 = assign e r t t_link in
-                if t_link <: T_Schema T_Object then copy e1 r_link r
+                if t_link <: T_Object T_PlainObject then copy e1 r_link r
                 else e1
             )
         | Action a -> assign e r t T_Action
@@ -654,9 +654,9 @@ and sfValue v : reference -> reference -> t -> environment ->
                         (
                             match find e [sid] with
                             | NotFound  -> error 424 ("schema " ^ sid ^ " is not found.")
-                            | Type T_Schema T_UserSchema (sid, super)
-                              when (T_Schema super) <: (T_Schema T_RootSchema) ->
-                                  let t_sid = object_of_schema (T_Schema (T_UserSchema (sid, super))) in
+                            | Type T_Object T_Schema (sid, super)
+                              when (T_Object super) <: (T_Object T_PlainSchema) ->
+                                  let t_sid = object_of_schema (T_Object (T_Schema (sid, super))) in
                                   let e1 = inherit_env e ns [sid] r in
                                   sfPrototype proto true t_sid ns r e1
                             | _ ->
@@ -695,21 +695,21 @@ and nuriSchema s : environment -> environment =
         let r_id = [id] in
         if domain e r_id then error 426 (id ^ " is bound multiple times.");
         let define_schema id super =
-            let t = T_Schema (T_UserSchema (id, super)) in
+            let t = T_Object (T_Schema (id, super)) in
             let e1 = assign e r_id T_Undefined t in
             let e2 =
                 match super with
-                | T_UserSchema (super_id, _) -> inherit_env e1 [] [super_id] r_id
+                | T_Schema (super_id, _) -> inherit_env e1 [] [super_id] r_id
                 | _ -> e1
             in
             nuriBlock b r_id e2
         in
         match parent with
-        | EmptySchema -> define_schema id T_RootSchema
+        | EmptySchema -> define_schema id T_PlainSchema
         | SID super ->
             match find e [super] with
             | NotFound -> error 427 ("Super schema " ^ super ^ " is not found.")
-            | Type T_Schema ts -> if is_schema (T_Schema ts) then define_schema id ts
+            | Type T_Object ts -> if is_schema (T_Object ts) then define_schema id ts
                                  else error 108 (super ^ " is not a schema")
             | _ -> error 428 (super ^ " is not a schema")
 
@@ -806,12 +806,12 @@ let make_type_values typeEnvInit flatStoreInit typeEnvGoal flatStoreGoal =
     in
     let null = Domain.Basic Domain.Null in
     let rec add_object ts value map =
-        let map = add_value (T_Schema ts) value map in
+        let map = add_value (T_Object ts) value map in
         let map = add_value (T_Reference ts) value map in
         let map = add_value (T_Reference ts) null map in
         match ts with
-        | T_Object -> add_value (T_Schema T_Object) value map
-        | T_UserSchema (_, super) -> add_object super value map
+        | T_PlainObject -> add_value (T_Object T_PlainObject) value map
+        | T_Schema (_, super) -> add_object super value map
         | _ -> map
     in
     let add_store_values typeEnv =
@@ -819,9 +819,9 @@ let make_type_values typeEnvInit flatStoreInit typeEnvGoal flatStoreGoal =
             fun r v (map: type_values) ->
                 match type_of r typeEnv with
                 | T_Undefined -> error 432 ("Type of " ^ !^r ^ " is undefined.")
-                | T_Schema ts when (T_Schema ts) <: (T_Schema T_Object) ->
+                | T_Object ts when (T_Object ts) <: (T_Object T_PlainObject) ->
                     add_object ts (Domain.Basic (Domain.Reference r)) map
-                | T_Schema _ -> map
+                | T_Object _ -> map
                 | t -> add_value t v map
         )
     in

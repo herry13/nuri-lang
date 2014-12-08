@@ -215,7 +215,7 @@ type temp_variables = {
 (** generate a collection of variables from given type environment and
     flat-store of initial and goal states **)
 let make_ts typeEnvInit flatStoreInit typeEnvGoal flatStoreGoal typeValues =
-    let typeObject = Syntax.T_Schema Syntax.T_Object in
+    let typeObject = Syntax.T_Object Syntax.T_PlainObject in
     let type_of_variable ref =
         match (Type.type_of ref typeEnvInit), (Type.type_of ref typeEnvGoal) with
         | type1, type2 when type1 = type2 ->

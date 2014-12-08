@@ -21,10 +21,10 @@ let rec of_type t = match t with
     | Syntax.T_Constraint                            -> "global"
     | Syntax.T_Enum (id, _)                      -> "%" ^ id
     | Syntax.T_List t                            -> "[]" ^ (of_type t)
-    | Syntax.T_Schema Syntax.T_Object             -> "object"
-    | Syntax.T_Schema Syntax.T_UserSchema (id, _) -> id
-    | Syntax.T_Reference Syntax.T_Object                -> "*object"
-    | Syntax.T_Reference Syntax.T_UserSchema (id, _)    -> "*" ^ id
+    | Syntax.T_Object Syntax.T_PlainObject             -> "object"
+    | Syntax.T_Object Syntax.T_Schema (id, _) -> id
+    | Syntax.T_Reference Syntax.T_PlainObject                -> "*object"
+    | Syntax.T_Reference Syntax.T_Schema (id, _)    -> "*" ^ id
 	| _                                         -> error 1302 "invalid type"
 
 (** private function to generate JSON of basic value **)
@@ -268,12 +268,12 @@ let of_store typeEnv store =
 		let r = Domain.(@+.) ns id in
 		match MapRef.find r typeEnv with
 		| Syntax.T_Undefined -> error 1304 ("type of " ^ !^r ^ " is undefined")
-        | t when Type.subtype t (Syntax.T_Schema Syntax.T_RootSchema) ->
+        | t when Type.subtype t (Syntax.T_Object Syntax.T_PlainSchema) ->
             (
                 match t with
-                | Syntax.T_Schema Syntax.T_UserSchema (_, Syntax.T_RootSchema) ->
+                | Syntax.T_Object Syntax.T_Schema (_, Syntax.T_PlainSchema) ->
                     Buffer.add_string buf "\".type\":\"schema\""
-                | Syntax.T_Schema Syntax.T_UserSchema (_, Syntax.T_UserSchema (id, _)) ->
+                | Syntax.T_Object Syntax.T_Schema (_, Syntax.T_Schema (id, _)) ->
                     (
                         Buffer.add_string buf "\".type\":\"schema\",\".super\":\"";
                         Buffer.add_string buf id;

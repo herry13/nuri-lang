@@ -79,15 +79,15 @@ and t        = T_Bool
              | T_Constraint
              | T_Enum      of string * string list
              | T_List      of t
-             | T_Schema    of tSchema
-             | T_Reference of tSchema
-             | T_Forward   of tForward
+             | T_Object    of t_object
+             | T_Reference of t_object
+             | T_Forward   of t_forward
     
-and tSchema  = T_Object
-             | T_RootSchema
-             | T_UserSchema of string * tSchema
+and t_object  = T_PlainObject
+             | T_PlainSchema
+             | T_Schema of string * t_object
     
-and tForward = T_LinkForward      of reference
+and t_forward = T_LinkForward      of reference
              | T_ReferenceForward of reference
 
 (** state-trajectory syntax **)
@@ -211,15 +211,15 @@ let rec string_of nuri =
         | T_Constraint         -> buf << "global"
         | T_Enum (id, _)   -> buf << id
         | T_List t         -> buf << "[]"; _type t
-        | T_Schema t       -> type_schema t
+        | T_Object t       -> type_schema t
         | T_Reference t    -> buf <. '*'; type_schema t
         | T_Forward T_LinkForward r      -> buf << "~"; reference r
         | T_Forward T_ReferenceForward r -> buf << "~*"; reference r
 
     and type_schema t = match t with
-        | T_Object             -> buf << "object"
-        | T_RootSchema         -> ()
-        | T_UserSchema (id, _) -> buf << id;
+        | T_PlainObject             -> buf << "object"
+        | T_PlainSchema         -> ()
+        | T_Schema (id, _) -> buf << id;
 
     and super_schema ss = match ss with
         | SID id      -> buf << " isa "; buf << id
@@ -293,15 +293,15 @@ let string_of_type t =
         | T_Constraint         -> buf << "global"
         | T_Enum (id, _)   -> buf << "enum~"; buf << id
         | T_List t         -> buf << "[]"; _type t
-        | T_Schema t       -> type_schema t
+        | T_Object t       -> type_schema t
         | T_Reference t    -> buf <. '*'; type_schema t
         | T_Forward T_LinkForward r      -> buf << "forward~"; buf << !^r
         | T_Forward T_ReferenceForward r -> buf << "forward~*"; buf << !^r
 
     and type_schema t = match t with
-        | T_Object                 -> buf << "object"
-        | T_RootSchema             -> ()
-        | T_UserSchema (id, super) -> buf << id; buf <. '<'; type_schema super
+        | T_PlainObject                 -> buf << "object"
+        | T_PlainSchema             -> ()
+        | T_Schema (id, super) -> buf << id; buf <. '<'; type_schema super
 
     in
     _type t;
