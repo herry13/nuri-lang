@@ -23,7 +23,7 @@ and  block         = AssignmentBlock   of assignment * block
                    | TrajectoryBlock   of trajectory * block
                    | EmptyBlock
 and  assignment    = reference * t * value
-and  expression    = Basic           of basicValue
+and  expression    = Basic           of basic_value
                    | Shell           of string
                    | Exp_Eager       of expression  (** Eager-evaluation expression *)
                    | Exp_IString     of string      (** Interpolated string *)
@@ -49,14 +49,14 @@ and  value         = Expression of expression
 and  prototype     = ReferencePrototype of reference * prototype
                    | BlockPrototype     of block * prototype
                    | EmptyPrototype
-and  basicValue    = Boolean   of string
+and  basic_value    = Boolean   of string
                    | Int       of string
                    | Float     of string
                    | String    of string
                    | Null
                    | Vector    of vector
                    | Reference of reference
-and  vector        = basicValue list
+and  vector        = basic_value list
 and  reference     = string list
 
 (** schema syntax **)
@@ -94,12 +94,12 @@ and tForward = T_LinkForward      of reference
 and trajectory = Global of _constraint
 
 (** constraint syntax **)
-and _constraint = C_Equal        of reference * basicValue
-                | C_NotEqual     of reference * basicValue
-				| C_Greater      of reference * basicValue
-				| C_GreaterEqual of reference * basicValue
-				| C_Less         of reference * basicValue
-				| C_LessEqual    of reference * basicValue
+and _constraint = C_Equal        of reference * basic_value
+                | C_NotEqual     of reference * basic_value
+				| C_Greater      of reference * basic_value
+				| C_GreaterEqual of reference * basic_value
+				| C_Less         of reference * basic_value
+				| C_LessEqual    of reference * basic_value
                 | C_Not          of _constraint
                 | C_Imply        of _constraint * _constraint
                 | C_And          of _constraint list
@@ -113,7 +113,7 @@ and cost       = Cost of string
                | EmptyCost
 and conditions = Condition of _constraint
                | EmptyCondition
-and effect     = reference * basicValue
+and effect     = reference * basic_value
 
 
 (*******************************************************************

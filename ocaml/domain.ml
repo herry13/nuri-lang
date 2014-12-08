@@ -526,16 +526,16 @@ let substitute_parameter_of_reference reference groundParameters =
 
 (** Substitute each right-hand side reference of basic value
     with a value as specified in the parameters table. *)
-let substitute_parameter_of_basic_value basicValue groundParameters =
-    match basicValue with
+let substitute_parameter_of_basic_value basic_value groundParameters =
+    match basic_value with
     | Reference (id :: tail) ->
         if MapStr.mem id groundParameters then
             match MapStr.find id groundParameters with
             | Reference r1            -> Reference !<<(r1 @++ tail)
             | v1 when tail = [] -> v1
             | _                 -> error 514 ""
-        else basicValue
-    | _ -> basicValue
+        else basic_value
+    | _ -> basic_value
 
 
 (*******************************************************************

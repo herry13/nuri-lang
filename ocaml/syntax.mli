@@ -24,9 +24,9 @@ and  block         = AssignmentBlock   of assignment * block    (** Assignment a
                    | TrajectoryBlock   of trajectory * block    (** Trajector constraints and next block *)
                    | EmptyBlock                                 (** Empty block *)
 
-and  assignment    = reference * t * value  (** Variable, user-defined type, and value *)
+and  assignment    = reference * t * value  (** Variable, type, and value *)
 
-and  expression    = Basic           of basicValue              (** Basic value *)
+and  expression    = Basic           of basic_value             (** Basic value *)
                    | Shell           of string                  (** External-command-value (via shell) *)
                    | Exp_Eager       of expression              (** Eager-evaluation expression *)
                    | Exp_IString     of string                  (** Interpolated string *)
@@ -37,10 +37,10 @@ and  expression    = Basic           of basicValue              (** Basic value 
                    | Exp_Imply       of expression * expression (** Implication (binary) *)
                    | Exp_MatchRegexp of expression * string     (** Matching (binary) *)
                    | Exp_Add         of expression * expression (** Addition (binary) *)
-                   | Exp_Subtract    of expression * expression
-                   | Exp_Multiply    of expression * expression
-                   | Exp_Divide      of expression * expression
-                   | Exp_Modulo      of expression * expression
+                   | Exp_Subtract    of expression * expression (** Subtraction (binary) *)
+                   | Exp_Multiply    of expression * expression (** Multiplication (binary) *)
+                   | Exp_Divide      of expression * expression (** Division (binary) *)
+                   | Exp_Modulo      of expression * expression (** Modulo (binary) *)
                    | Exp_IfThenElse  of expression * expression * expression (** Conditional (ternary) *)
 
 and  value         = Expression of expression
@@ -55,7 +55,7 @@ and  prototype     = ReferencePrototype of reference * prototype    (** Referenc
                    | BlockPrototype     of block * prototype        (** Anonymous prototype *)
                    | EmptyPrototype                                 (** No prototype *)
 
-and  basicValue    = Boolean   of string
+and  basic_value   = Boolean   of string
                    | Int       of string
                    | Float     of string
                    | String    of string
@@ -63,7 +63,7 @@ and  basicValue    = Boolean   of string
                    | Vector    of vector
                    | Reference of reference
 
-and  vector        = basicValue list
+and  vector        = basic_value list
 
 and  reference     = string list
 
@@ -102,12 +102,12 @@ and tForward = T_LinkForward      of reference  (** Forward link-reference *)
 and trajectory = Global of _constraint
 
 (* constraint syntax *)
-and _constraint = C_Equal        of reference * basicValue
-                | C_NotEqual     of reference * basicValue
-				| C_Greater      of reference * basicValue
-				| C_GreaterEqual of reference * basicValue
-				| C_Less         of reference * basicValue
-				| C_LessEqual    of reference * basicValue
+and _constraint = C_Equal        of reference * basic_value
+                | C_NotEqual     of reference * basic_value
+				| C_Greater      of reference * basic_value
+				| C_GreaterEqual of reference * basic_value
+				| C_Less         of reference * basic_value
+				| C_LessEqual    of reference * basic_value
                 | C_Not          of _constraint
                 | C_Imply        of _constraint * _constraint
                 | C_And          of _constraint list
@@ -121,7 +121,7 @@ and cost       = Cost of string
                | EmptyCost
 and conditions = Condition of _constraint
                | EmptyCondition
-and effect     = reference * basicValue
+and effect     = reference * basic_value
 
 
 (*******************************************************************
