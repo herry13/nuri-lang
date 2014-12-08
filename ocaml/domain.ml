@@ -93,6 +93,8 @@ let error code message =
         raise (Error (code, "[err" ^ (string_of_int code) ^ "] " ^
             message)) ;;
 
+type namespaceReference = { namespace : reference ; ref : reference } ;;
+
 
 (*******************************************************************
  * semantics algebras for identifier and reference domains
@@ -162,17 +164,13 @@ let (!<<) reference = [] @<< reference ;;
 
 (** Find a reference in a store and then return its value. *)
 let rec find store reference : _value =
-    match (store, reference) with
-    | _, []                      -> Val (Store store)
-    | [], _                      -> Undefined
-    | (ids,vs) :: tail, id :: rs ->
-        if ids = id then
-            if rs = [] then Val vs
-            else
-                match vs with
-                | Store child -> find child rs
-                | _           -> Undefined
-        else find tail reference
+    match store, reference with
+    | _                  , []                     -> Val (Store store)
+    | []                 , _                      -> Undefined
+    | (ids, _) :: tail   , id :: _ when id <> ids -> find tail reference
+    | (ids, vs) :: _     , id :: []               -> Val vs
+    | (ids, Store s) :: _, id :: rs               -> find s rs
+    | _                                           -> Undefined
 ;;
 
 (* TODO: add this into the document of the formal semantics *)
@@ -180,17 +178,13 @@ let rec find store reference : _value =
     (nested reference) then it will follow it. *)
 let find_follow store reference : _value =
     let rec search s r = match s, r with
-        | _, [] -> Val (Store s)
-        | [], _ -> Undefined
-        | (ids, vs) :: tail, id :: rs ->
-            if id = ids then
-                match vs, rs with
-                | _, [] -> Val vs
-                | Store child, _ -> search child rs
-                | Basic (Reference r), _ -> search store (r @++ rs)
-                | _ -> Undefined
-            else
-                search tail r
+        | _, []                                    -> Val (Store s)
+        | [], _                                    -> Undefined
+        | (ids, _) :: tail, id :: _ when id <> ids -> search tail r
+        | (ids, vs) :: _, id :: []                 -> Val vs
+        | (ids, Store child) :: _, id :: rs        -> search child rs
+        | (ids, Basic Reference rp) :: _, id :: rs -> search store (rp @++ rs)
+        | _                                        -> Undefined
     in
     search store reference
 ;;
@@ -201,21 +195,16 @@ let find_follow store reference : _value =
     want to use 'find_follow' instead of 'find'. *)
 let rec resolve ?follow:(ff=false) store namespace reference =
     let search s r = if ff then find_follow s r else find s r in
-    match reference with
-    | "root" :: rs   -> ([], search store !<<rs)
-    | "parent" :: rs ->
-        if namespace = [] then
-            error 502 ("Invalid reference: " ^ !^reference)
-        else
-            (!-- namespace, search store !<<(!--namespace @++ rs))
-    | "this" :: rs   -> (namespace, search store !<<(namespace @++ rs))
-    | _              ->
-        if namespace = [] then ([], search store !<<reference)
-        else
-            let value = search store (namespace @<< reference) in
-            match value with
-            | Undefined -> resolve store !--namespace reference
-            | _         -> (namespace, value)
+    match reference, namespace with
+    | "root" :: rs, _    -> ([], search store !<<rs)
+    | "parent" :: rs, [] -> error 502 ("Invalid reference: " ^ !^reference)
+    | "parent" :: rs, _  -> (!-- namespace, search store !<<(!--namespace @++ rs))
+    | "this" :: rs, _    -> (namespace, search store !<<(namespace @++rs))
+    | _, []              -> ([], search store !<<reference)
+    | _ ->
+        match search store (namespace @<< reference) with
+        | Undefined -> resolve store !--namespace reference
+        | value -> (namespace, value)
 ;;
 
 (** Add a pair identifier-value into a store if the identifier is
@@ -223,36 +212,25 @@ let rec resolve ?follow:(ff=false) store namespace reference =
     replacement, the position of the pair within the store must be
     maintained. *)
 let rec put store identifier value =
-    match store with
-    | []              -> (identifier, value) :: []
-    | (id, v) :: tail ->
-        if id = identifier then
-            match v, value with (* merge semantics?? *)
-            | Store destination, Store source ->
-                (identifier, Store (copy destination source [])) :: tail
-            | _,_ -> (identifier, value) :: tail
-        else
-            (id, v) :: put tail identifier value
+    match store, value with
+    | (id, v) :: tail, _ when id <> identifier -> (id, v) :: put tail identifier value
+    | (_, Store dest) :: tail, Store src       -> (identifier, Store (copy dest src [])) :: tail
+                                                  (* above is using merge semantics *)
+    | (_, _) :: tail, _                        -> (identifier, value) :: tail
+    | [], _                                    -> (identifier, value) :: []
 
 (** Add a pair reference-value into a store if the identifier is
     exist, then the old-value will be replaced note that in the
     replacement, the position of the pair within the store must be
     maintained. *)
 and bind store reference value =
-    match reference with
-    | []       -> error 506 "invalid reference"
-    | id :: rs ->
-        if rs = [] then put store id value
-        else
-            match store with
-            | []                -> error 507 "invalid reference"
-            | (ids, vs) :: tail ->
-                if ids = id then
-                    match vs with
-                    | Store child -> (id, Store (bind child rs value)) :: tail
-                    | _           -> error 508 "invalid reference"
-                else
-                    (ids,vs) :: bind tail reference value
+    match store, reference with
+    | _, []                                     -> error 506 "Invalid reference."
+    | _, id :: []                               -> put store id value
+    | [], _                                     -> error 507 "Invalid reference."
+    | (ids, vs) :: tail, id :: _ when ids <> id -> (ids, vs) :: bind tail reference value
+    | (_, Store child) :: tail, id :: rs        -> (id, Store (bind child rs value)) :: tail
+    | _                                         -> error 508 "Invalid reference."
 
 (** Copy the content of a store to a particular location (referred
     by given reference) within given a store. *)
@@ -260,6 +238,14 @@ and copy store source dest =
     match source with
     | []              -> store
     | (id, v) :: tail -> copy (bind store (dest @+. id) v) tail dest
+;;
+
+let normalize_reference namespace reference = match namespace, reference with
+    | _ , "root" :: rs   -> { namespace = [] ; ref = rs }
+    | [], "parent" :: rs -> error 515 ("Invalid reference: " ^ !^reference)
+    | _ , "parent" :: rs -> { namespace = [] ; ref = !--namespace @++ rs }
+    | _ , "this" :: rs   -> { namespace = [] ; ref = namespace @++ rs }
+    | _                  -> { namespace = namespace ; ref = reference }
 ;;
 
 (** Similar with 'copy' by the location of the source store is
@@ -276,29 +262,18 @@ let rec inherit_proto store namespace prototypeReference destReference =
     | _, _ -> error 510 ""
 
 (** Resolve a link-reference. This will detect any cyclic. *)
-and get_link store namespace reference link accumulator =
-    let (ns, ref) =
-        match link with
-        | "root" :: rs   -> ([], rs)
-        | "parent" :: rs ->
-            if namespace = [] then
-                error 515 ("invalid link-reference " ^ !^link)
-            else
-                ([], !--namespace @++ rs)
-        | "this" :: rs -> ([], namespace @++ rs)
-        | _ -> (namespace, link)
-    in
-    if SetRef.exists (fun r -> r = ref) accumulator then
-        error 503 ("cyclic link-reference " ^ !^ref)
+and get_link store namespace destination link accumulator =
+    let r = normalize_reference namespace link in
+    if SetRef.exists (fun rx -> rx = r.ref) accumulator then
+        error 503 ("Cyclic link-reference detected (" ^ !^(r.ref) ^ ")")
     else
-        let (nsp, value) = resolve store ns ref in
-        let r = nsp @++ ref in
+        let (nsp, value) = resolve store r.namespace r.ref in
+        let rp = nsp @++ r.ref in
         match value with
-        | Val Link lr | Val Basic Reference lr ->
-            get_link store !--r reference lr (SetRef.add r accumulator)
-        | _ ->
-            if r @<= reference then error 504 ("Implicit cyclic link-reference " ^ !^r)
-            else (r, value)
+        | Val Link lr
+        | Val Basic Reference lr -> get_link store !--rp destination lr (SetRef.add rp accumulator)
+        | _ -> if rp @<= destination then error 504 ("Inner cyclic reference detected (" ^ !^rp ^ ")")
+               else (rp, value)
 
 (** Resolve a link-reference *)
 and resolve_link store namespace reference value =
@@ -367,26 +342,26 @@ let rec find_value ns store value =
 
 (* TODO: update semantics algebra in the documentation *)
 (** Return a string of given basic value. *)
-let rec string_of_basic_value bv = match bv with
-    | Boolean b -> if b then "true" else "false"
-    | Int i     -> string_of_int i
-    | Float f   -> string_of_float f
-    | String s  -> s
-    | Null      -> "null"
-    | Vector v  ->
-        (
-            let buf = Buffer.create 15 in
-            let rec iter v = match v with
-                | [] -> ()
-                | head :: [] -> Buffer.add_string buf (string_of_basic_value head)
-                | head :: tail -> Buffer.add_string buf (string_of_basic_value head); iter tail
-            in
-            Buffer.add_char buf '[';
-            iter v;
-            Buffer.add_char buf ']';
-            Buffer.contents buf
-        )
-    | Reference r     -> (!^) r
+let rec string_of_vector vec =
+    let buf = Buffer.create 15 in
+    let rec iter vec = match vec with
+        | [] -> ()
+        | head :: [] -> buf << (string_of_basic_value head)
+        | head :: tail -> buf << (string_of_basic_value head); iter tail
+    in
+    buf <. '[';
+    iter vec;
+    buf <. ']';
+    Buffer.contents buf
+
+and string_of_basic_value bv = match bv with
+    | Boolean b   -> if b then "true" else "false"
+    | Int i       -> string_of_int i
+    | Float f     -> string_of_float f
+    | String s    -> s
+    | Null        -> "null"
+    | Vector vec  -> string_of_vector vec
+    | Reference r -> (!^) r
 ;;
 
 (****************************************************************
