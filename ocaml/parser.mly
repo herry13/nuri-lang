@@ -101,7 +101,7 @@ exp
     | IF exp THEN exp ELSE exp { Exp_IfThenElse ($2, $4, $6) }
 
 exp1
-    : exp2 binary_op         { $2 $1 }
+    : exp2 binary_op { $2 $1 }
 
 binary_op
     : TOK_EQUAL_EQUAL exp2 binary_op { fun left -> $3 (Exp_Equal (left, $2)) }
@@ -187,10 +187,10 @@ tau
     | TFLOAT                { T_Float }
     | TSTR                  { T_String }
     | LBRACKET RBRACKET tau { T_List $3 }
-    | ASTERIX tau_schema    { T_Reference $2 }
-    | tau_schema            { T_Object $1 }
+    | ASTERIX tau_object    { T_Reference $2 }
+    | tau_object            { T_Object $1 }
 
-tau_schema
+tau_object
     : TOBJ  { T_PlainObject }
     | ID    { T_Schema ($1, T_PlainObject) }
 
@@ -199,11 +199,11 @@ global
 
 conjunction
 	: nuri_constraint conjunction { $1 :: $2 }
-	|                            { [] }
+	|                             { [] }
 
 disjunction
 	: nuri_constraint disjunction { $1 :: $2 }
-	|                            { [] }
+	|                             { [] }
 
 nuri_constraint
 	: BEGIN conjunction END                 { C_And $2 }
@@ -267,7 +267,7 @@ param
 	: ID COLON t_param { ($1, $3) }
 
 t_param
-    : tau_schema { T_Object $1 }
+    : tau_object { T_Object $1 }
     | TBOOL      { T_Bool      }
     | TINT       { T_Int       }
     | TFLOAT     { T_Float     }
