@@ -76,7 +76,7 @@ and t        = T_Bool
              | T_Undefined
              | T_Any
              | T_Action
-             | T_Global
+             | T_Constraint
              | T_Enum      of string * string list
              | T_List      of t
              | T_Schema    of tSchema
@@ -208,7 +208,7 @@ let rec string_of nuri =
         | T_Undefined      -> buf << "undefined"
         | T_Any            -> buf << "any"
         | T_Action         -> buf << "action"
-        | T_Global         -> buf << "global"
+        | T_Constraint         -> buf << "global"
         | T_Enum (id, _)   -> buf << id
         | T_List t         -> buf << "[]"; _type t
         | T_Schema t       -> type_schema t
@@ -290,7 +290,7 @@ let string_of_type t =
         | T_Undefined      -> buf << "undefined"
         | T_Any            -> buf << "any"
         | T_Action         -> buf << "action"
-        | T_Global         -> buf << "global"
+        | T_Constraint         -> buf << "global"
         | T_Enum (id, _)   -> buf << "enum~"; buf << id
         | T_List t         -> buf << "[]"; _type t
         | T_Schema t       -> type_schema t

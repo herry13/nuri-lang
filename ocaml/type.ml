@@ -129,7 +129,7 @@ let rec has_type env t =
     | T_Null                                             (* (Type Null)          *)
     | T_Any                                              (* (Type Any)           *) 
     | T_Action                                           (* (Type Action)        *)
-    | T_Global                                           (* (Type Constraint)    *)
+    | T_Constraint                                           (* (Type Constraint)    *)
     | T_Enum _                                           (* TODOC (Type Enum)    *)
     | T_Forward _                                        (* TODOC (Type Forward) *)
     | T_Schema T_Object                                   (* (Type Object)        *)
@@ -446,7 +446,7 @@ let sfDataReference dr : environment -> reference -> t =
         | _, Type T_Null       -> T_Null
         | _, Type T_Any        -> T_Any
         | _, Type T_Action     -> T_Action
-        | _, Type T_Global -> T_Global
+        | _, Type T_Constraint -> T_Constraint
         | _, Type T_List t     -> T_List t
         | _, Type T_Reference ts     -> T_Reference ts
         | _, Type T_Schema ts  when (T_Schema ts) <: (T_Schema T_Object) -> T_Reference ts
@@ -726,7 +726,7 @@ and nuriEnum enum : environment -> environment =
         ) e1 elements
 
 and nuriGlobal g : environment -> environment =
-    fun e -> assign e ["global"] T_Undefined T_Global
+    fun e -> assign e ["global"] T_Undefined T_Constraint
 
 and nuriTrajectory t = match t with
     | Global g -> nuriGlobal g
@@ -749,7 +749,7 @@ and nuriSpecification ?main:(mainReference=["main"]) nuri =
         error 429 ("Object '" ^ (!^mainReference) ^ "' is not found.")
     else
         let e2 = get_main (second_pass_eval e1 mainReference) mainReference in
-        let e_main = assign e2 ["global"] T_Undefined T_Global in
+        let e_main = assign e2 ["global"] T_Undefined T_Constraint in
         map_of e_main
 ;;
 

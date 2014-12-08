@@ -18,7 +18,7 @@ let rec of_type t = match t with
     | Syntax.T_Null                              -> "null"
     | Syntax.T_Any                               -> "any"
     | Syntax.T_Action                            -> "action"
-    | Syntax.T_Global                            -> "global"
+    | Syntax.T_Constraint                            -> "global"
     | Syntax.T_Enum (id, _)                      -> "%" ^ id
     | Syntax.T_List t                            -> "[]" ^ (of_type t)
     | Syntax.T_Schema Syntax.T_Object             -> "object"

@@ -239,7 +239,7 @@ let make_ts typeEnvInit flatStoreInit typeEnvGoal flatStoreGoal typeValues =
                 if MapRef.mem r acc._map then error 603 "";
                 match type_of_variable r with
                 | Syntax.T_Action    (* action and global constraints are skipped *)
-                | Syntax.T_Global -> acc
+                | Syntax.T_Constraint -> acc
                 | t when Type.subtype t typeObject ->
                     let value = static_object in
                     let variable = make r acc.nextVariableIndex [|value|] value value in
