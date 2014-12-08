@@ -52,4 +52,12 @@ expression3.nuri
 expression4.nuri
 expression5.nuri
 expression6.nuri
-# expression7.nuri
+expression7.nuri
+expression8.nuri
+#expression9.nuri
+#expression10.nuri
+#expression11.nuri
+expression12.nuri
+#expression13.nuri
+expression14.nuri
+

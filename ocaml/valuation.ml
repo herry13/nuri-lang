@@ -66,6 +66,9 @@ and nuriShell command s ns =
 and nuriEqual exp1 exp2 s ns =
     Domain.equals ~store:s ~namespace:ns (eval exp1 ns s) (eval exp2 ns s)
 
+and nuriNotEqual exp1 exp2 s ns =
+    Domain.not_equals ~store:s ~namespace:ns (eval exp1 ns s) (eval exp2 ns s)
+
 and nuriExp_And exp1 exp2 s ns =
     Domain.logic ~operator:"&&" ~store:s ~namespace:ns (&&) (eval exp1 ns s) (eval exp2 ns s)
 
@@ -157,6 +160,7 @@ and nuriExpression exp ns s = match exp with
     | Exp_IString str         -> Domain.Lazy (nuriExp_IString str)
     | Exp_Not exp             -> Domain.Lazy (nuriExp_Not exp)
     | Exp_Equal (exp1, exp2)  -> Domain.Lazy (nuriEqual exp1 exp2)
+    | Exp_NotEqual (exp1, exp2) -> Domain.Lazy (nuriNotEqual exp1 exp2)
     | Exp_And (left, right)   -> Domain.Lazy (nuriExp_And left right)
     | Exp_Or (left, right)    -> Domain.Lazy (nuriExp_Or left right)
     | Exp_Imply (left, right) -> Domain.Lazy (nuriExp_Imply left right)

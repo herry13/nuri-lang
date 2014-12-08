@@ -425,6 +425,14 @@ let equals ?store:(s=[]) ?namespace:(ns=[]) =
     )
 ;;
 
+let not_equals ?store:(s=[]) ?namespace:(ns=[]) =
+    binary ~store:s ~namespace:ns (fun x y -> match x, y with
+        | Basic Int i, Basic Float f
+        | Basic Float f, Basic Int i -> Basic (Boolean (f <> (float_of_int i)))
+        | _ -> Basic (Boolean (x <> y))
+    )
+;;
+
 (* TODO: update semantics algebra in the documentation *)
 let math ?store:(s=[]) ?namespace:(ns=[]) f_int f_float =
     binary ~store:s ~namespace:ns (fun xx yy -> match xx, yy with

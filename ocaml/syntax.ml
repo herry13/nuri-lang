@@ -29,6 +29,7 @@ and  expression    = Basic           of basic_value
                    | Exp_IString     of string      (** Interpolated string *)
                    | Exp_Not         of expression
                    | Exp_Equal       of expression * expression
+                   | Exp_NotEqual    of expression * expression
                    | Exp_And         of expression * expression
                    | Exp_Or          of expression * expression
                    | Exp_Imply       of expression * expression
@@ -158,6 +159,7 @@ let rec string_of nuri =
         | Exp_IString s      -> buf << " \""; buf << s; buf <. '"'
         | Exp_Not e          -> buf << " !("; expression e; buf <. ')'
         | Exp_Equal (e1, e2) -> buf << " ("; expression e1; buf << " = "; expression e2; buf <. ')'
+        | Exp_NotEqual (e1, e2) -> buf << " ("; expression e1; buf << " != "; expression e2; buf <. ')'
         | Exp_And (e1, e2)   -> buf << " ("; expression e1; buf << " && "; expression e2; buf <. ')'
         | Exp_Or (e1, e2)    -> buf << " ("; expression e1; buf << " || "; expression e2; buf <. ')'
         | Exp_Imply (e1, e2) -> buf << " ("; expression e1; buf << " => "; expression e2; buf <. ')'

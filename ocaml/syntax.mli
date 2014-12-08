@@ -32,6 +32,7 @@ and  expression    = Basic           of basic_value             (** Basic value 
                    | Exp_IString     of string                  (** Interpolated string *)
                    | Exp_Not         of expression              (** Negation (unary) *)
                    | Exp_Equal       of expression * expression (** Equality (binary) *)
+                   | Exp_NotEqual    of expression * expression (** Inequality (binary) *)
                    | Exp_And         of expression * expression (** Conjunction (binary) *)
                    | Exp_Or          of expression * expression (** Disjunction (binary) *)
                    | Exp_Imply       of expression * expression (** Implication (binary) *)

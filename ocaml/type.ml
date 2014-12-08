@@ -582,6 +582,10 @@ and nuriExpression exp : reference -> reference -> t -> environment -> t =
                 if t1 <: t2 && t2 <: t1 then T_Bool
                 else error 450 "The types of left and right operands of '==' are not the same."
             )
+        | Exp_NotEqual (exp1, exp2) -> binary "!=" exp1 exp2 (fun t1 t2 ->
+                if t1 <: t2 || t2 <: t1 then T_Bool
+                else error 457 "The types of left and right operands of '!=' are not the same."
+            )
         | Exp_And   (left, right) -> binary_logic "&&" left right
         | Exp_Or    (left, right) -> binary_logic "||" left right
         | Exp_Imply (left, right) -> binary_logic "=>" left right

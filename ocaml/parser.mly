@@ -105,6 +105,7 @@ exp1
 
 binary_op
     : TOK_EQUAL_EQUAL exp2 binary_op { fun left -> $3 (Exp_Equal (left, $2)) }
+    | NOT_EQUAL exp2 binary_op       { fun left -> $3 (Exp_NotEqual (left, $2)) }
     | TOK_PLUS exp2 binary_op        { fun left -> $3 (Exp_Add (left, $2)) }
     | TOK_SUBTRACT exp2 binary_op    { fun left -> $3 (Exp_Subtract (left, $2)) }
     | ASTERIX exp2 binary_op         { fun left -> $3 (Exp_Multiply (left, $2)) }

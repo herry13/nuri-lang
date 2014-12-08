@@ -191,6 +191,8 @@ val add : ?store:store -> ?namespace:reference -> value -> value -> value
 
 val equals : ?store:store -> ?namespace:reference -> value -> value -> value
 
+val not_equals : ?store:store -> ?namespace:reference -> value -> value -> value
+
 val logic : ?operator:string -> ?store:store -> ?namespace:reference ->
             (bool -> bool -> bool) -> value -> value -> value
 
