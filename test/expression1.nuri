@@ -4,6 +4,7 @@ main {
     equal1 "." == ".";
     equal2 path == ".";
     equal3 path == path;
+    equal4 (1 == 1.0);
     add1 1 + 2;
     add2 1.1 + 2;
     add3 2 + 1.1;

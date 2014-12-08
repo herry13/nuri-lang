@@ -579,7 +579,7 @@ and nuriExpression exp : reference -> reference -> t -> environment -> t =
                 else error 448 "The operand of '!' is not a boolean."
             )
         | Exp_Equal (exp1, exp2) -> binary "==" exp1 exp2 (fun t1 t2 ->
-                if t1 <: t2 && t2 <: t1 then T_Bool
+                if t1 <: t2 || t2 <: t1 then T_Bool
                 else error 450 "The types of left and right operands of '==' are not the same."
             )
         | Exp_NotEqual (exp1, exp2) -> binary "!=" exp1 exp2 (fun t1 t2 ->
