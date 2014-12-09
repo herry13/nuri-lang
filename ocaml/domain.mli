@@ -199,8 +199,8 @@ val logic : ?operator:string -> ?store:store -> ?namespace:reference ->
 val math : ?store:store -> ?namespace:reference ->
            (int -> int -> int) -> (float -> float -> float) -> value -> value -> value
 
-val unary : ?store:store -> ?namespace:reference -> value ->
-            (value -> value) -> value
+val unary : ?store:store -> ?namespace:reference ->
+            (value -> value) -> value -> value
 
 val binary : ?store:store -> ?namespace:reference ->
              (value -> value -> value) -> value -> value -> value

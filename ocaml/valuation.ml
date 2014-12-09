@@ -76,25 +76,25 @@ and nuriExp_Or exp1 exp2 s ns =
     Domain.logic ~operator:"||" ~store:s ~namespace:ns (||) (eval exp1 ns s) (eval exp2 ns s)
 
 and nuriExp_Imply exp1 exp2 s ns =
-    Domain.unary ~store:s ~namespace:ns (eval exp1 ns s) (fun v1 -> match v1 with
+    Domain.unary ~store:s ~namespace:ns (fun v1 -> match v1 with
         | Domain.Basic Domain.Boolean b1 ->
             if b1 then (
-                Domain.unary ~store:s ~namespace:ns (eval exp2 ns s) (fun v2 -> match v2 with
+                Domain.unary ~store:s ~namespace:ns (fun v2 -> match v2 with
                     | Domain.Basic Domain.Boolean b2 -> Domain.Basic (Domain.Boolean b2)
                     | _ -> Domain.error 1107 "Right operand of '=>' is not a boolean."
-                )
+                ) (eval exp2 ns s)
             ) else (
                 Domain.Basic (Domain.Boolean true)
             )
         | _ -> Domain.error 1108 "Left operand of '=>' is not a boolean."
-    )
+    ) (eval exp1 ns s)
 
 (* TODO: documentation *)
 and nuriExp_Not exp s ns =
-    Domain.unary ~store:s ~namespace:ns (eval exp ns s) (fun v -> match v with
+    Domain.unary ~store:s ~namespace:ns (fun v -> match v with
         | Domain.Basic Domain.Boolean b -> Domain.Basic (Domain.Boolean (not b))
         | _ -> Domain.error 1107 "Operand of '!' is not a boolean."
-    )
+    ) (eval exp ns s)
 
 (* TODO: documentation *)
 and nuriExp_Add exp1 exp2 s ns =
@@ -117,16 +117,16 @@ and nuriExp_Modulo exp1 exp2 s ns =
 
 (* TODO: documentation *)
 and nuriExp_IfThenElse ifExp thenExp elseExp s ns =
-    Domain.unary ~store:s ~namespace:ns (eval ifExp ns s) (fun v -> match v with
+    Domain.unary ~store:s ~namespace:ns (fun v -> match v with
         | Domain.Basic Domain.Boolean b ->
             if b then (eval thenExp ns s) else (eval elseExp ns s)
         | _ ->
             Domain.error 1108 "if-clause is not a boolean."
-    )
+    ) (eval ifExp ns s)
 
 (* TODO: documentation *)
 and nuriExp_MatchRegexp exp regexp s ns =
-    Domain.unary ~store:s ~namespace:ns (eval exp ns s) (fun v ->
+    Domain.unary ~store:s ~namespace:ns (fun v ->
         Domain.Basic (Domain.Boolean (match v with
             | Domain.Basic Domain.String str -> (
                     try (Str.search_forward (Str.regexp regexp) str 0) >= 0
@@ -134,7 +134,7 @@ and nuriExp_MatchRegexp exp regexp s ns =
                 )
             | _ -> false
         ))
-    )
+    ) (eval exp ns s)
 
 and nuriExp_IString str s ns : Domain.value =
     Domain.Basic (Domain.String (Domain.interpolate_string str s ns))
@@ -154,18 +154,18 @@ and eval (exp : Syntax.expression) ns s : Domain.value =
 
 (* TODO: documentation *)
 and nuriExpression exp ns s = match exp with
-    | Basic value             -> Domain.Basic (sfBasicValue value)
-    | Shell command           -> Domain.Lazy (nuriShell command)
-    | Exp_Eager exp           -> eval exp ns s
-    | Exp_IString str         -> Domain.Lazy (nuriExp_IString str)
-    | Exp_Not exp             -> Domain.Lazy (nuriExp_Not exp)
-    | Exp_Equal (exp1, exp2)  -> Domain.Lazy (nuriEqual exp1 exp2)
+    | Basic value               -> Domain.Basic (sfBasicValue value)
+    | Shell command             -> Domain.Lazy (nuriShell command)
+    | Exp_Eager exp             -> eval exp ns s
+    | Exp_IString str           -> Domain.Lazy (nuriExp_IString str)
+    | Exp_Not exp               -> Domain.Lazy (nuriExp_Not exp)
+    | Exp_Equal (exp1, exp2)    -> Domain.Lazy (nuriEqual exp1 exp2)
     | Exp_NotEqual (exp1, exp2) -> Domain.Lazy (nuriNotEqual exp1 exp2)
-    | Exp_And (left, right)   -> Domain.Lazy (nuriExp_And left right)
-    | Exp_Or (left, right)    -> Domain.Lazy (nuriExp_Or left right)
-    | Exp_Imply (left, right) -> Domain.Lazy (nuriExp_Imply left right)
-    | Exp_Add (exp1, exp2)    -> Domain.Lazy (nuriExp_Add exp1 exp2)  (* Lazy evaluation  *)
-                                 (* nuriExp_Add exp1 exp2 s ns *)     (* Eager evaluation *)
+    | Exp_And (left, right)     -> Domain.Lazy (nuriExp_And left right)
+    | Exp_Or (left, right)      -> Domain.Lazy (nuriExp_Or left right)
+    | Exp_Imply (left, right)   -> Domain.Lazy (nuriExp_Imply left right)
+    | Exp_Add (exp1, exp2)      -> Domain.Lazy (nuriExp_Add exp1 exp2)  (* Lazy evaluation  *)
+                                   (* nuriExp_Add exp1 exp2 s ns *)     (* Eager evaluation *)
     | Exp_Subtract (exp1, exp2) -> Domain.Lazy (nuriExp_Subtract exp1 exp2)
     | Exp_Multiply (exp1, exp2) -> Domain.Lazy (nuriExp_Multiply exp1 exp2)
     | Exp_Divide (exp1, exp2)   -> Domain.Lazy (nuriExp_Divide exp1 exp2)

@@ -105,15 +105,14 @@ let (!^) r = String.concat "." r
 
 (** Concat the second reference to the last position of the first
     reference. *)
-let rec (!--) reference =
-    match reference with
+let rec (!--) = function
     | []           -> []
-    | head :: tail -> if tail = [] then []
-                      else head :: (!-- tail)
+    | head :: []   -> []
+    | head :: tail -> head :: (!-- tail)
 ;;
 
 (** Add an identifier to the last position of the reference. *)
-let (@++) reference1 reference2 = List.append reference1 reference2 ;;
+let (@++) = List.append ;;
 
 (** Remove a common (of both references) prefix from the first
     reference. *)
@@ -121,12 +120,11 @@ let (@+.) reference identifier = reference @++ [identifier] ;;
 
 (** Remove a common (of both references) prefix from the first
     reference. *)
-let rec (@--) reference1 reference2 =
-    if reference1 = [] then []
-    else if reference2 = [] then reference1
-    else if (List.hd reference1) = (List.hd reference2)
-         then (List.tl reference1) @-- (List.tl reference2)
-    else reference1
+let rec (@--) reference1 reference2 = match reference1, reference2 with
+    | [], _                                     -> []
+    | _, []                                     -> reference1
+    | id1 :: tail1, id2 :: tail2 when id1 = id2 -> tail1 @-- tail2
+    | _                                         -> reference1
 ;;
 
 (** 'true' if the second reference is equal or the prefix of the
@@ -141,17 +139,13 @@ let (@<) reference1 reference2 =
 
 (** Given a namespace (first), remove keyword 'root', 'parent',
     and 'this' from a reference (second). *)
-let rec (@<<) namespace reference =
-    match reference with
-    | [] -> namespace
-    | "this" :: rs -> namespace @<< rs
-    | "root" :: rs -> [] @<< rs
-    | "parent" :: rs ->
-        if namespace = [] then
-            error 501 ("invalid reference " ^ !^reference)
-        else
-            (!-- namespace) @<< rs
-    | id :: rs -> (namespace @+. id) @<< rs
+let rec (@<<) namespace reference = match namespace, reference with
+    | _, []                -> namespace
+    | _, "this" :: tail    -> namespace @<< tail
+    | _, "root" :: tail    -> [] @<< tail
+    | [], "parent" :: tail -> error 501 ("Invalid reference: " ^ !^reference)
+    | _, "parent" :: tail  -> !--namespace @<< tail
+    | _, id :: tail        -> (namespace @+. id) @<< tail
 ;;
 
 (** Similar with '@<<' but the namespace is root. *)
@@ -194,17 +188,16 @@ let find_follow store reference : _value =
     return its value set '~follow:true' (default 'false') if you
     want to use 'find_follow' instead of 'find'. *)
 let rec resolve ?follow:(ff=false) store namespace reference =
-    let search s r = if ff then find_follow s r else find s r in
+    let search = if ff then find_follow else find in
     match reference, namespace with
     | "root" :: rs, _    -> ([], search store !<<rs)
     | "parent" :: rs, [] -> error 502 ("Invalid reference: " ^ !^reference)
     | "parent" :: rs, _  -> (!-- namespace, search store !<<(!--namespace @++ rs))
     | "this" :: rs, _    -> (namespace, search store !<<(namespace @++rs))
     | _, []              -> ([], search store !<<reference)
-    | _ ->
-        match search store (namespace @<< reference) with
-        | Undefined -> resolve store !--namespace reference
-        | value -> (namespace, value)
+    | _ -> match search store (namespace @<< reference) with
+           | Undefined -> resolve store !--namespace reference
+           | value -> (namespace, value)
 ;;
 
 (** Add a pair identifier-value into a store if the identifier is
@@ -255,38 +248,37 @@ let rec inherit_proto store namespace prototypeReference destReference =
     | _, Val (Store prototype) -> copy store prototype destReference
     | _, Val (Link link) ->
         (
-            match resolve_link store namespace destReference (Link link) with
+            match resolve_link (Link link) store namespace destReference with
             | _, Val (Store prototype) -> copy store prototype destReference
             | _, _             -> error 509 ""
         )
     | _, _ -> error 510 ""
 
-(** Resolve a link-reference. This will detect any cyclic. *)
-and get_link store namespace destination link accumulator =
-    let r = normalize_reference namespace link in
+(** get_link : reference -> SetRef.t -> store -> reference -> reference -> value_ *)
+and get_link reference accumulator store namespace destReference =
+    let r = normalize_reference namespace reference in
     if SetRef.exists (fun rx -> rx = r.ref) accumulator then
-        error 503 ("Cyclic link-reference detected (" ^ !^(r.ref) ^ ")")
+        error 503 ""
     else
         let (nsp, value) = resolve store r.namespace r.ref in
         let rp = nsp @++ r.ref in
         match value with
-        | Val Link lr
-        | Val Basic Reference lr -> get_link store !--rp destination lr (SetRef.add rp accumulator)
-        | _ -> if rp @<= destination then error 504 ("Inner cyclic reference detected (" ^ !^rp ^ ")")
+        | Val Link ref
+        | Val Basic Reference ref -> get_link ref (SetRef.add rp accumulator) store !--rp destReference
+        | _ -> if rp @<= destReference then error 504 ""
                else (rp, value)
 
-(** Resolve a link-reference *)
-and resolve_link store namespace reference value =
-    match value with
-    | Link link -> get_link store namespace reference link SetRef.empty
-    | _         -> error 505 "invalid link reference"
+(** resolve_link : value -> (store -> reference -> reference -> value_) *)
+and resolve_link = function
+    | Link ref -> get_link ref SetRef.empty
+    | _        -> error 505 "Invalid link-reference."
 ;;
 
 (* TODO: need to detect cyclic functions *)
 (** Evaluate a function, and then return the evaluation result. *)
-let rec eval_function store baseReference func =
-    match func store baseReference with
-    | Lazy f -> eval_function store baseReference f
+let rec eval_function store namespace func =
+    match func store namespace with
+    | Lazy f -> eval_function store namespace f
     | value -> value
 ;;
 
@@ -295,13 +287,13 @@ let rec eval_function store baseReference func =
 let rec eval_lazy store namespace identifier value namespace1 =
     let rp = namespace @+. identifier in
     let rec replace_link link =
-        match resolve_link store namespace1 rp (Link link) with
+        match resolve_link (Link link) store namespace1 rp with
         | _, Undefined -> error 511 (!^link ^ " is not found.")
         | nsp, Val Store ssp -> accept (bind store rp (Store ssp)) rp ssp nsp
         | _, Val Lazy func -> replace_func func
         | _, Val vp -> bind store rp vp
     and replace_ref ref =
-        match resolve_link store namespace1 rp (Link ref) with
+        match resolve_link (Link ref) store namespace1 rp with
         | _, Val Basic vp -> bind store rp (Basic vp)
         | _, Val Lazy func -> replace_func func
         | _ -> store
@@ -318,12 +310,10 @@ let rec eval_lazy store namespace identifier value namespace1 =
     | _ -> store
 
 (** Visit every element of a store to replace all lazy values. *)
-and accept store baseReference store1 baseReference1 =
+and accept store namespace store1 namespace1 =
     match store1 with
-    | []      -> store
-    | (id, v) :: sp ->
-        let sq = eval_lazy store baseReference id v baseReference1 in
-        accept sq baseReference sp baseReference1
+    | []            -> store
+    | (id, v) :: sp -> accept (eval_lazy store namespace id v namespace1) namespace sp namespace1
 ;;
 
 (** Return the first variable that has value equal to 'value'. *)
@@ -335,7 +325,7 @@ let rec find_value ns store value =
         (
             match find_value (ns @+. id) s value with
             | [] -> find_value ns ss value
-            | r -> r
+            | r  -> r
         )
     | _ :: ss -> find_value ns ss value
 ;;
@@ -354,7 +344,7 @@ let rec string_of_vector vec =
     buf <. ']';
     Buffer.contents buf
 
-and string_of_basic_value bv = match bv with
+and string_of_basic_value = function
     | Boolean b   -> if b then "true" else "false"
     | Int i       -> string_of_int i
     | Float f     -> string_of_float f
@@ -391,10 +381,10 @@ and evalf ?follow_r:(follow=false) ?acc:(visited=SetRef.empty) s ns f =
 ;;
 
 (* TODO: update semantics algebra in the documentation *)
-let rec unary ?store:(s=[]) ?namespace:(ns=[]) v map = match v with
-    | Basic Reference r -> unary ~store:s ~namespace:ns (evalr s ns r) map
-    | Lazy f -> Lazy (fun ss nss -> unary ~store:ss ~namespace:nss (evalf ~follow_r:true ss nss f) map)
-    | _ -> map v
+let rec unary ?store:(s=[]) ?namespace:(ns=[]) map = function
+    | Basic Reference r -> unary ~store:s ~namespace:ns map (evalr s ns r)
+    | Lazy f -> Lazy (fun ss nss -> unary ~store:ss ~namespace:nss map (evalf ~follow_r:true ss nss f))
+    | v -> map v
 ;;
 
 (* TODO: update semantics algebra in the documentation *)
@@ -418,10 +408,10 @@ let logic ?operator:(op="") ?store:(s=[]) ?namespace:(ns=[]) f_logic =
 
 (* TODO: update semantics algebra in the documentation *)
 let equals ?store:(s=[]) ?namespace:(ns=[]) =
-    binary ~store:s ~namespace:ns (fun xx yy -> match xx, yy with
+    binary ~store:s ~namespace:ns (fun x y -> match x, y with
         | Basic Int i, Basic Float f
         | Basic Float f, Basic Int i -> Basic (Boolean (f = (float_of_int i)))
-        | _ -> Basic (Boolean (xx = yy))
+        | _ -> Basic (Boolean (x = y))
     )
 ;;
 
@@ -454,11 +444,11 @@ let math ?store:(s=[]) ?namespace:(ns=[]) f_int f_float =
 let add ?store:(s=[]) ?namespace:(ns=[]) =
     binary ~store:s ~namespace:ns (fun xx yy -> match xx, yy with
         | Basic Int i, Basic Float f
-        | Basic Float f, Basic Int i -> Basic (Float ((float_of_int i) +. f))
+        | Basic Float f, Basic Int i     -> Basic (Float ((float_of_int i) +. f))
         | Basic Float f1, Basic Float f2 -> Basic (Float (f1 +. f2))
-        | Basic Int i1, Basic Int i2 -> Basic (Int (i1 + i2))
-        | Basic String s1, Basic v2 -> Basic (String (s1 ^ (string_of_basic_value v2)))
-        | Basic v1, Basic String s2 -> Basic (String ((string_of_basic_value v1) ^ s2))
+        | Basic Int i1, Basic Int i2     -> Basic (Int (i1 + i2))
+        | Basic String s1, Basic v2      -> Basic (String (s1 ^ (string_of_basic_value v2)))
+        | Basic v1, Basic String s2      -> Basic (String ((string_of_basic_value v1) ^ s2))
         | _ -> error 528 "Operands of '+' are neither int, float, or string"
     )
 ;;
@@ -476,11 +466,11 @@ let static_object = Store [] ;;
 
 (** Convert a store into a flat-store. *)
 let normalise store =
-    let rec visit store baseReference flatstore =
+    let rec visit store namespace flatstore =
         match store with
         | [] -> flatstore
         | (id, v) :: tail ->
-            let r = baseReference @+. id in
+            let r = namespace @+. id in
             let fss =
                 match v with
                 | Store child ->
@@ -490,7 +480,7 @@ let normalise store =
                 | _ -> 
                     MapRef.add r v flatstore
             in
-            visit tail baseReference fss
+            visit tail namespace fss
     in
     visit store [] MapRef.empty
 ;;
@@ -521,29 +511,29 @@ type ground_parameters = basic MapStr.t
     specified in the parameters table *)
 let substitute_parameter_of_reference reference groundParameters =
     match reference with
-    | id :: tail ->
-        if MapStr.mem id groundParameters then
+    | id :: tail when MapStr.mem id groundParameters ->
+        (
             match MapStr.find id groundParameters with
-            | Reference r1 -> !<<(r1 @++ tail)
-            | _      -> error 513 ("cannot replace left-hand side " ^
-                "reference with a non-reference value")
-                        (* cannot replace left-hand side reference with
-                           a non-reference value *)
-        else reference
+            | Reference r -> !<<(r @++ tail)
+            | _           -> error 513 ("Cannot replace left-hand side " ^
+                                        "reference with a non-reference value")
+        )
     | _ -> reference
+;;
 
 (** Substitute each right-hand side reference of basic value
     with a value as specified in the parameters table. *)
 let substitute_parameter_of_basic_value basic_value groundParameters =
     match basic_value with
-    | Reference (id :: tail) ->
-        if MapStr.mem id groundParameters then
-            match MapStr.find id groundParameters with
-            | Reference r1            -> Reference !<<(r1 @++ tail)
-            | v1 when tail = [] -> v1
-            | _                 -> error 514 ""
-        else basic_value
+    | Reference (id :: tail) when MapStr.mem id groundParameters ->
+        (
+            match tail, (MapStr.find id groundParameters) with
+            | _ , Reference r -> Reference !<<(r @++ tail)
+            | [], v           -> v
+            | _               -> error 514 ""
+        )
     | _ -> basic_value
+;;
 
 
 (*******************************************************************
@@ -553,58 +543,48 @@ let substitute_parameter_of_basic_value basic_value groundParameters =
 (** Remove actions and global constraints from store. *)
 let to_state store =
     let rec accept store store1 = match store with
-        | [] -> store1
+        | []                  -> store1
         | (_, Action _) :: s
-        | (_, Global _) :: s -> accept s store1
+        | (_, Global _) :: s  -> accept s store1
         | (id, Store sp) :: s -> accept s ((id, Store (accept sp [])) :: store1)
-        | (id, v) :: s -> accept s ((id, v) :: store1)
+        | (id, v) :: s        -> accept s ((id, v) :: store1)
     in
     accept store []
 ;;
 
-let interpolate_string str s ns =
-    let delim = Str.regexp "\\." in
-    let len = String.length str in
-    let result = Buffer.create len in
-    let variable = Buffer.create 20 in
-    let substitute var =
-        match evalr ~follow_f:true s ns (Str.split delim var) with
-        | Basic v -> result << (string_of_basic_value v)
-        | _       -> error 1152 ("Variable '" ^ var ^ "' is not found or it is not a basic value.")
+let reference_delim_regexp = Str.regexp "\\." ;;
+
+let reference_of_string = Str.split reference_delim_regexp ;;
+
+(** Substitute every variable in a string-interpolation *)
+let interpolate_string str store namespace =
+    let length = String.length str in
+    let out = Buffer.create length in
+    let var = Buffer.create 20 in
+    let get_reference buf =
+        let r = reference_of_string (Buffer.contents buf) in
+        Buffer.clear buf;
+        r
     in
-    let rec interpolate (index : int) (length : int) (state : int) : string =    
+    let substitute reference =
+        match evalr ~follow_f:true store namespace reference with
+        | Basic v -> out << (string_of_basic_value v)
+        | _       -> error 1152 (!^reference ^ " is not found, or it is not a basic value.")
+    in
+    let rec iter index state =
         if index >= length then (
-            if state = 0 then Buffer.contents result
-            else error 1150 ("Invalid string: '" ^ str ^ "'")
+            if state = 0 then Buffer.contents out
+            else error 1150 ("Invalid string: " ^ str)
         ) else (
-            if state = 0 then (
-                if str.[index] = '$' then (
-                    interpolate (index + 1) length 1
-                ) else (
-                    result <. str.[index];
-                    interpolate (index + 1) length 0
-                )
-            ) else if state = 1 then (
-                if str.[index] = '{' then (
-                    interpolate (index + 1) length 2
-                ) else (
-                    result <. '$';
-                    result <. str.[index];
-                    interpolate (index + 1) length 0
-                )
-            ) else if state = 2 then (
-                if str.[index] = '}' then (
-                    substitute (Buffer.contents variable);
-                    Buffer.clear variable;
-                    interpolate (index + 1) length 0
-                ) else (
-                    variable <. str.[index];
-                    interpolate (index + 1) length 2
-                )
-            ) else (
-                error 1151 ("Invalid string: '" ^ str ^ "'")
-            )
+            match state, str.[index] with
+            | 0, '$' -> iter (index + 1) 1
+            | 0, c   -> out <. c ; iter (index + 1) 0
+            | 1, '{' -> iter (index + 1) 2
+            | 1, c   -> out <. '$' ; out <. c ; iter (index + 1) 0
+            | 2, '}' -> substitute (get_reference var); iter (index + 1) 0
+            | 2, c   -> var <. c ; iter (index + 1) 2
+            | _      -> error 1151 ("Invalid string: " ^ str)
         )
     in
-    interpolate 0 len 0
+    iter 0 0
 ;;

@@ -114,84 +114,84 @@ let hash_echo        = "#echo"
 (* lexer rules *)
 rule token =
 	parse
-	| white       { token lexbuf }
-	| newline     { next_line lexbuf; token lexbuf }
-	| comment     { token lexbuf }
-	| '/' '*'+    { read_comments lexbuf; token lexbuf }
+	| white         { token lexbuf }
+	| newline       { next_line lexbuf; token lexbuf }
+	| comment       { token lexbuf }
+	| '/' '*'+      { read_comments lexbuf; token lexbuf }
 	| include_file white '\''
-	              { INCLUDE_FILE (read_string (Buffer.create 17) lexbuf) }
+	                { INCLUDE_FILE (read_string (Buffer.create 17) lexbuf) }
     | import_file white '\''
-                  { IMPORT_FILE (read_string (Buffer.create 17) lexbuf) }
+                    { IMPORT_FILE (read_string (Buffer.create 17) lexbuf) }
     | "=~" ' '* '/' { REGEXP (read_regex (Buffer.create 17) lexbuf) }
-	| ','         { COMMA }
-	| '{'         { BEGIN }
-	| '}'         { END }
-	| '['         { LBRACKET }
-	| ']'         { RBRACKET }
-	| '('         { LPARENTHESIS }
-	| ')'         { RPARENTHESIS }
-	| ';'         { EOS }
-	| '.'         { SEP }
-	| ':'         { COLON }
-	| '*'         { ASTERIX }
-    | '+'         { TOK_PLUS }
-    | '-'         { TOK_SUBTRACT }
-    | '/'         { TOK_DIVIDER }
-    | '%'         { TOK_MODULO }
-	| '='         { EQUAL }
-	| "!="        { NOT_EQUAL }
-	| ">="        { TOK_GREATER_EQUAL }
-	| "<="        { TOK_LESS_EQUAL }
-	| '>'         { TOK_GREATER }
-	| '<'         { TOK_LESS }
-    | ":="        { TOK_COLON_EQUAL }
-    | "=="        { TOK_EQUAL_EQUAL }
-    | "&&"        { TOK_AND }
-    | "||"        { TOK_OR  }
-    | "=>"        { TOK_IMPLY }
-    | '!'         { TOK_EXCLAMATION }
-    | '$'         { TOK_DOLLAR }
-	| int         { INT (Lexing.lexeme lexbuf) }
-	| float       { FLOAT (Lexing.lexeme lexbuf) }
-	| true_value  { BOOL "true" }
-	| false_value { BOOL "false" }
-	| null_value  { NULL }
-	| tbd_value   { TOK_TBD }
+	| ','           { COMMA }
+	| '{'           { BEGIN }
+	| '}'           { END }
+	| '['           { LBRACKET }
+	| ']'           { RBRACKET }
+	| '('           { LPARENTHESIS }
+	| ')'           { RPARENTHESIS }
+	| ';'           { EOS }
+	| '.'           { SEP }
+	| ':'           { COLON }
+	| '*'           { ASTERIX }
+    | '+'           { TOK_PLUS }
+    | '-'           { TOK_SUBTRACT }
+    | '/'           { TOK_DIVIDER }
+    | '%'           { TOK_MODULO }
+	| '='           { EQUAL }
+	| "!="          { NOT_EQUAL }
+	| ">="          { TOK_GREATER_EQUAL }
+	| "<="          { TOK_LESS_EQUAL }
+	| '>'           { TOK_GREATER }
+	| '<'           { TOK_LESS }
+    | ":="          { TOK_COLON_EQUAL }
+    | "=="          { TOK_EQUAL_EQUAL }
+    | "&&"          { TOK_AND }
+    | "||"          { TOK_OR  }
+    | "=>"          { TOK_IMPLY }
+    | '!'           { TOK_EXCLAMATION }
+    | '$'           { TOK_DOLLAR }
+	| int           { INT (Lexing.lexeme lexbuf) }
+	| float         { FLOAT (Lexing.lexeme lexbuf) }
+	| true_value    { BOOL "true" }
+	| false_value   { BOOL "false" }
+	| null_value    { NULL }
+	| tbd_value     { TOK_TBD }
 	| unknown_value { TOK_UNKNOWN }
 	| nothing_value { TOK_NOTHING }
-	| extends     { EXTENDS }
-	| isa         { ISA }
-	| schema      { SCHEMA }
-    | enum        { ENUM }
-	| t_bool      { TBOOL }
-	| t_int       { TINT }
-	| t_float     { TFLOAT }
-	| t_str       { TSTR }
-	| t_obj       { TOBJ }
-	| _in         { IN }
-	| _not        { NOT }
-	| _if         { IF }
-	| _then       { THEN }
-    | _else       { ELSE }
-	| _global     { GLOBAL }
-    | _sometime   { SOMETIME }
-    | _atleast    { ATLEAST }
-    | _atmost     { ATMOST }
+	| extends       { EXTENDS }
+	| isa           { ISA }
+	| schema        { SCHEMA }
+    | enum          { ENUM }
+	| t_bool        { TBOOL }
+	| t_int         { TINT }
+	| t_float       { TFLOAT }
+	| t_str         { TSTR }
+	| t_obj         { TOBJ }
+	| _in           { IN }
+	| _not          { NOT }
+	| _if           { IF }
+	| _then         { THEN }
+    | _else         { ELSE }
+	| _global       { GLOBAL }
+    | _sometime     { SOMETIME }
+    | _atleast      { ATLEAST }
+    | _atmost       { ATMOST }
     | _alldifferent { ALLDIFFERENT }
-	| cost        { COST }
-	| conditions  { CONDITIONS }
-	| effects     { EFFECTS }
-	| action      { ACTION }
-    | hash_echo   { HASH_ECHO "#echo" }
-	| '\''        { STRING (read_string (Buffer.create 17) lexbuf) }
-    | '"'         { ISTRING (read_interpolated_string (Buffer.create 17) lexbuf) }
-    | '`'         { SHELL (read_shell (Buffer.create 17) lexbuf) }
-	| ident       {
-	              	let id = Lexing.lexeme lexbuf in
-	                if is_keyword id then raise (SyntaxError (id ^ " is a reserved identifier"))
-	              	else ID id
-	              }
-	| eof         { EOF }
+	| cost          { COST }
+	| conditions    { CONDITIONS }
+	| effects       { EFFECTS }
+	| action        { ACTION }
+    | hash_echo     { HASH_ECHO "#echo" }
+	| '\''          { STRING (read_string (Buffer.create 17) lexbuf) }
+    | '"'           { ISTRING (read_interpolated_string (Buffer.create 17) lexbuf) }
+    | '`'           { SHELL (read_shell (Buffer.create 17) lexbuf) }
+	| ident         {
+	              	  let id = Lexing.lexeme lexbuf in
+	                  if is_keyword id then raise (SyntaxError (id ^ " is a reserved identifier"))
+	              	  else ID id
+	                }
+	| eof           { EOF }
 
 and read_interpolated_string buf =
 	parse
