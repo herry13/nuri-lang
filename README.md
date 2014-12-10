@@ -375,16 +375,14 @@ The above specification is another example where schema `Client` has an
 attribute `refer` whose type is a reference of `Service` where its default
 value is `null`.
 
-In Nuri, we can only define a reference of an object, but not a basic value.
-
 ```javascript
 main {
-  a1 { }
-  a2 isa Service { }
-  a3 0;
-  b1 a1;  // *object
-  b2 a2;  // *Service
-  b3 a3;  // int
+  a1 { }                // type: object
+  a2 isa Service { }    // type: Service
+  a3 0;                 // type: int
+  b1 a1;                // type: *object
+  b2 a2;                // type: *Service
+  b3 a3;                // type: int
 }
 ```
 
@@ -434,7 +432,7 @@ The compilation output of the above specification is:
 
 A variable can be assigned with a function. Currently, Nuri supports four types of function:
 - arithmetic
-- string manipulation
+- string-operation
 - shell-command
 - conditional
 
@@ -471,11 +469,11 @@ main {
 }
 ```
 
-#### String Manipulation Functions
+#### String Operation Functions
 
-There are two string manipulation functions:
+There are three string-operation functions:
 - string concatenation: `1 + ' is an integer, but ' + true + ' is a boolean.'`
-- string interpolation: `"a string with a ${basic-value} or a ${variable}"`
+- string interpolation: `"a string with a ${basic_value} or a ${variable}"`
 - regular expression (regexp) matching: `'a string is matched with' =~ /regular expression/`
 
 The string concatenation resembles Java syntax where any basic value (boolean, integer, float, string, array, or reference) can be concatenated with a string. It uses the same symbol with arithmetic addition function i.e. `+`. To distinguish between arithmetric or string, the left association is used where if any operand (left or right) is a string then it will be a string concatenation, otherwise it will be an arithmetic addition.
@@ -521,6 +519,18 @@ main {
 }
 ```
 
+The above specification can be simplified by removing variable `status`, as the following:
+
+```javascript
+main {
+  service {
+    name 'apache';
+    running (`service status ${name}` =~ /is running/);
+  }
+}
+```
+
+
 #### Lazy vs Eager Evaluation
 
 In default, all functions are **lazy evaluated**: the functions will not be evaluated until the last stage of compilation. This is very useful because functions inside schemas or prototype objects will not be evaluated during compilation. In addition, this can minimise the compilation time because only necessary functions that will be evaluated.
@@ -537,6 +547,31 @@ main {
 ```
 
 In the above example, `b` and `c` have the same functions but the former is lazy evaluated and the later is eager evaluated. Because `c` is eager evaluated, then its final value is `3` since `a`'s value is `1` when the function is evaluated. On the other hand, `b`'s final value is `4` since `a`'s final value is `2`.
+
+```javascript
+schema Service {
+  name : string TBD;
+  running (`service status ${name}` =~ /is running/);
+}
+
+main {
+  apache isa Service {
+    name 'apache2';
+  }
+}
+```
+
+The above specification shows how to use lazy-evaluation function in order to define a schema (or a prototype-object) whose attributes will be inherited by other objects. Below is the output of the compilation process.
+
+```json
+{
+  "apache": {
+    ".type": "Service",
+    "name": "apache2",
+    "running" true
+  }
+}
+```
 
 
 ### File Inclusion
