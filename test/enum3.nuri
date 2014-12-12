@@ -1,0 +1,7 @@
+enum State { stopped, running }
+
+main {
+    a State.stopped;
+    b : State running;
+    b stopped;
+}
