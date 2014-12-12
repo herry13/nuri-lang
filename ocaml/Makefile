@@ -146,12 +146,6 @@ dist: build clean
 
 clean-build: clean-all build
 
-darwin: dist
-	@mv -f $(NAME) dist/darwin
-
-linux: dist
-	@mv -f $(NAME) dist/linux
-
 travis: dist
 
 test:
