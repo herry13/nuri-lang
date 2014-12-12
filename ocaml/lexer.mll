@@ -73,7 +73,7 @@ let string           = '"' ('\\'_|[^'\\' '"'])* '"'
 let null_value       = "null" | "NULL"
 let tbd_value        = "TBD"
 let unknown_value    = "unknown"
-let nothing_value    = "nothing"
+let none_value       = "none"
 
 (* expression *)
 let _else            = "else"
@@ -158,7 +158,7 @@ rule token =
 	| null_value    { NULL }
 	| tbd_value     { TOK_TBD }
 	| unknown_value { TOK_UNKNOWN }
-	| nothing_value { TOK_NOTHING }
+	| none_value    { TOK_NONE }
 	| extends       { EXTENDS }
 	| isa           { ISA }
 	| schema        { SCHEMA }

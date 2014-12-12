@@ -245,7 +245,7 @@ let rec of_value ?ignore_lazy:(ignore_lazy=true) value =
 			)
 		| Domain.TBD -> Buffer.add_string buf "\"$TBD\""
 		| Domain.Unknown -> Buffer.add_string buf "\"$unknown\""
-		| Domain.None -> Buffer.add_string buf "\"$nothing\""
+		| Domain.None -> Buffer.add_string buf "\"$none\""
 		| Domain.Store child -> Buffer.add_string buf "{}"
 		| Domain.Global c -> json_constraint buf c
 		| Domain.Action a -> json_action buf a
@@ -324,7 +324,7 @@ let of_store typeEnv store =
 			)
 		| Domain.None -> (
 				add_ident ~_type:(json_variable_type ns id) buf id;
-				Buffer.add_string buf "\"$nothing\""
+				Buffer.add_string buf "\"$none\""
 			)
 		| Domain.Store child -> (
 				add_ident buf id;
