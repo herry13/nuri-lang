@@ -1,39 +1,53 @@
-(* Author: Herry (herry13@gmail.com) *)
+(** Module Type contains the type environment (list and map)
+    as well as its algebra functions.
+
+    Module dependencies:
+    - Common
+
+    @author Herry (herry13\@gmail.com)
+    @since 2014
+*)
 
 open Common
+open Syntax
 
-(*******************************************************************
- * type environment
- *******************************************************************)
+type system = { types : types ; environment : environment }
 
-type map = Syntax.t MapRef.t
+and types = t list
 
-(*******************************************************************
- * functions of type environment
- *******************************************************************)
+and environment = variable_type list
 
-exception TypeError of int * string
+and variable_type = variable * t
 
-val string_of_map : map -> string
+and variable = string list
 
-val nuriSpecification : ?main:string list -> Syntax.nuri -> map
+and map = t MapRef.t
 
-val type_of : Domain.reference -> map -> Syntax.t
-
-val subtype : Syntax.t -> Syntax.t -> bool
+exception Error of int * string
 
 
-(*******************************************************************
- * a map from type to set of values
- *******************************************************************)
+val string_of_map : ?buffer:Buffer.t -> map -> Buffer.t
 
-module MapType : Map.S with type key = Syntax.t
+val type_of : variable -> map -> t
 
-type type_values = Domain.SetValue.t MapType.t
 
-val values_of : Syntax.t -> type_values -> Domain.SetValue.t
+val string_of_system : ?buffer:Buffer.t -> system -> Buffer.t
 
-val add_value : Syntax.t -> Domain.value -> type_values -> type_values
+val string_of_environment : ?buffer:Buffer.t -> environment -> Buffer.t
 
-val make_type_values : map -> Domain.flatstore -> map ->
-	Domain.flatstore -> Domain.SetValue.t MapType.t
+val string_of_types : ?buffer:Buffer.t -> types -> Buffer.t
+
+val initial_system : system
+
+val (@:) : variable -> system -> bool
+
+val (-:) : variable -> system -> t
+
+val (<:) : t -> t -> bool
+
+val has : t -> system -> bool
+
+val well_formed : system -> bool
+
+
+val assign : t -> t -> variable -> system -> system
