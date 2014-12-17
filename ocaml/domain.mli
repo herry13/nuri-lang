@@ -94,18 +94,18 @@ val error : int -> string -> 'a
  *******************************************************************)
 
 (** Return a prefix of a reference. *)
-val (!--) : reference -> reference
+val (!-) : reference -> reference
 
 (** Concat the second reference to the last position of the first
     reference. *)
-val (@++) : reference -> reference -> reference
+val (@+) : reference -> reference -> reference
 
 (** Add an identifier to the last position of the reference. *)
 val (@+.) : reference -> string -> reference
 
 (** Remove a common (of both references) prefix from the first
     reference. *)
-val (@--) : reference -> reference -> reference
+val (@-) : reference -> reference -> reference
 
 (** 'true' if the second reference is equal or the prefix of the
     first one, otherwise 'false'. *)

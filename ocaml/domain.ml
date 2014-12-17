@@ -105,31 +105,31 @@ let (!^) r = String.concat "." r
 
 (** Concat the second reference to the last position of the first
     reference. *)
-let rec (!--) = function
+let rec (!-) = function
     | []           -> []
     | head :: []   -> []
-    | head :: tail -> head :: (!-- tail)
+    | head :: tail -> head :: (!- tail)
 ;;
 
 (** Add an identifier to the last position of the reference. *)
-let (@++) = List.append ;;
+let (@+) = List.append ;;
 
 (** Remove a common (of both references) prefix from the first
     reference. *)
-let (@+.) reference identifier = reference @++ [identifier] ;;
+let (@+.) reference identifier = reference @+ [identifier] ;;
 
 (** Remove a common (of both references) prefix from the first
     reference. *)
-let rec (@--) reference1 reference2 = match reference1, reference2 with
+let rec (@-) reference1 reference2 = match reference1, reference2 with
     | [], _                                     -> []
     | _, []                                     -> reference1
-    | id1 :: tail1, id2 :: tail2 when id1 = id2 -> tail1 @-- tail2
+    | id1 :: tail1, id2 :: tail2 when id1 = id2 -> tail1 @- tail2
     | _                                         -> reference1
 ;;
 
 (** 'true' if the second reference is equal or the prefix of the
     first one, otherwise 'false'. *)
-let (@<=) reference1 reference2 = (reference1 @-- reference2) = [] ;;
+let (@<=) reference1 reference2 = (reference1 @- reference2) = [] ;;
 
 (** 'true' if the second reference is not equal and the prefix of
     the first one, otherwise 'false'. *)
@@ -144,7 +144,7 @@ let rec (@<<) namespace reference = match namespace, reference with
     | _, "this" :: tail    -> namespace @<< tail
     | _, "root" :: tail    -> [] @<< tail
     | [], "parent" :: tail -> error 501 ("Invalid reference: " ^ !^reference)
-    | _, "parent" :: tail  -> !--namespace @<< tail
+    | _, "parent" :: tail  -> !-namespace @<< tail
     | _, id :: tail        -> (namespace @+. id) @<< tail
 ;;
 
@@ -177,7 +177,7 @@ let find_follow store reference : _value =
         | (ids, _) :: tail, id :: _ when id <> ids -> search tail r
         | (ids, vs) :: _, id :: []                 -> Val vs
         | (ids, Store child) :: _, id :: rs        -> search child rs
-        | (ids, Basic Reference rp) :: _, id :: rs -> search store (rp @++ rs)
+        | (ids, Basic Reference rp) :: _, id :: rs -> search store (rp @+ rs)
         | _                                        -> Undefined
     in
     search store reference
@@ -192,11 +192,11 @@ let rec resolve ?follow:(ff=false) store namespace reference =
     match reference, namespace with
     | "root" :: rs, _    -> ([], search store !<<rs)
     | "parent" :: rs, [] -> error 502 ("Invalid reference: " ^ !^reference)
-    | "parent" :: rs, _  -> (!-- namespace, search store !<<(!--namespace @++ rs))
-    | "this" :: rs, _    -> (namespace, search store !<<(namespace @++rs))
+    | "parent" :: rs, _  -> (!- namespace, search store !<<(!-namespace @+ rs))
+    | "this" :: rs, _    -> (namespace, search store !<<(namespace @+rs))
     | _, []              -> ([], search store !<<reference)
     | _ -> match search store (namespace @<< reference) with
-           | Undefined -> resolve store !--namespace reference
+           | Undefined -> resolve store !-namespace reference
            | value -> (namespace, value)
 ;;
 
@@ -236,8 +236,8 @@ and copy store source dest =
 let normalize_reference namespace reference = match namespace, reference with
     | _ , "root" :: rs   -> { namespace = [] ; ref = rs }
     | [], "parent" :: rs -> error 515 ("Invalid reference: " ^ !^reference)
-    | _ , "parent" :: rs -> { namespace = [] ; ref = !--namespace @++ rs }
-    | _ , "this" :: rs   -> { namespace = [] ; ref = namespace @++ rs }
+    | _ , "parent" :: rs -> { namespace = [] ; ref = !-namespace @+ rs }
+    | _ , "this" :: rs   -> { namespace = [] ; ref = namespace @+ rs }
     | _                  -> { namespace = namespace ; ref = reference }
 ;;
 
@@ -261,10 +261,10 @@ and get_link reference accumulator store namespace destReference =
         error 503 ""
     else
         let (nsp, value) = resolve store r.namespace r.ref in
-        let rp = nsp @++ r.ref in
+        let rp = nsp @+ r.ref in
         match value with
         | Val Link ref
-        | Val Basic Reference ref -> get_link ref (SetRef.add rp accumulator) store !--rp destReference
+        | Val Basic Reference ref -> get_link ref (SetRef.add rp accumulator) store !-rp destReference
         | _ -> if rp @<= destReference then error 504 ""
                else (rp, value)
 
@@ -514,7 +514,7 @@ let substitute_parameter_of_reference reference groundParameters =
     | id :: tail when MapStr.mem id groundParameters ->
         (
             match MapStr.find id groundParameters with
-            | Reference r -> !<<(r @++ tail)
+            | Reference r -> !<<(r @+ tail)
             | _           -> error 513 ("Cannot replace left-hand side " ^
                                         "reference with a non-reference value")
         )
@@ -528,7 +528,7 @@ let substitute_parameter_of_basic_value basic_value groundParameters =
     | Reference (id :: tail) when MapStr.mem id groundParameters ->
         (
             match tail, (MapStr.find id groundParameters) with
-            | _ , Reference r -> Reference !<<(r @++ tail)
+            | _ , Reference r -> Reference !<<(r @+ tail)
             | [], v           -> v
             | _               -> error 514 ""
         )

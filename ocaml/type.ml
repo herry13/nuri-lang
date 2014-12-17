@@ -17,9 +17,7 @@ and types = t list
 
 and environment = variable_type list
 
-and variable_type = variable * t
-
-and variable = string list
+and variable_type = Domain.reference * t
 
 and map = t MapRef.t
 
@@ -37,14 +35,14 @@ let error code message =
 
 
 (* alias of functions from module Domain *)
-let (@++)  = Domain.(@++) ;;
-let (@+.)  = Domain.(@+.) ;;
-let (@--)  = Domain.(@--) ;;
-let (!--)  = Domain.(!--) ;;
-let (@<=)  = Domain.(@<=) ;;
-let (@<)   = Domain.(@<) ;;
-let (@<<)  = Domain.(@<<) ;;
-let (!<<)  = Domain.(!<<) ;;
+let (@+)  = Domain.(@+) ;;
+let (@+.) = Domain.(@+.) ;;
+let (@-)  = Domain.(@-) ;;
+let (!-)  = Domain.(!-) ;;
+let (@<=) = Domain.(@<=) ;;
+let (@<)  = Domain.(@<) ;;
+let (@<<) = Domain.(@<<) ;;
+let (!<<) = Domain.(!<<) ;;
 
 
 (** Generate a string of a map of variable-type.
@@ -117,27 +115,13 @@ let initial_system = { types = builtin_types ; environment = [] } ;;
  * typing judgement functions
  *******************************************************************)
 
-(** Return true if given variable exists in given type-environment, otherwise false.
-    @param variable the variable to be checked its existance
-    @param env the type-environment
-    @return bool
-*)
-let (@:) variable sys =
-    let rec iter env = match env with
-        | []                                -> false
-        | (var, _) :: _ when var = variable -> true
-        | _ :: tail                         -> iter tail
-    in
-    iter sys.environment
-;;
-
 (** Return the type of given variable within given type-environment. If the
     variable is not exist, then return T_Undefined.
     @param variable the variable to be searched
     @param env the type-environment
     @return the type of variable
 *)
-let rec (-:) variable sys =
+let rec (@:) variable sys =
     let rec iter env = match env with
         | []                                -> T_Undefined
         | (var, t) :: _ when var = variable -> t
@@ -200,7 +184,7 @@ let well_formed sys = List.for_all (fun (_, t) -> has t sys) sys.environment ;;
  * type assignment functions
  *******************************************************************)
 
-let assign t_explicit t_value var sys = match (var -: sys), t_explicit, t_value with
+let assign t_explicit t_value var sys = match (var @: sys), t_explicit, t_value with
     | T_Undefined, T_Undefined, T_Any ->
         error 490 ("You need to explicitly define the type of '" ^ !^var ^ "'.")
 
@@ -235,4 +219,42 @@ let assign t_explicit t_value var sys = match (var -: sys), t_explicit, t_value 
 
     | _ ->
         error 409 ("The explicit type is not subtype of the variable's type: " ^ !^var ^ ".")
+;;
+
+let variables_with_prefix prefix env =
+    if prefix = [] then env
+    else if env = [] then []
+    else List.fold_left (fun env (var, t) ->
+             if prefix @< var then (var, t) :: env
+             else env
+         ) [] env
+;;
+
+let copy srcPrefix destPrefix sys =
+    let env = List.fold_left (fun env (var, t) ->
+            (destPrefix @+ (var @- srcPrefix), t) :: env
+        ) sys.environment (variables_with_prefix srcPrefix sys.environment)
+    in
+    { types = sys.types ; environment = env }
+;;
+
+let rec resolve var namespace sys = match namespace, var with
+    | _, "root" :: rs    -> ([], !<<rs @: sys)
+    | [], "parent" :: rs -> error 409 "Parent of root is impossible."
+    | _, "parent" :: rs  -> (!-namespace, (!-namespace @<< rs) @: sys)
+    | _, "this" :: rs    -> (namespace, (namespace @<< rs) @: sys)
+    | [], _              -> ([], var @: sys)
+    | _, _ ->
+        match (namespace @<< var) @: sys with
+        | T_Undefined -> resolve !-namespace var sys
+        | t           -> (namespace, t)
+;;
+
+let extends src dest namespace sys =
+    let prototype = match resolve src namespace sys with
+        | _, T_Undefined -> error 410 ("Prototype is not found: " ^ !^src)
+        | ns, t when t <: T_Object T_PlainObject -> ns @+ src
+        | _, t -> error 411 ("Prototype is not an object: " ^ (string_of_type t))
+    in
+    copy prototype dest sys
 ;;
