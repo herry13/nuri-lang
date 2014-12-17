@@ -210,7 +210,7 @@ let rec string_of nuri =
         | T_Undefined      -> buf << "undefined"
         | T_Any            -> buf << "any"
         | T_Action         -> buf << "action"
-        | T_Constraint         -> buf << "global"
+        | T_Constraint     -> buf << "global"
         | T_Enum (id, _)   -> buf << id
         | T_List t         -> buf << "[]"; _type t
         | T_Object t       -> type_schema t
@@ -292,7 +292,7 @@ let string_of_type t =
         | T_Undefined      -> buf << "undefined"
         | T_Any            -> buf << "any"
         | T_Action         -> buf << "action"
-        | T_Constraint         -> buf << "global"
+        | T_Constraint     -> buf << "global"
         | T_Enum (id, _)   -> buf << "enum~"; buf << id
         | T_List t         -> buf << "[]"; _type t
         | T_Object t       -> type_schema t
