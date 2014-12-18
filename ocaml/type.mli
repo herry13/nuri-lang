@@ -48,11 +48,17 @@ val well_formed : system -> bool
 
 val assign : t -> t -> Domain.reference -> system -> system
 
-val variables_with_prefix : Domain.reference -> environment -> environment
+val variables_with_prefix : ?remove_prefix:bool -> Domain.reference -> environment -> environment
 
 val copy : Domain.reference -> Domain.reference -> system -> system
 
 val resolve : Domain.reference -> Domain.reference -> system -> (Domain.reference * t)
 
-val extends : Domain.reference -> Domain.reference -> Domain.reference -> system -> system
+val _inherit : Domain.reference -> Domain.reference -> Domain.reference -> system -> system
 
+val main_of : ?main_reference:Domain.reference -> system -> system
+
+
+(*
+val resolve_follow : ?visited:SetRef.t -> Domain.reference -> Domain.reference -> system -> (Domain.reference * t)
+*)
