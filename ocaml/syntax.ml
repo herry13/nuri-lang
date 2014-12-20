@@ -80,13 +80,13 @@ and t        = T_Bool
              | T_Constraint
              | T_Enum      of string * string list
              | T_List      of t
+             | T_Schema    of t_object
              | T_Object    of t_object
              | T_Reference of t_object
              | T_Forward   of t_forward
     
-and t_object  = T_PlainObject
-             | T_PlainSchema
-             | T_Schema of string * t_object
+and t_object = T_Plain
+             | T_User of string * t_object
     
 and t_forward = T_LinkForward      of reference
              | T_ReferenceForward of reference
@@ -134,7 +134,37 @@ let error code message =
  * functions to convert elements of abstract syntax tree to string
  *******************************************************************)
 
-(** convert a Nuri abstract syntax tree into a string **)
+(** convert a type into a string **)
+let string_of_type t =
+    let buf = Buffer.create 5 in
+    let rec _type t = match t with
+        | T_Bool           -> buf << "bool"
+        | T_Int            -> buf << "int"
+        | T_Float          -> buf << "float"
+        | T_String         -> buf << "string"
+        | T_Null           -> buf << "null"
+        | T_Undefined      -> buf << "undefined"
+        | T_Any            -> buf << "any"
+        | T_Action         -> buf << "action"
+        | T_Constraint     -> buf << "global"
+        | T_Enum (id, _)   -> buf << "enum~"; buf << id
+        | T_List t         -> buf << "[]"; _type t
+        | T_Schema t       -> buf << "schema~"; type_object t
+        | T_Object t       -> type_object t
+        | T_Reference t    -> buf <. '*'; type_object t
+        | T_Forward T_LinkForward r      -> buf << "forward~"; buf << !^r
+        | T_Forward T_ReferenceForward r -> buf << "forward*~"; buf << !^r
+
+    and type_object t = match t with
+        | T_Plain            -> buf << "object"
+        | T_User (id, super) -> buf << id; buf <. '<'; type_object super
+
+    in
+    _type t;
+    Buffer.contents buf
+;;
+
+(** convert an abstract syntax tree into a string **)
 let rec string_of nuri =
     let buf = Buffer.create 40 in
     let rec context ctx = match ctx with
@@ -213,15 +243,15 @@ let rec string_of nuri =
         | T_Constraint     -> buf << "global"
         | T_Enum (id, _)   -> buf << id
         | T_List t         -> buf << "[]"; _type t
-        | T_Object t       -> type_schema t
-        | T_Reference t    -> buf <. '*'; type_schema t
-        | T_Forward T_LinkForward r      -> buf << "~"; reference r
-        | T_Forward T_ReferenceForward r -> buf << "~*"; reference r
+        | T_Schema t       -> type_object t
+        | T_Object t       -> type_object t
+        | T_Reference t    -> buf <. '*'; type_object t
+        | T_Forward T_LinkForward r      -> error 301 "T_LinkForward is not allowed."
+        | T_Forward T_ReferenceForward r -> error 302 "T_ReferenceForward is not allowed."
 
-    and type_schema t = match t with
-        | T_PlainObject             -> buf << "object"
-        | T_PlainSchema         -> ()
-        | T_Schema (id, _) -> buf << id;
+    and type_object t = match t with
+        | T_Plain        -> buf << "object"
+        | T_User (id, _) -> buf << id;
 
     and super_schema ss = match ss with
         | SID id      -> buf << " isa "; buf << id
@@ -280,32 +310,4 @@ let rec string_of nuri =
     Buffer.contents buf
 ;;
 
-(** convert a Nuri type into a string **)
-let string_of_type t =
-    let buf = Buffer.create 5 in
-    let rec _type t = match t with
-        | T_Bool           -> buf << "bool"
-        | T_Int            -> buf << "int"
-        | T_Float          -> buf << "float"
-        | T_String         -> buf << "string"
-        | T_Null           -> buf << "null"
-        | T_Undefined      -> buf << "undefined"
-        | T_Any            -> buf << "any"
-        | T_Action         -> buf << "action"
-        | T_Constraint     -> buf << "global"
-        | T_Enum (id, _)   -> buf << "enum~"; buf << id
-        | T_List t         -> buf << "[]"; _type t
-        | T_Object t       -> type_schema t
-        | T_Reference t    -> buf <. '*'; type_schema t
-        | T_Forward T_LinkForward r      -> buf << "forward~"; buf << !^r
-        | T_Forward T_ReferenceForward r -> buf << "forward~*"; buf << !^r
 
-    and type_schema t = match t with
-        | T_PlainObject                 -> buf << "object"
-        | T_PlainSchema             -> ()
-        | T_Schema (id, super) -> buf << id; buf <. '<'; type_schema super
-
-    in
-    _type t;
-    Buffer.contents buf
-;;
