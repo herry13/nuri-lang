@@ -8,9 +8,6 @@
     @since 2014
 *)
 
-open Common
-open Syntax
-
 type system = { types : types ; environment : environment }
 
 and types = t list
