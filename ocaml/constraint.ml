@@ -101,7 +101,7 @@ let rec nested_to_prevail reference value variables typeEnvironment mode =
     let rec prevail_of r =
         if r = [] then error 702 "invalid nested reference"
         else if Variable.mem r variables then r
-        else prevail_of (!--r)
+        else prevail_of (!-r)
     in
     let rec iter r cs =
         let prevail = prevail_of r in
@@ -118,13 +118,13 @@ let rec nested_to_prevail reference value variables typeEnvironment mode =
             | _             -> error 703 "invalid mode"
         else
             let cs1 = (NotEqual (prevail, Null)) :: cs in
-            let rs1 = r @-- prevail in
+            let rs1 = r @- prevail in
             Array.fold_left (
                 fun acc vp ->
                     match vp with
                     | Basic (Reference rp) ->
                         let premise = Equal (prevail, Reference rp) in
-                        let conclusion = And (iter (rp @++ rs1) []) in
+                        let conclusion = And (iter (rp @+ rs1) []) in
                         (Imply (premise, conclusion)) :: acc
                     | Basic Null     -> acc
                     | _              -> error 704 ""
@@ -501,7 +501,7 @@ let compile_membership isNegation reference vector data =
     let rec prevail_of r =
         if r = [] then error 718 "invalid nested reference"
         else if Variable.mem r data.variables then r
-        else prevail_of (!--r)
+        else prevail_of (!-r)
     in
     let prevail = prevail_of reference in
     if prevail = reference then
@@ -520,7 +520,7 @@ let compile_membership isNegation reference vector data =
         let variables1 = Variable.remove_value_from prevail (Basic Null)
             data.variables
         in
-        let rs = reference @-- prevail in
+        let rs = reference @- prevail in
         let accumulator = {
                 complex   = data.complex;
                 simple    = data.simple;
@@ -531,7 +531,7 @@ let compile_membership isNegation reference vector data =
         Array.fold_left (fun acc v ->
             match v with
             | Basic (Reference r) ->
-                let r1 = r @++ rs in
+                let r1 = r @+ rs in
                 let c =
                     if isNegation then
                         Imply (Equal (prevail, Reference r), Not (In (r1, vector)))
@@ -552,7 +552,7 @@ let compile_equality isNegation reference value data =
     let rec prevail_of r =
         if r = [] then error 720 "invalid nested reference"
         else if Variable.mem r data.variables then r
-        else prevail_of (!--r)
+        else prevail_of (!-r)
     in
     let prevail = prevail_of reference in
     if prevail = reference then
@@ -571,7 +571,7 @@ let compile_equality isNegation reference value data =
         let variables1 = Variable.remove_value_from prevail (Basic Null)
             data.variables
         in
-        let rs = reference @-- prevail in
+        let rs = reference @- prevail in
         let accumulator = {
                 complex   = data.complex;
                 simple    = data.simple;
@@ -582,7 +582,7 @@ let compile_equality isNegation reference value data =
         Array.fold_left (fun acc v ->
             match v with
             | Basic (Reference r) ->
-                let r1 = r @++ rs in
+                let r1 = r @+ rs in
                 let _constraint =
                     if isNegation
                         then Imply (Equal (prevail, Reference r), NotEqual (r1, value))

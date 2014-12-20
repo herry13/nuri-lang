@@ -32,10 +32,10 @@ let rec (@==) reference1 reference2 =
 ;;
 
 (* alias of functions from module Domain *)
-let (@++)  = Domain.(@++) ;;
+let (@+)  = Domain.(@+) ;;
 let (@+.)  = Domain.(@+.) ;;
-let (@--)  = Domain.(@--) ;;
-let (!--)  = Domain.(!--) ;;
+let (@-)  = Domain.(@-) ;;
+let (!-)  = Domain.(!-) ;;
 let (@<=)  = Domain.(@<=) ;;
 let (@<)   = Domain.(@<) ;;
 let (@<<)  = Domain.(@<<) ;;
@@ -181,7 +181,7 @@ let bind env var t =
     | NotFound, id :: [] -> (var, t) :: env
     | NotFound, _ ->
         (
-            match find env !--var with
+            match find env !-var with
             | Type T_Enum (_, _) -> (var, t) :: env
             | Type t1 when t1 <: T_Object T_PlainObject -> (var, t) :: env
             | NotFound -> error 403 ("Prefix of " ^ !^var ^ " is undefined.")
@@ -224,8 +224,8 @@ let assign env var t tValue =
 
 (**
  * TODOC
- * Return part of type environment where the reference is the !--of
- * the variables. The !--of variables will be removed when 'replacePrefix'
+ * Return part of type environment where the reference is the !-of
+ * the variables. The !-of variables will be removed when 'replacePrefix'
  * is true, otherwise the variables will have original references.
  *)
 let rec env_of_ref env var replacePrefix =
@@ -234,7 +234,7 @@ let rec env_of_ref env var replacePrefix =
     else
         List.fold_left (fun e (r, t) ->
             if var @< r then
-                let re = if replacePrefix then (r @-- var) else r in
+                let re = if replacePrefix then (r @- var) else r in
                 (re, t) :: e
             else
                 e
@@ -244,23 +244,34 @@ let rec env_of_ref env var replacePrefix =
 (**
  * TODOC
  * @param env   type environment
- * @param base  the !--where the variable will be resolved
+ * @param base  the !-where the variable will be resolved
  * @param var   var to be resolved
  *)
 let rec resolve env base var =
+    match base, base @<< var with
+    | [], Domain.Invalid -> ([], NotFound)
+    | _, Domain.Invalid -> resolve env !-base var
+    | [], Domain.Valid r -> ([], find env r)
+    | _, Domain.Valid r ->
+        begin match find env r with
+        | NotFound -> resolve env !-base var
+        | t -> (base, t)
+        end
+(*
     match base, var with
     | _, "root"   :: rs -> ([], find env !<<rs)
     | _, "parent" :: rs ->
         if base = []
             then error 409 "Parent of root is impossible."
         else
-            (!--base, find env !<<(!--base @++ rs))
-    | _, "this"   :: rs -> (base, find env !<<(base @++ rs))
+            (!-base, find env !<<(!-base @+ rs))
+    | _, "this"   :: rs -> (base, find env !<<(base @+ rs))
     | [], _             -> ([], find env var)
     | _, _ ->
         match find env (base @<< var) with
-        | NotFound -> resolve env (!--base) var
+        | NotFound -> resolve env (!-base) var
         | t        -> (base, t)
+*)
 ;;
 
 (**
@@ -275,7 +286,7 @@ let rec resolve env base var =
 let copy env proto dest =
     let protoEnv = env_of_ref env proto true in
     List.fold_left (
-        fun ep (rep, tep) -> (dest @++ rep, tep) :: ep
+        fun ep (rep, tep) -> (dest @+ rep, tep) :: ep
     ) env protoEnv
 ;;
 
@@ -284,7 +295,7 @@ let copy env proto dest =
  * Inherit attributes from prototype to an object.
  *
  * @param env   type environment
- * @param base  the base !--where variables will be resolved
+ * @param base  the base !-where variables will be resolved
  * @param proto reference of prototype
  * @param var   target variable
  *)
@@ -292,7 +303,7 @@ let inherit_env env base proto var =
     let get_proto =
         match resolve env base proto with
         | _, NotFound -> error 410 ("Prototype is not found: " ^ !^proto)
-        | baseProto, Type t when t <: T_Object T_PlainObject -> baseProto @++ proto
+        | baseProto, Type t when t <: T_Object T_PlainObject -> baseProto @+ proto
         | _, Type t -> error 411 ("Invalid prototype " ^ !^proto ^ ":" ^ (string_of_type t))
     in
     copy env get_proto var 
@@ -307,13 +318,13 @@ let inherit_env env base proto var =
  * Resolve a forward type.
  *
  * @param env   type environment
- * @param base  base !--to resolve references
+ * @param base  base !-to resolve references
  * @param var   variable of the value
  * @param accumulator  accumulator of visited variables
  *)
 let rec resolve_forward_ref_type ?visited:(accumulator=SetRef.empty) env base var =
     let follow_forward_type base refValue =
-        let r = base @++ var in
+        let r = base @+ var in
         if SetRef.exists (fun rx -> rx = r) accumulator
             then error 413 ("Cyclic reference detected: " ^ !^r)
         else if r @<= refValue
@@ -328,8 +339,8 @@ let rec resolve_forward_ref_type ?visited:(accumulator=SetRef.empty) env base va
             if base = [] then
                 error 433 ("Invalid variable: " ^ !^var)
             else
-                ([], (!--base) @++ rs)
-        | "this" :: rs   -> ([], base @++ rs)
+                ([], (!-base) @+ rs)
+        | "this" :: rs   -> ([], base @+ rs)
         | _              -> (base, var)
     in
     if SetRef.exists (fun r -> r = var1) accumulator
@@ -339,7 +350,7 @@ let rec resolve_forward_ref_type ?visited:(accumulator=SetRef.empty) env base va
         | _, NotFound -> error 414 (!^var1 ^ " is not found in " ^ !^base1)
         | base2, Type T_Forward T_ReferenceForward var2
         | base2, Type T_Forward T_LinkForward var2 -> follow_forward_type base2 var2
-        | base2, Type t -> (base2 @++ var1, t)
+        | base2, Type t -> (base2 @+ var1, t)
 ;;
 
 (**
@@ -464,8 +475,8 @@ let sfLinkReference lr : environment -> reference -> reference ->
     fun e ns r ->
         let link = sfReference lr in
         match resolve e ns link with
-        | nsp, NotFound -> (nsp @++ link, T_Forward (T_LinkForward link))
-        | nsp, Type t   -> (nsp @++ link, t)
+        | nsp, NotFound -> (nsp @+ link, T_Forward (T_LinkForward link))
+        | nsp, Type t   -> (nsp @+ link, t)
 
 let rec sfVector vec : environment -> reference -> t =
     (**
@@ -680,7 +691,7 @@ and sfAssignment (r, t, v) : reference -> environment -> environment =
      *)
     fun ns ->
         if r = _echo_ then fun e -> e
-        else sfValue v ns (ns @++ r) t
+        else sfValue v ns (ns @+ r) t
 
 and nuriBlock block : reference -> environment -> environment =
     (**

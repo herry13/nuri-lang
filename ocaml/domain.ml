@@ -5,7 +5,8 @@
     - Common
 
     @author Herry (herry13\@gmail.com)
-    @since 2014 *)
+    @since 2014
+*)
 
 open Common
 
@@ -14,49 +15,53 @@ open Common
  *******************************************************************)
 
 (** Basic Value domain *)
-type basic    = Boolean   of bool       (** Boolean domain *)
-              | Int       of int        (** Integer domain *)
-              | Float     of float      (** Float domain *)
-              | String    of string     (** String domain *)
-              | Null                    (** Null domain *)
-              | Vector    of vector
-              | Reference of reference
+type basic = Boolean   of bool       (** Boolean domain *)
+           | Int       of int        (** Integer domain *)
+           | Float     of float      (** Float domain *)
+           | String    of string     (** String domain *)
+           | Null                    (** Null domain *)
+           | Vector    of vector
+           | Reference of reference
 
 (** Vector domain *)
-and vector   = basic list
+and vector = basic list
 
 (** Value domain *)
-and value     = Basic  of basic
-              | Store  of store
-              | Global of _constraint
-              | Link   of reference
-              | Action of action
-              | TBD
-              | Unknown
-              | None
-              | Enum of string list
-              | Lazy of func
+and value = Basic  of basic
+          | Store  of store
+          | Global of _constraint
+          | Link   of reference
+          | Action of action
+          | TBD
+          | Unknown
+          | None
+          | Enum of string list
+          | Lazy of func
 
-(** Lifted-Value domain *)
-and _value    = Val of value
-              | Undefined
+(** Lifted-value domain *)
+and _value = Val of value
+           | Undefined
 
 (** Cell domain *)
-and cell      = ident * value
+and cell = ident * value
 
 (** Store domain *)
-and store     = cell list
+and store = cell list
 
 (** Reference domain *)
 and reference = ident list
 
+(** Lifted-reference domain *)
+and _reference = Valid of reference
+               | Invalid
+
 (** Identifier domain *)
-and ident     = string
+and ident = string
 
 (** Function domain : receive a store and a namespace, return a value *)
 and func = store -> reference -> value
 
-(** constraint domain *)
+(** Constraint domain *)
 and _constraint = Equal        of reference * basic
                 | NotEqual     of reference * basic
 				| Greater      of reference * basic
@@ -71,7 +76,7 @@ and _constraint = Equal        of reference * basic
                 | True
                 | False
 
-(** action domain *)
+(** Action domain *)
 and action         = reference * parameter_type list * cost * _constraint * effect list
 and parameter_type = ident * Syntax.t
 and cost           = int
@@ -104,47 +109,50 @@ type namespaceReference = { namespace : reference ; ref : reference } ;;
 let (!^) r = String.concat "." r
 
 (** Concat the second reference to the last position of the first
-    reference. *)
-let rec (!--) = function
+    reference.
+*)
+let rec (!-) = function
     | []           -> []
     | head :: []   -> []
-    | head :: tail -> head :: (!-- tail)
+    | head :: tail -> head :: (!- tail)
 ;;
 
 (** Add an identifier to the last position of the reference. *)
-let (@++) = List.append ;;
+let (@+) = List.append ;;
 
-(** Remove a common (of both references) prefix from the first
-    reference. *)
-let (@+.) reference identifier = reference @++ [identifier] ;;
+(** Remove a common (of both references) prefix from the first reference. *)
+let (@+.) reference identifier = reference @+ [identifier] ;;
 
-(** Remove a common (of both references) prefix from the first
-    reference. *)
-let rec (@--) reference1 reference2 = match reference1, reference2 with
+(** Remove a common (of both references) prefix from the first reference. *)
+let rec (@-) reference1 reference2 = match reference1, reference2 with
     | [], _                                     -> []
     | _, []                                     -> reference1
-    | id1 :: tail1, id2 :: tail2 when id1 = id2 -> tail1 @-- tail2
+    | id1 :: tail1, id2 :: tail2 when id1 = id2 -> tail1 @- tail2
     | _                                         -> reference1
 ;;
 
 (** 'true' if the second reference is equal or the prefix of the
-    first one, otherwise 'false'. *)
-let (@<=) reference1 reference2 = (reference1 @-- reference2) = [] ;;
+    first one, otherwise 'false'.
+*)
+let (@<=) reference1 reference2 = (reference1 @- reference2) = [] ;;
 
 (** 'true' if the second reference is not equal and the prefix of
-    the first one, otherwise 'false'. *)
+    the first one, otherwise 'false'.
+*)
 let (@<) reference1 reference2 =
     (reference1 @<= reference2) && not (reference1 = reference2)
 ;;
 
 (** Given a namespace (first), remove keyword 'root', 'parent',
-    and 'this' from a reference (second). *)
+    and 'this' from a reference (second). Note that any keyword
+    should not be exist in the namespace.
+*)
 let rec (@<<) namespace reference = match namespace, reference with
-    | _, []                -> namespace
+    | _, []                -> Valid namespace
     | _, "this" :: tail    -> namespace @<< tail
     | _, "root" :: tail    -> [] @<< tail
-    | [], "parent" :: tail -> error 501 ("Invalid reference: " ^ !^reference)
-    | _, "parent" :: tail  -> !--namespace @<< tail
+    | [], "parent" :: tail -> Invalid
+    | _, "parent" :: tail  -> !-namespace @<< tail
     | _, id :: tail        -> (namespace @+. id) @<< tail
 ;;
 
@@ -169,7 +177,12 @@ let rec find store reference : _value =
 
 (* TODO: add this into the document of the formal semantics *)
 (** Similar with 'find', but if the value is another reference
-    (nested reference) then it will follow it. *)
+    (nested reference) then it will follow it.
+
+    !!! Note that when using this function, any cyclical reference should
+    not be exist in the store (this can be ensured by the type-system.
+    If there is a cyclical, then this function will never end. !!!
+*)
 let find_follow store reference : _value =
     let rec search s r = match s, r with
         | _, []                                    -> Val (Store s)
@@ -177,7 +190,7 @@ let find_follow store reference : _value =
         | (ids, _) :: tail, id :: _ when id <> ids -> search tail r
         | (ids, vs) :: _, id :: []                 -> Val vs
         | (ids, Store child) :: _, id :: rs        -> search child rs
-        | (ids, Basic Reference rp) :: _, id :: rs -> search store (rp @++ rs)
+        | (ids, Basic Reference rp) :: _, id :: rs -> search store (rp @+ rs)
         | _                                        -> Undefined
     in
     search store reference
@@ -186,18 +199,18 @@ let find_follow store reference : _value =
 (* TODO: update documentation of the formal semantics *)
 (** Resolve a reference in a store within given namespace, and then
     return its value set '~follow:true' (default 'false') if you
-    want to use 'find_follow' instead of 'find'. *)
+    want to use 'find_follow' instead of 'find'.
+*)
 let rec resolve ?follow:(ff=false) store namespace reference =
-    let search = if ff then find_follow else find in
-    match reference, namespace with
-    | "root" :: rs, _    -> ([], search store !<<rs)
-    | "parent" :: rs, [] -> error 502 ("Invalid reference: " ^ !^reference)
-    | "parent" :: rs, _  -> (!-- namespace, search store !<<(!--namespace @++ rs))
-    | "this" :: rs, _    -> (namespace, search store !<<(namespace @++rs))
-    | _, []              -> ([], search store !<<reference)
-    | _ -> match search store (namespace @<< reference) with
-           | Undefined -> resolve store !--namespace reference
-           | value -> (namespace, value)
+    let finder = if ff then find_follow else find in
+    match namespace, namespace @<< reference with
+    | [], Invalid -> ([], Undefined)
+    | _, Invalid  -> resolve ~follow:ff store !-namespace reference
+    | [], Valid r -> ([], finder store r)
+    | _, Valid r  ->
+        match finder store r with
+        | Undefined -> resolve ~follow:ff store !-namespace reference
+        | value     -> (namespace, value)
 ;;
 
 (** Add a pair identifier-value into a store if the identifier is
@@ -233,40 +246,36 @@ and copy store source dest =
     | (id, v) :: tail -> copy (bind store (dest @+. id) v) tail dest
 ;;
 
-let normalize_reference namespace reference = match namespace, reference with
-    | _ , "root" :: rs   -> { namespace = [] ; ref = rs }
-    | [], "parent" :: rs -> error 515 ("Invalid reference: " ^ !^reference)
-    | _ , "parent" :: rs -> { namespace = [] ; ref = !--namespace @++ rs }
-    | _ , "this" :: rs   -> { namespace = [] ; ref = namespace @++ rs }
-    | _                  -> { namespace = namespace ; ref = reference }
-;;
-
 (** Similar with 'copy' by the location of the source store is
     referred by a reference. *)
 let rec inherit_proto store namespace prototypeReference destReference =
     match resolve store namespace prototypeReference with
     | _, Val (Store prototype) -> copy store prototype destReference
     | _, Val (Link link) ->
-        (
-            match resolve_link (Link link) store namespace destReference with
-            | _, Val (Store prototype) -> copy store prototype destReference
-            | _, _             -> error 509 ""
-        )
+        begin match resolve_link (Link link) store namespace destReference with
+        | _, Val (Store prototype) -> copy store prototype destReference
+        | _, _             -> error 509 ""
+        end
     | _, _ -> error 510 ""
 
 (** get_link : reference -> SetRef.t -> store -> reference -> reference -> value_ *)
 and get_link reference accumulator store namespace destReference =
-    let r = normalize_reference namespace reference in
-    if SetRef.exists (fun rx -> rx = r.ref) accumulator then
-        error 503 ""
+    if SetRef.exists (fun r -> r = reference) accumulator then
+        error 503 "Cyclical reference is detected."
     else
-        let (nsp, value) = resolve store r.namespace r.ref in
-        let rp = nsp @++ r.ref in
-        match value with
-        | Val Link ref
-        | Val Basic Reference ref -> get_link ref (SetRef.add rp accumulator) store !--rp destReference
-        | _ -> if rp @<= destReference then error 504 ""
-               else (rp, value)
+        match resolve store namespace reference with
+        | _, Undefined -> ([], Undefined)
+        | ns, Val Link nextRef | ns, Val Basic Reference nextRef ->
+            begin match ns @<< reference with
+            | Invalid -> error 510 ("Invalid reference: " ^ !^(ns @+ reference))
+            | Valid r -> get_link nextRef (SetRef.add r accumulator) store !-r destReference
+            end
+        | ns, value ->
+            begin match ns @<< reference with
+            | Invalid -> error 511 ("Invalid reference: " ^ !^(ns @+ reference))
+            | Valid r when r @<= destReference -> error 505 "Inner-cyclical reference is detected."
+            | Valid r -> (r, value)
+            end
 
 (** resolve_link : value -> (store -> reference -> reference -> value_) *)
 and resolve_link = function
@@ -283,7 +292,8 @@ let rec eval_function store namespace func =
 ;;
 
 (** Find and replace all lazy values (link-reference, reference of basic
-    values, and functions) by the result of the lazy value evaluation. *)
+    values, and functions) by the result of the lazy value evaluation.
+*)
 let rec eval_lazy store namespace identifier value namespace1 =
     let rp = namespace @+. identifier in
     let rec replace_link link =
@@ -322,11 +332,10 @@ let rec find_value ns store value =
     | [] -> []
     | (id, v) :: _ when v = value -> ns @+. id
     | (id, Store s) :: ss ->
-        (
-            match find_value (ns @+. id) s value with
-            | [] -> find_value ns ss value
-            | r  -> r
-        )
+        begin match find_value (ns @+. id) s value with
+        | [] -> find_value ns ss value
+        | r  -> r
+        end
     | _ :: ss -> find_value ns ss value
 ;;
 
@@ -351,14 +360,15 @@ and string_of_basic_value = function
     | String s    -> s
     | Null        -> "null"
     | Vector vec  -> string_of_vector vec
-    | Reference r -> (!^) r
+    | Reference r -> !^r
 ;;
 
 (****************************************************************
  * Expressions evaluation functions
  ****************************************************************)
 
-(* TODO: update semantics algebra in the documentation *)
+(* TODO: update semantics algebra in the documentation by adding this function *)
+(** Evaluate a reference *)
 let rec evalr ?follow_f:(follow=false) ?acc:(visited=SetRef.empty) s ns r =
     if SetRef.exists (fun rs -> r = rs) visited then
         error 525 ("Cyclic references are detected: " ^ !^r)
@@ -370,7 +380,8 @@ let rec evalr ?follow_f:(follow=false) ?acc:(visited=SetRef.empty) s ns r =
         | _, Val v      -> v
         | _, Undefined  -> error 526 ("'" ^ !^r ^ "' is not found.")
 
-(* TODO: update semantics algebra in the documentation *)
+(* TODO: update semantics algebra in the documentation by adding this function *)
+(** Evaluate a function *)
 and evalf ?follow_r:(follow=false) ?acc:(visited=SetRef.empty) s ns f =
     let v = eval_function s ns f in
     match v with
@@ -380,14 +391,14 @@ and evalf ?follow_r:(follow=false) ?acc:(visited=SetRef.empty) s ns f =
     | _ -> v
 ;;
 
-(* TODO: update semantics algebra in the documentation *)
+(* TODO: update semantics algebra in the documentation by adding this function *)
 let rec unary ?store:(s=[]) ?namespace:(ns=[]) map = function
     | Basic Reference r -> unary ~store:s ~namespace:ns map (evalr s ns r)
     | Lazy f -> Lazy (fun ss nss -> unary ~store:ss ~namespace:nss map (evalf ~follow_r:true ss nss f))
     | v -> map v
 ;;
 
-(* TODO: update semantics algebra in the documentation *)
+(* TODO: update semantics algebra in the documentation by adding this function *)
 let rec binary ?store:(s=[]) ?namespace:(ns=[]) map v1 v2 = match v1, v2 with
     | Basic Reference r1, _ -> binary ~store:s ~namespace:ns map (evalr s ns r1) v2
     | _, Basic Reference r2 -> binary ~store:s ~namespace:ns map v1 (evalr s ns r2)
@@ -396,7 +407,7 @@ let rec binary ?store:(s=[]) ?namespace:(ns=[]) map v1 v2 = match v1, v2 with
     | _ -> map v1 v2
 ;;
 
-(* TODO: update semantics algebra in the documentation *)
+(* TODO: update semantics algebra in the documentation by adding this function *)
 let logic ?operator:(op="") ?store:(s=[]) ?namespace:(ns=[]) f_logic =
     binary ~store:s ~namespace:ns (fun xx yy -> match xx, yy with
         | Basic Boolean b1, Basic Boolean b2 -> Basic (Boolean (f_logic b1 b2))
@@ -406,7 +417,7 @@ let logic ?operator:(op="") ?store:(s=[]) ?namespace:(ns=[]) f_logic =
     )
 ;;
 
-(* TODO: update semantics algebra in the documentation *)
+(* TODO: update semantics algebra in the documentation by adding this function *)
 let equals ?store:(s=[]) ?namespace:(ns=[]) =
     binary ~store:s ~namespace:ns (fun x y -> match x, y with
         | Basic Int i, Basic Float f
@@ -415,6 +426,8 @@ let equals ?store:(s=[]) ?namespace:(ns=[]) =
     )
 ;;
 
+
+(* TODO: update semantics algebra in the documentation by adding this function *)
 let not_equals ?store:(s=[]) ?namespace:(ns=[]) =
     binary ~store:s ~namespace:ns (fun x y -> match x, y with
         | Basic Int i, Basic Float f
@@ -423,7 +436,7 @@ let not_equals ?store:(s=[]) ?namespace:(ns=[]) =
     )
 ;;
 
-(* TODO: update semantics algebra in the documentation *)
+(* TODO: update semantics algebra in the documentation by adding this function *)
 let math ?store:(s=[]) ?namespace:(ns=[]) f_int f_float =
     binary ~store:s ~namespace:ns (fun xx yy -> match xx, yy with
         | Basic Int x  , Basic Float y -> Basic (Float (f_float (float_of_int x) y))
@@ -433,7 +446,7 @@ let math ?store:(s=[]) ?namespace:(ns=[]) f_int f_float =
         | _ -> error 527 "Left or right operand is neither an integer nor a float."
     )
 
-(* TODO: update semantics algebra in the documentation *)
+(* TODO: update semantics algebra in the documentation by adding this function *)
 (** A binary operator that adds two operands. The result will be:
     - add Int Int -> Int
     - add Int Float -> Float
@@ -442,7 +455,7 @@ let math ?store:(s=[]) ?namespace:(ns=[]) f_int f_float =
     - add String basic -> String
     - add basic String -> String *)
 let add ?store:(s=[]) ?namespace:(ns=[]) =
-    binary ~store:s ~namespace:ns (fun xx yy -> match xx, yy with
+    binary ~store:s ~namespace:ns (fun x y -> match x, y with
         | Basic Int i, Basic Float f
         | Basic Float f, Basic Int i     -> Basic (Float ((float_of_int i) +. f))
         | Basic Float f1, Basic Float f2 -> Basic (Float (f1 +. f2))
@@ -510,28 +523,39 @@ type ground_parameters = basic MapStr.t
 (** Substitute each left-hand side reference with a reference as
     specified in the parameters table *)
 let substitute_parameter_of_reference reference groundParameters =
-    match reference with
-    | id :: tail when MapStr.mem id groundParameters ->
-        (
-            match MapStr.find id groundParameters with
-            | Reference r -> !<<(r @++ tail)
-            | _           -> error 513 ("Cannot replace left-hand side " ^
-                                        "reference with a non-reference value")
-        )
-    | _ -> reference
+    let ref = match reference with
+        | id :: tail when MapStr.mem id groundParameters ->
+            begin match MapStr.find id groundParameters with
+            | Reference rp -> rp @+ tail
+            | _ -> error 513 ("Cannot replace left-hand side reference " ^
+                              "with a non-reference value.")
+            end
+        | _ -> reference
+    in
+    (* normalize the reference *)
+    match !<<ref with
+    | Valid r -> r
+    | Invalid -> error 514 ("Invalid left-hand side reference: " ^ !^ref)
 ;;
 
 (** Substitute each right-hand side reference of basic value
     with a value as specified in the parameters table. *)
 let substitute_parameter_of_basic_value basic_value groundParameters =
+    let substitute_reference = function
+        | id :: [] when MapStr.mem id groundParameters -> MapStr.find id groundParameters
+        | id :: tail when MapStr.mem id groundParameters ->
+            begin match MapStr.find id groundParameters with
+            | Reference r ->
+                begin match r @<< tail with
+                | Valid rp -> Reference rp
+                | _ -> error 515 ("Invalid right-hand side reference: " ^ !^r)
+                end
+            | _ -> error 514 "Cannot append a reference to a non-reference value"
+            end
+        | r -> Reference r
+    in
     match basic_value with
-    | Reference (id :: tail) when MapStr.mem id groundParameters ->
-        (
-            match tail, (MapStr.find id groundParameters) with
-            | _ , Reference r -> Reference !<<(r @++ tail)
-            | [], v           -> v
-            | _               -> error 514 ""
-        )
+    | Reference r -> substitute_reference r
     | _ -> basic_value
 ;;
 
@@ -556,6 +580,7 @@ let reference_delim_regexp = Str.regexp "\\." ;;
 
 let reference_of_string = Str.split reference_delim_regexp ;;
 
+(* TODO: update semantics algebra in the documentation by adding this function *)
 (** Substitute every variable in a string-interpolation *)
 let interpolate_string str store namespace =
     let length = String.length str in
@@ -572,10 +597,10 @@ let interpolate_string str store namespace =
         | _       -> error 1152 (!^reference ^ " is not found, or it is not a basic value.")
     in
     let rec iter index state =
-        if index >= length then (
+        if index >= length then begin
             if state = 0 then Buffer.contents out
             else error 1150 ("Invalid string: " ^ str)
-        ) else (
+        end else begin
             match state, str.[index] with
             | 0, '$' -> iter (index + 1) 1
             | 0, c   -> out <. c ; iter (index + 1) 0
@@ -584,7 +609,7 @@ let interpolate_string str store namespace =
             | 2, '}' -> substitute (get_reference var); iter (index + 1) 0
             | 2, c   -> var <. c ; iter (index + 1) 2
             | _      -> error 1151 ("Invalid string: " ^ str)
-        )
+        end
     in
     iter 0 0
 ;;

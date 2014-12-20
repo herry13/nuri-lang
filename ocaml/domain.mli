@@ -50,6 +50,9 @@ and store     = cell list
 (** Reference domain *)
 and reference = ident list
 
+and _reference = Valid of reference
+               | Invalid
+
 (** Identifier domain *)
 and ident     = string
 
@@ -94,18 +97,18 @@ val error : int -> string -> 'a
  *******************************************************************)
 
 (** Return a prefix of a reference. *)
-val (!--) : reference -> reference
+val (!-) : reference -> reference
 
 (** Concat the second reference to the last position of the first
     reference. *)
-val (@++) : reference -> reference -> reference
+val (@+) : reference -> reference -> reference
 
 (** Add an identifier to the last position of the reference. *)
 val (@+.) : reference -> string -> reference
 
 (** Remove a common (of both references) prefix from the first
     reference. *)
-val (@--) : reference -> reference -> reference
+val (@-) : reference -> reference -> reference
 
 (** 'true' if the second reference is equal or the prefix of the
     first one, otherwise 'false'. *)
@@ -117,10 +120,10 @@ val (@<) : reference -> reference -> bool
 
 (** Given a namespace (first), remove keyword 'root', 'parent',
     and 'this' from a reference (second). *)
-val (@<<) : reference -> reference -> reference
+val (@<<) : reference -> reference -> _reference
 
 (** Similar with '@<<' but the namespace is root. *)
-val (!<<) : reference -> reference
+val (!<<) : reference -> _reference
 
 
 (*******************************************************************

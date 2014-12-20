@@ -23,8 +23,6 @@ global3.nuri
 global4.nuri
 global5.nuri
 global6.nuri
-nothing1-init.nuri
-nothing1-goal.nuri
 numeric1.nuri
 numeric2-init.nuri
 numeric2-goal.nuri

@@ -216,11 +216,11 @@ let decode_name (s: string): int * reference * basic MapStr.t =
  * (identifier => value)
  *)
 let ground_parameters parameters name typeValues =
-    let this = !--name in
+    let this = !-name in
 	let map1 = MapStr.add "this" [Reference this] MapStr.empty in
     let map1 = match this with
         | [] -> map1
-        | _  -> MapStr.add "parent" [Reference (!--this)] map1
+        | _  -> MapStr.add "parent" [Reference (!-this)] map1
     in
 	let map2 = List.fold_left (fun acc (id, t) ->
 			let values = SetValue.fold (fun v acc ->

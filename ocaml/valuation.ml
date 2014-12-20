@@ -222,7 +222,7 @@ and sfAssignment (reference, _, value) ns s =
         print_endline (Json.of_value ~ignore_lazy:false v1);
         s
     ) else (
-        sfValue value ns (Domain.(@++) ns reference) s
+        sfValue value ns (Domain.(@+) ns reference) s
     )
 
 and sfBlock block ns s =
