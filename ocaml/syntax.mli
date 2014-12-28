@@ -6,7 +6,8 @@
     - Common
 
     @author Herry (herry13\@gmail.com)
-    @since 2014 *)
+    @since 2014
+*)
 
 
 (** Abstract Syntax Tree of the Nuri language. *)
@@ -14,47 +15,66 @@
 (* core syntax *)
 type nuri          = context
 
-and  context       = AssignmentContext of assignment * context  (** Assignment and next context *)
-                   | SchemaContext     of schema * context      (** Schema and next context *)
-                   | EnumContext       of enum * context        (** Enum and next context *)
-                   | TrajectoryContext of trajectory * context  (** Trajectory constraints and next context *)
-                   | EmptyContext                               (** Empty context *)
+and  context       = AssignmentContext of assignment * context
+                     (** Assignment and next context *)
+                   | SchemaContext     of schema * context
+                     (** Schema and next context *)
+                   | EnumContext       of enum * context
+                     (** Enum and next context *)
+                   | TrajectoryContext of trajectory * context
+                     (** Trajectory constraints and next context *)
+                   | EmptyContext
+                     (** Empty context *)
 
-and  block         = AssignmentBlock   of assignment * block    (** Assignment and next block *)
-                   | TrajectoryBlock   of trajectory * block    (** Trajector constraints and next block *)
-                   | EmptyBlock                                 (** Empty block *)
+and  block         = AssignmentBlock   of assignment * block
+                     (** Assignment and next block *)
+                   | TrajectoryBlock   of trajectory * block
+                     (** Trajector constraints and next block *)
+                   | EmptyBlock
+                     (** Empty block *)
 
-and  assignment    = reference * t * value  (** Variable, type, and value *)
+and  assignment    = reference * t * value
+                     (** Variable, type, and value *)
 
-and  expression    = Basic           of basic_value             (** Basic value *)
-                   | Shell           of string                  (** External-command-value (via shell) *)
-                   | Exp_Eager       of expression              (** Eager-evaluation expression *)
-                   | Exp_IString     of string                  (** Interpolated string *)
-                   | Exp_Not         of expression              (** Negation (unary) *)
-                   | Exp_Equal       of expression * expression (** Equality (binary) *)
-                   | Exp_NotEqual    of expression * expression (** Inequality (binary) *)
-                   | Exp_And         of expression * expression (** Conjunction (binary) *)
-                   | Exp_Or          of expression * expression (** Disjunction (binary) *)
-                   | Exp_Imply       of expression * expression (** Implication (binary) *)
-                   | Exp_MatchRegexp of expression * string     (** Matching (binary) *)
-                   | Exp_Add         of expression * expression (** Addition (binary) *)
-                   | Exp_Subtract    of expression * expression (** Subtraction (binary) *)
-                   | Exp_Multiply    of expression * expression (** Multiplication (binary) *)
-                   | Exp_Divide      of expression * expression (** Division (binary) *)
-                   | Exp_Modulo      of expression * expression (** Modulo (binary) *)
-                   | Exp_IfThenElse  of expression * expression * expression (** Conditional (ternary) *)
+and  expression    = Basic of basic_value (** Basic value *)
+                   | Shell of string (** External-command-value (via shell) *)
+                   | Exp_Eager of expression (** Eager-evaluation expression *)
+                   | Exp_IString of string
+                     (** String with variable interpolation *)
+                   | Exp_Not of expression (** Negation *)
+                   | Exp_Equal of expression * expression (** Equality *)
+                   | Exp_NotEqual of expression * expression (** Inequality *)
+                   | Exp_And of expression * expression (** Conjunction *)
+                   | Exp_Or of expression * expression (** Disjunction *)
+                   | Exp_Imply of expression * expression (** Implication *)
+                   | Exp_MatchRegexp of expression * string
+                     (** String pattern-matching *)
+                   | Exp_Add of expression * expression (** Numeric addition *)
+                   | Exp_Subtract of expression * expression
+                     (** Numeric subtraction *)
+                   | Exp_Multiply of expression * expression
+                     (** Numeric multiplication *)
+                   | Exp_Divide of expression * expression
+                     (** Numeric division *)
+                   | Exp_Modulo of expression * expression
+                     (** Numeric modulo *)
+                   | Exp_IfThenElse  of expression * expression * expression
+                     (** Conditional branch *)
 
 and  value         = Expression of expression
                    | Link       of reference          (** Link-reference *)
                    | Prototype  of super * prototype  (** Prototype-object *)
                    | Action     of action
                    | TBD        (** To Be Defined *)
-                   | Unknown    (** Unknown : used when the variable's value is indeterminate *)
+                   | Unknown    (** Unknown : used when the variable's value
+                                    is indeterminate *)
                    | None       (** None : the variable is not exist *)
 
-and  prototype     = ReferencePrototype of reference * prototype  (** Reference prototype *)
-                   | BlockPrototype     of block * prototype      (** Anonymous prototype *)
-                   | EmptyPrototype                               (** No prototype *)
+and  prototype     = ReferencePrototype of reference * prototype 
+                     (** Reference prototype *)
+                   | BlockPrototype     of block * prototype
+                     (** Anonymous prototype *)
+                   | EmptyPrototype (** No prototype *)
 
 and  basic_value   = Boolean   of string
                    | Int       of string
@@ -82,22 +102,23 @@ and t        = T_Bool        (** bool *)
              | T_Float       (** float *)
              | T_String      (** string *)
              | T_Null        (** null-type *)
-             | T_Undefined   (** It is used when a reference's type is indeterminate. *)
+             | T_Undefined   (** It is used when the type is indeterminate. *)
              | T_Any         (** Value 'Unknown' & 'None' has type 'T_Any' *)
              | T_Action      (** Every action has this type *)
-             | T_Constraint  (** The elements of global constraints has type 'T_Constraint' *)
+             | T_Constraint  (** The elements of global constraints has type
+                                 'T_Constraint' *)
              | T_Enum      of string * string list  (** Enum *)
-             | T_List      of t                     (** Every vector has this type *)
-             | T_Schema    of t_object              (** Static schema *)
-             | T_Object    of t_object              (** Object *)
-             | T_Reference of t_object              (** Reference *)
-             | T_Forward   of t_forward             (** For forward references *)
+             | T_List      of t          (** Every vector has this type *)
+             | T_Schema    of t_object   (** Static schema *)
+             | T_Object    of t_object   (** Object *)
+             | T_Reference of t_object   (** Reference of object *)
+             | T_Forward   of t_forward  (** For forward references *)
 
 and t_object = T_Plain                      (** Plain built-in object *)
              | T_User of string * t_object  (** User-defined schema *)
 
-and t_forward = T_LinkForward      of reference  (** Forward link-reference *)
-              | T_ReferenceForward of reference  (** Forward (data) reference *)
+and t_forward = T_LinkForward      of reference (** Forward link-reference *)
+              | T_ReferenceForward of reference (** Forward (data) reference *)
 
 (* state-trajectory syntax *)
 and trajectory = Global of _constraint
