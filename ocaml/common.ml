@@ -1,14 +1,14 @@
-(*******************************************************************
- * module Common
- * Author: Herry (herry13@gmail.com)
- *
- * Common data structures and functions used by other modules.
- *******************************************************************)
+(** Module Common contains common data structures and functions used by other
+    modules.
 
-(** a map where strings are the key **)
+    @author Herry (herry13\@gmail.com)
+    @since 2014
+*)
+
+(** a map where strings are the key *)
 module MapStr = Map.Make(String)
 
-(** a map where lists of strings (references) are the key **)
+(** a map where lists of strings (references) are the key *)
 module MapRef = Map.Make
 (
     struct
@@ -17,7 +17,7 @@ module MapRef = Map.Make
     end
 )
 
-(** a set of references **)
+(** a set of references *)
 module SetRef = Set.Make
 (
     struct
@@ -26,7 +26,7 @@ module SetRef = Set.Make
     end
 )
 
-(** a set of integers **)
+(** a set of integers *)
 module SetInt = Set.Make
 (
     struct
@@ -35,7 +35,7 @@ module SetInt = Set.Make
     end
 )
 
-(** read a string from given filename **)
+(** read a string from given filename *)
 let read_file file =
 	let channel = open_in file in
 	let n       = in_channel_length channel in
@@ -45,14 +45,15 @@ let read_file file =
 	s
 ;;
 
-(** write a string to given filename **)
+(** write a string to given filename *)
 let write_file file content =
 	let channel = open_out file in
 	output_string channel content;
 	close_out channel
 ;;
 
-(** execute 'command' using 'Unix' module and then return the output from STDOUT **)
+(** execute 'command' using 'Unix' module and then return the output from
+    STDOUT *)
 let get_process_output command =
     let in_channel = Unix.open_process_in command in
     let buf = Buffer.create 17 in
@@ -66,23 +67,24 @@ let get_process_output command =
         Buffer.contents buf
     with End_of_file -> match Unix.close_process_in in_channel with
         | Unix.WEXITED _ -> Buffer.contents buf 
-        | _ -> raise (Failure ("Command '" ^ command ^ "' was exiting with error."))
+        | _ -> raise (Failure ("Command '" ^ command ^
+                               "' was exiting with error."))
 ;;
 
 
-(*** helper operators for string buffer **)
+(*** helper operators for string buffer *)
 
-(** add a string to a buffer **)
+(** add a string to a buffer *)
 let (<<) buffer str = Buffer.add_string buffer str ;;
 
-(** add a character to a buffer **)
+(** add a character to a buffer *)
 let (<.) buffer character = Buffer.add_char buffer character ;;
 
 
 (*** helper operator for references ***)
 
-(** return a string of reference by concatenating all strings delimited by '.' **)
-let (!^) r = String.concat "." r
-
+(** return a string of reference by concatenating all strings delimited
+    by '.' *)
+let (!^) r = String.concat "." r ;;
 
 let _echo_ = ["#echo"] ;;
