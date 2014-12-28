@@ -5,7 +5,8 @@
     - Common
 
     @author Herry (herry13\@gmail.com)
-    @since 2014 *)
+    @since 2014
+*)
 
 open Common
 
@@ -21,6 +22,7 @@ type basic    = Boolean   of bool       (** Boolean domain *)
               | Null                    (** Null domain *)
               | Vector    of vector
               | Reference of reference
+              | Symbol    of string
 
 (** Vector domain *)
 and vector   = basic list
@@ -34,7 +36,6 @@ and value     = Basic  of basic
               | TBD
               | Unknown
               | None
-              | Enum of string list
               | Lazy of func
 
 (** Lifted-Value domain *)
@@ -75,7 +76,8 @@ and _constraint = Equal        of reference * basic
                 | False
 
 (** action domain *)
-and action         = reference * parameter_type list * cost * _constraint * effect list
+and action         = reference * parameter_type list * cost * _constraint *
+                     effect list
 and parameter_type = ident * Syntax.t
 and cost           = int
 and effect         = reference * basic
@@ -131,17 +133,13 @@ val (!<<) : reference -> _reference
  *******************************************************************)
 
 (** Find a reference in a store and then return its value. *)
-val find : store -> reference -> _value
+val find : reference -> store -> _value
 
-(** Similar with 'find', but if the value is another reference
-    (nested reference) then it will follow it. *)
-val find_follow : store -> reference -> _value
-
-(** Resolve a reference in a store within given namespace, and then
-    return its value set '~follow:true' (default 'false') if you
-    want to use 'find_follow' instead of 'find'. *)
-val resolve : ?follow:bool -> store -> reference -> reference ->
-              (reference * _value)
+(** Resolve a reference in a store within a namespace. If the value is not
+    found, it returns a pair of a root's namespace and an Undefined value i.e.
+    ([], Undefined). Otherwise, it returns a pair of the namespace where the
+    value is found (in respect to the reference) and the value. *)
+val resolve : reference -> reference -> store -> (reference * _value)
 
 (** Add a pair identifier-value into a store if the identifier is
     exist, then the old-value will be replaced note that in the
@@ -171,7 +169,8 @@ val accept : store -> reference -> store -> reference -> store
 val find_value : reference -> store -> value -> reference
 
 (** Evaluate a function, and then return the evaluation result. *)
-val eval_function : store -> reference -> (store -> reference -> value) -> value
+val eval_function : store -> reference -> (store -> reference -> value) ->
+                    value
 
 (** Return a string of given basic value. *)
 val string_of_basic_value : basic -> string
@@ -194,13 +193,15 @@ val add : ?store:store -> ?namespace:reference -> value -> value -> value
 
 val equals : ?store:store -> ?namespace:reference -> value -> value -> value
 
-val not_equals : ?store:store -> ?namespace:reference -> value -> value -> value
+val not_equals : ?store:store -> ?namespace:reference -> value -> value ->
+                 value
 
 val logic : ?operator:string -> ?store:store -> ?namespace:reference ->
             (bool -> bool -> bool) -> value -> value -> value
 
 val math : ?store:store -> ?namespace:reference ->
-           (int -> int -> int) -> (float -> float -> float) -> value -> value -> value
+           (int -> int -> int) -> (float -> float -> float) ->
+           value -> value -> value
 
 val unary : ?store:store -> ?namespace:reference ->
             (value -> value) -> value -> value
