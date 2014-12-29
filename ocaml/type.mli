@@ -19,6 +19,7 @@ and map = t MapRef.t
 
 exception Error of int * string
 
+val error : int -> string -> 'a
 
 
 val string_of_map : ?buffer:Buffer.t -> map -> Buffer.t
@@ -41,6 +42,8 @@ val subtype : t -> t -> bool
 
 val (<:) : t -> t -> bool
 
+val (=:=) : t -> t -> bool
+
 
 
 val bind : t -> t -> Domain.reference -> environment -> environment
@@ -58,7 +61,7 @@ val _inherit : Domain.reference -> Domain.reference -> Domain.reference ->
 
 
 
-val main_of : ?main_reference:Domain.reference -> environment -> environment
+val main_of : Domain.reference -> environment -> environment
 
 val replace_forward_type : Domain.reference -> environment -> environment
 
