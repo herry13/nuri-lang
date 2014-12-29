@@ -32,7 +32,7 @@ endif
 # byte code libraries
 BYTECODELIB= \
 	str.cma \
-    unix.cma \
+	unix.cma \
 	common.cmo \
 	syntax.cmo \
 	lexer.cmo \
@@ -40,6 +40,7 @@ BYTECODELIB= \
 	parser_helper.cmo \
 	domain.cmo \
 	type.cmo \
+	typechecker.cmo \
 	json.cmo \
 	variable.cmo \
 	constraint.cmo \
@@ -52,7 +53,7 @@ BYTECODELIB= \
 # native code libraries
 NATIVELIB= \
 	str.cmxa \
-    unix.cmxa \
+	unix.cmxa \
 	common.cmx \
 	syntax.cmx \
 	lexer.cmx \
@@ -60,6 +61,7 @@ NATIVELIB= \
 	parser_helper.cmx \
 	domain.cmx \
 	type.cmx \
+	typechecker.cmx \
 	json.cmx \
 	variable.cmx \
 	constraint.cmx \
@@ -72,7 +74,7 @@ NATIVELIB= \
 # default
 build: nuric
 
-nuric: nuric.ml action parser_helper valuation type fdr plan
+nuric: nuric.ml action parser_helper typechecker valuation fdr plan
 	$(COMPILER) -c nuric.ml
 ifeq ($(NATIVE),1)
 	$(COMPILER) -o $(NAME) $(NATIVELIB)
@@ -80,7 +82,7 @@ else
 	$(COMPILER) -o $(NAME) $(BYTECODELIB)
 endif
 
-syntax: syntax.mli syntax.ml
+syntax: common syntax.mli syntax.ml
 	$(COMPILER) -c syntax.mli
 	$(COMPILER) -c syntax.ml
 
@@ -111,6 +113,10 @@ valuation: valuation.mli valuation.ml domain
 type: domain type.mli type.ml
 	$(COMPILER) -c type.mli
 	$(COMPILER) -c type.ml
+
+typechecker: domain type
+	$(COMPILER) -c typechecker.mli
+	$(COMPILER) -c typechecker.ml
 
 common: common.mli common.ml
 	$(COMPILER) -c common.mli
@@ -154,8 +160,8 @@ test:
 DOC_OPTIONS=-html
 
 DOC_SOURCE_FILES= \
-    syntax.mli \
-    domain.mli \
+	syntax.mli \
+	domain.mli \
 
 doc:
 	ocamldoc $(DOC_OPTIONS) $(DOC_SOURCE_FILES)
