@@ -17,30 +17,39 @@ module SetRef : Set.S with type elt = string list
 (** a set of integers *)
 module SetInt : Set.S with type elt = int
 
-(** read a string from given filename *)
+(** Read a text file, and then return its contents. *)
 val read_file : string -> string
 
-(** write a string to given filename *)
+(** Write a string to given filename. *)
 val write_file : string -> string -> unit
 
-(** execute a command using 'Unix' module and then return the output
-    from STDOUT *)
+(** Execute a command using 'Unix' module and then return the output
+    from STDOUT. *)
 val get_process_output : string -> string
 
 
 (*** helper operators for string buffer **)
 
-(** add a string to a buffer *)
+(** Add a string to a buffer. *)
 val (<<) : Buffer.t -> string -> unit
 
-(** add a character to a buffer *)
+(** Add a string to a buffer, and then return the buffer. *)
+val (<<|) : Buffer.t -> string -> Buffer.t
+
+(** Add a character to a buffer. *)
 val (<.) : Buffer.t -> char -> unit
 
+(** Add a character to a buffer, and then return the buffer. *)
+val (<.|) : Buffer.t -> char -> Buffer.t
 
 (*** helper operator for references ***)
 
-(** return a string of reference by concatenating all strings delimited
-    by '.' *)
+(** Return a string of reference by concatenating all strings delimited
+    by '.'. *)
 val (!^) : string list -> string
 
-val _echo_ : string list
+val reference_of_echo : string list
+
+val reference_of_global : string list
+
+val reference_of_main : string list
