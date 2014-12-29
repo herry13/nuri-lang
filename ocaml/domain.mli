@@ -15,38 +15,38 @@ open Common
  *******************************************************************)
 
 (** Basic Value domain *)
-type basic    = Boolean   of bool       (** Boolean domain *)
-              | Int       of int        (** Integer domain *)
-              | Float     of float      (** Float domain *)
-              | String    of string     (** String domain *)
-              | Null                    (** Null domain *)
-              | Vector    of vector
-              | Reference of reference
-              | Symbol    of string
+type basic = Boolean   of bool       (** Boolean domain *)
+           | Int       of int        (** Integer domain *)
+           | Float     of float      (** Float domain *)
+           | String    of string     (** String domain *)
+           | Null                    (** Null domain *)
+           | Vector    of vector
+           | Reference of reference
+           | Symbol    of string
 
 (** Vector domain *)
-and vector   = basic list
+and vector = basic list
 
 (** Value domain *)
-and value     = Basic  of basic
-              | Store  of store
-              | Global of _constraint
-              | Link   of reference
-              | Action of action
-              | TBD
-              | Unknown
-              | None
-              | Lazy of func
+and value = Basic  of basic
+          | Store  of store
+          | Global of _constraint
+          | Link   of reference
+          | Action of action
+          | TBD
+          | Unknown
+          | None
+          | Lazy of func
 
 (** Lifted-Value domain *)
-and _value    = Val of value
-              | Undefined
+and _value = Val of value
+           | Undefined
 
 (** Cell domain *)
-and cell      = ident * value
+and cell = ident * value
 
 (** Store domain *)
-and store     = cell list
+and store = cell list
 
 (** Reference domain *)
 and reference = ident list
@@ -55,7 +55,7 @@ and _reference = Valid of reference
                | Invalid
 
 (** Identifier domain *)
-and ident     = string
+and ident = string
 
 (** Function domain : receive a store and a namespace, return a value *)
 and func = store -> reference -> value
@@ -140,6 +140,9 @@ val find : reference -> store -> _value
     ([], Undefined). Otherwise, it returns a pair of the namespace where the
     value is found (in respect to the reference) and the value. *)
 val resolve : reference -> reference -> store -> (reference * _value)
+
+val resolve_follow : ?visited:SetRef.t -> reference -> reference ->
+                     reference -> store -> (reference * _value)
 
 (** Add a pair identifier-value into a store if the identifier is
     exist, then the old-value will be replaced note that in the
