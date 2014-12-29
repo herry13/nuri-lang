@@ -51,7 +51,7 @@ and  value         = Expression of expression
 and  prototype     = ReferencePrototype of reference * prototype
                    | BlockPrototype     of block * prototype
                    | EmptyPrototype
-and  basic_value    = Boolean   of string
+and  basic_value   = Boolean   of string
                    | Int       of string
                    | Float     of string
                    | String    of string
@@ -70,27 +70,28 @@ and super  = SID of string
 and enum = string * string list
 
 (** type syntax **)
-and t        = T_Bool
-             | T_Int
-             | T_Float
-             | T_String
-             | T_Null
-             | T_Undefined
-             | T_Any
-             | T_Action
-             | T_Constraint
-             | T_Enum      of string * string list
-             | T_List      of t
-             | T_Schema    of t_object
-             | T_Object    of t_object
-             | T_Reference of t_object
-             | T_Forward   of t_forward
+and t = T_Bool
+      | T_Int
+      | T_Float
+      | T_String
+      | T_Null
+      | T_Undefined
+      | T_Any
+      | T_Action
+      | T_Constraint
+      | T_Enum      of string * string list
+      | T_Symbol    of string
+      | T_List      of t
+      | T_Schema    of t_object
+      | T_Object    of t_object
+      | T_Reference of t_object
+      | T_Forward   of t_forward
     
 and t_object = T_Plain
              | T_User of string * t_object
     
 and t_forward = T_LinkForward      of reference
-             | T_ReferenceForward of reference
+              | T_ReferenceForward of reference
 
 (** state-trajectory syntax **)
 and trajectory = Global of _constraint
@@ -125,10 +126,10 @@ and effect     = reference * basic_value
 exception SyntaxError of int * string
 
 let error code message =
-    match message with
-    | "" -> raise (SyntaxError (code, "[err" ^ (string_of_int code) ^ "]"))
-    | _  -> raise (SyntaxError (code, "[err" ^ (string_of_int code) ^ "] - " ^
-                                      message))
+  match message with
+  | "" -> raise (SyntaxError (code, "[err" ^ (string_of_int code) ^ "]"))
+  | _  -> raise (SyntaxError (code, "[err" ^ (string_of_int code) ^ "] - " ^
+                                    message))
 ;;
 
 
@@ -138,499 +139,481 @@ let error code message =
 
 (** convert a type into a string **)
 let string_of_type t =
-    let buf = Buffer.create 5 in
-    let rec _type t = match t with
-        | T_Bool           -> buf << "bool"
-        | T_Int            -> buf << "int"
-        | T_Float          -> buf << "float"
-        | T_String         -> buf << "string"
-        | T_Null           -> buf << "null"
-        | T_Undefined      -> buf << "undefined"
-        | T_Any            -> buf << "any"
-        | T_Action         -> buf << "action"
-        | T_Constraint     -> buf << "global"
-        | T_Enum (id, _)   -> buf << "enum~"; buf << id
-        | T_List t         -> buf << "[]"; _type t
-        | T_Schema t       -> buf << "schema~"; type_object t
-        | T_Object t       -> type_object t
-        | T_Reference t    -> buf <. '*'; type_object t
-        | T_Forward T_LinkForward r      -> buf << "forward~"; buf << !^r
-        | T_Forward T_ReferenceForward r -> buf << "forward*~"; buf << !^r
+  let buf = Buffer.create 5 in
+  let rec _type t = match t with
+    | T_Bool         -> buf << "bool"
+    | T_Int          -> buf << "int"
+    | T_Float        -> buf << "float"
+    | T_String       -> buf << "string"
+    | T_Null         -> buf << "null"
+    | T_Undefined    -> buf << "undefined"
+    | T_Any          -> buf << "any"
+    | T_Action       -> buf << "action"
+    | T_Constraint   -> buf << "global"
+    | T_Enum (id, _) -> buf <<| "enum~" << id
+    | T_Symbol id    -> buf <<| "enum:" << id
+    | T_List t ->
+      begin
+        buf << "[]";
+        _type t
+      end
+    | T_Schema t ->
+      begin
+        buf << "schema~";
+        type_object t
+      end
+    | T_Object t -> type_object t
+    | T_Reference t ->
+      begin
+        buf <. '*';
+        type_object t
+      end
+    | T_Forward T_LinkForward r -> buf <<| "forward~" << !^r
+    | T_Forward T_ReferenceForward r -> buf <<| "forward*~" << !^r
 
-    and type_object t = match t with
-        | T_Plain            -> buf << "object"
-        | T_User (id, super) ->
-            begin
-                buf << id;
-                buf <. '<';
-                type_object super
-            end
-    in
-    _type t;
-    Buffer.contents buf
+  and type_object t = match t with
+    | T_Plain            -> buf << "object"
+    | T_User (id, super) ->
+      begin
+        buf <<| id <. '<';
+        type_object super
+      end
+  in
+  _type t;
+  Buffer.contents buf
 ;;
 
 (** convert an abstract syntax tree into a string **)
 let rec string_of nuri =
-    let buf = Buffer.create 40 in
-    let rec context ctx = match ctx with
-        | AssignmentContext (a, c) ->
-            begin
-                assignment a;
-                buf <. '\n';
-                context c
-            end
-        | SchemaContext (s, c) ->
-            begin
-                schema s;
-                buf <. '\n';
-                context c
-            end
-        | EnumContext (e, c) ->
-            begin
-                enum e;
-                buf <. '\n';
-                context c
-            end
-        | TrajectoryContext (t, c) ->
-            begin
-                trajectory t;
-                buf <. '\n';
-                context c
-            end
-        | EmptyContext -> ()
+  let buf = Buffer.create 40 in
+  let rec context ctx = match ctx with
+    | AssignmentContext (a, c) ->
+      begin
+        assignment a;
+        buf <. '\n';
+        context c
+      end
+    | SchemaContext (s, c) ->
+      begin
+        schema s;
+        buf <. '\n';
+        context c
+      end
+    | EnumContext (e, c) ->
+      begin
+      enum e;
+        buf <. '\n';
+        context c
+      end
+    | TrajectoryContext (t, c) ->
+      begin
+        trajectory t;
+        buf <. '\n';
+        context c
+      end
+    | EmptyContext -> ()
 
-    and block b = match b with
-        | AssignmentBlock (a, b) ->
-            begin
-                assignment a;
-                buf <. '\n';
-                block b
-            end
-        | TrajectoryBlock (t, b) ->
-            begin
-                trajectory t;
-                buf <. '\n';
-                block b
-            end
-        | EmptyBlock -> ()
+  and block b = match b with
+    | AssignmentBlock (a, b) ->
+      begin
+        assignment a;
+        buf <. '\n';
+        block b
+      end
+    | TrajectoryBlock (t, b) ->
+      begin
+        trajectory t;
+        buf <. '\n';
+        block b
+      end
+    | EmptyBlock -> ()
 
-    and assignment (r, t, v) =
+  and assignment (r, t, v) =
+    reference r;
+    buf <. ':';
+    _type t;
+    value v;
+    buf <. ';'
+
+  and expression e = match e with
+    | Basic v -> basic_value v
+    | Shell s -> buf <<| " `" <<| s <. '`'
+      (* TODO: use escape (\) for every backtick character *)
+
+    | Exp_Eager e ->
+      begin
+        buf << " $(";
+        expression e;
+        buf <. ')'
+      end
+    | Exp_IString s -> buf <<| " \"" <<| s <. '"'
+    | Exp_Not e ->
+      begin
+        buf << " !(";
+        expression e;
+        buf <. ')'
+      end
+    | Exp_Equal (e1, e2) ->
+      begin
+        buf << " (";
+        expression e1;
+        buf << " = ";
+        expression e2;
+        buf <. ')'
+      end
+    | Exp_NotEqual (e1, e2) ->
+      begin
+        buf << " (";
+        expression e1;
+        buf << " != ";
+        expression e2;
+        buf <. ')'
+      end
+    | Exp_And (e1, e2) ->
+      begin
+        buf << " (";
+        expression e1;
+        buf << " && ";
+        expression e2;
+        buf <. ')'
+      end
+    | Exp_Or (e1, e2) ->
+      begin
+        buf << " (";
+        expression e1;
+        buf << " || ";
+        expression e2;
+        buf <. ')'
+      end
+    | Exp_Imply (e1, e2) ->
+      begin
+        buf << " (";
+        expression e1;
+        buf << " => ";
+        expression e2;
+        buf <. ')'
+      end
+    | Exp_MatchRegexp (exp, regexp) ->
+      begin
+        buf << " (";
+        expression exp;
+        buf <<| " =~ /" <<| regexp << "/)"
+      end
+    | Exp_Add (e1, e2) ->
+      begin
+        buf << " (";
+        expression e1;
+        buf << " + ";
+        expression e2;
+        buf <. ')'
+      end
+    | Exp_Subtract (e1, e2) ->
+      begin
+        buf << " (";
+        expression e1;
+        buf << " - ";
+        expression e2;
+        buf <. ')'
+      end
+    | Exp_Multiply (e1, e2) ->
+      begin
+        buf << " (";
+        expression e1;
+        buf << " - ";
+        expression e2;
+        buf <. ')'
+      end
+    | Exp_Divide (e1, e2) ->
+      begin
+        buf << " (";
+        expression e1;
+        buf << " - ";
+        expression e2;
+        buf <. ')'
+      end
+    | Exp_Modulo (e1, e2) ->
+      begin
+        buf << " (";
+        expression e1;
+        buf << " - ";
+        expression e2;
+        buf <. ')'
+      end
+    | Exp_IfThenElse (e1, e2, e3) ->
+      begin
+        buf << " (if ";
+        expression e1;
+        buf << " then ";
+        expression e2;
+        buf << " else ";
+        expression e3;
+        buf <. ')'
+      end
+
+  and value v = match v with
+    | Expression e ->
+      begin
+        buf <. ' ';
+        expression e
+      end
+    | Link lr ->
+      begin
+        buf <. ' ';
+        reference lr
+      end
+    | Prototype (sid, p) ->
+      begin
+        super_schema sid;
+        prototype p
+      end
+    | Action a -> action a
+    | TBD      -> buf << " TBD"
+    | Unknown  -> buf << " Unknown"
+    | None     -> buf << " None"
+
+  and prototype proto = match proto with
+    | ReferencePrototype (r, p) ->
+      begin
+        buf << " extends ";
         reference r;
-        buf <. ':';
-        _type t;
-        value v;
-        buf <. ';'
-
-    and expression e = match e with
-        | Basic v -> basic_value v
-        | Shell s ->
-            begin
-                (* TODO: use escape (\) for every backtick character *)
-                buf << " `";
-                buf << s;
-                buf <. '`'
-            end
-        | Exp_Eager e ->
-            begin
-                buf << " $(";
-                expression e;
-                buf <. ')'
-            end
-        | Exp_IString s ->
-            begin
-                buf << " \"";
-                buf << s;
-                buf <. '"'
-            end
-        | Exp_Not e ->
-            begin
-                buf << " !(";
-                expression e;
-                buf <. ')'
-            end
-        | Exp_Equal (e1, e2) ->
-            begin
-                buf << " (";
-                expression e1;
-                buf << " = ";
-                expression e2;
-                buf <. ')'
-            end
-        | Exp_NotEqual (e1, e2) ->
-            begin
-                buf << " (";
-                expression e1;
-                buf << " != ";
-                expression e2;
-                buf <. ')'
-            end
-        | Exp_And (e1, e2) ->
-            begin
-                buf << " (";
-                expression e1;
-                buf << " && ";
-                expression e2;
-                buf <. ')'
-            end
-        | Exp_Or (e1, e2) ->
-            begin
-                buf << " (";
-                expression e1;
-                buf << " || ";
-                expression e2;
-                buf <. ')'
-            end
-        | Exp_Imply (e1, e2) ->
-            begin
-                buf << " (";
-                expression e1;
-                buf << " => ";
-                expression e2;
-                buf <. ')'
-            end
-        | Exp_MatchRegexp (exp, regexp) ->
-            begin
-                buf << " (";
-                expression exp;
-                buf << " =~ /";
-                buf << regexp;
-                buf << "/)"
-            end
-        | Exp_Add (e1, e2) ->
-            begin
-                buf << " (";
-                expression e1;
-                buf << " + ";
-                expression e2;
-                buf <. ')'
-            end
-        | Exp_Subtract (e1, e2) ->
-            begin
-                buf << " (";
-                expression e1;
-                buf << " - ";
-                expression e2;
-                buf <. ')'
-            end
-        | Exp_Multiply (e1, e2) ->
-            begin
-                buf << " (";
-                expression e1;
-                buf << " - ";
-                expression e2;
-                buf <. ')'
-            end
-        | Exp_Divide (e1, e2) ->
-            begin
-                buf << " (";
-                expression e1;
-                buf << " - ";
-                expression e2;
-                buf <. ')'
-            end
-        | Exp_Modulo (e1, e2) ->
-            begin
-                buf << " (";
-                expression e1;
-                buf << " - ";
-                expression e2;
-                buf <. ')'
-            end
-        | Exp_IfThenElse (e1, e2, e3) ->
-            begin
-                buf << " (if ";
-                expression e1;
-                buf << " then ";
-                expression e2;
-                buf << " else ";
-                expression e3;
-                buf <. ')'
-            end
-
-    and value v = match v with
-        | Expression e ->
-            begin
-                buf <. ' ';
-                expression e
-            end
-        | Link lr ->
-            begin
-                buf <. ' ';
-                reference lr
-            end
-        | Prototype (sid, p) ->
-            begin
-                super_schema sid;
-                prototype p
-            end
-        | Action a -> action a
-        | TBD      -> buf << " TBD"
-        | Unknown  -> buf << " Unknown"
-        | None     -> buf << " None"
-
-    and prototype proto = match proto with
-        | ReferencePrototype (r, p) ->
-            begin
-                buf << " extends ";
-                reference r;
-                prototype p
-            end
-        | BlockPrototype (b, p) ->
-            begin
-                buf << " extends {\n";
-                block b;
-                prototype p
-            end
-        | EmptyPrototype -> ()
-
-    and basic_value bv = match bv with
-        | Boolean x | Int x | Float x -> buf << x
-        | String x ->
-            begin
-                buf <. '\'';
-                buf << x;
-                buf <. '\''
-            end
-        | Null        -> buf << "null"
-        | Vector vec  ->
-            begin
-                buf <. '[';
-                vector vec;
-                buf <. ']'
-            end
-        | Reference r ->
-            begin
-                buf <. ' ';
-                reference r
-            end
-
-    and vector vec = match vec with
-        | []           -> ()
-        | head :: []   -> basic_value head
-        | head :: tail ->
-            begin
-                basic_value head;
-                buf <. ',';
-                vector tail
-            end
-
-    and reference r = buf << !^r
-
-    and _type t = match t with
-        | T_Bool         -> buf << "bool"
-        | T_Int          -> buf << "int"
-        | T_Float        -> buf << "float"
-        | T_String       -> buf << "string"
-        | T_Null         -> buf << "null"
-        | T_Undefined    -> buf << "undefined"
-        | T_Any          -> buf << "any"
-        | T_Action       -> buf << "action"
-        | T_Constraint   -> buf << "global"
-        | T_Enum (id, _) -> buf << id
-        | T_List t ->
-            begin
-                buf << "[]";
-                _type t
-            end
-        | T_Schema t    -> type_object t
-        | T_Object t    -> type_object t
-        | T_Reference t ->
-            begin
-                buf <. '*';
-                type_object t
-            end
-        | T_Forward T_LinkForward r ->
-            error 301 "T_LinkForward is not allowed."
-
-        | T_Forward T_ReferenceForward r ->
-            error 302 "T_ReferenceForward is not allowed."
-
-    and type_object t = match t with
-        | T_Plain        -> buf << "object"
-        | T_User (id, _) -> buf << id;
-
-    and super_schema ss = match ss with
-        | SID id      ->
-            begin
-                buf << " isa ";
-                buf << id
-            end
-        | EmptySchema -> ()
-
-    and schema (sid, super, b) =
-        buf << "schema ";
-        buf << sid;
-        super_schema super;
-        buf << " {\n";
+        prototype p
+      end
+    | BlockPrototype (b, p) ->
+      begin
+        buf << " extends {\n";
         block b;
-        buf <. '}'
+        prototype p
+      end
+    | EmptyPrototype -> ()
 
-    and enum (id, symbols) =
-        buf << "enum ";
-        buf << id;
-        buf << " {\n  ";
-        buf << (String.concat ",  " symbols);
-        buf << "\n}"
+  and basic_value bv = match bv with
+    | Boolean x | Int x | Float x -> buf << x
+    | String x    -> buf <<| "'" <<| x << "'"
+    | Null        -> buf << "null"
+    | Vector vec  ->
+      begin
+        buf <. '[';
+        vector vec;
+        buf <. ']'
+      end
+    | Reference r ->
+      begin
+        buf <. ' ';
+        reference r
+      end
 
-    (*** constraints ***)
+  and vector vec = match vec with
+    | []           -> ()
+    | head :: []   -> basic_value head
+    | head :: tail ->
+      begin
+        basic_value head;
+        buf <. ',';
+        vector tail
+      end
 
-    and trajectory t = match t with
-        | Global g -> global g
+  and reference r = buf << !^r
 
-    and global g =
-        buf << "global ";
-        constraints g;
-        buf <. '\n'
+  and _type t = match t with
+    | T_Bool         -> buf << "bool"
+    | T_Int          -> buf << "int"
+    | T_Float        -> buf << "float"
+    | T_String       -> buf << "string"
+    | T_Null         -> buf << "null"
+    | T_Undefined    -> buf << "undefined"
+    | T_Any          -> buf << "any"
+    | T_Action       -> buf << "action"
+    | T_Constraint   -> buf << "global"
+    | T_Enum (id, _) -> buf << id
+    | T_Symbol id    -> buf << id
+    | T_List t ->
+      begin
+        buf << "[]";
+        _type t
+      end
+    | T_Schema t    -> type_object t
+    | T_Object t    -> type_object t
+    | T_Reference t ->
+      begin
+        buf <. '*';
+        type_object t
+      end
+    | T_Forward T_LinkForward r ->
+      error 301 "T_LinkForward is not allowed."
 
-    and constraints c = match c with
-        | C_Equal (r, bv) ->
-            begin
-                reference r;
-                buf << " = ";
-                basic_value bv;
-                buf <. ';'
-            end
-        | C_NotEqual (r, bv) ->
-            begin
-                reference r;
-                buf << " != ";
-                basic_value bv;
-                buf <. ';'
-            end
-        | C_Not c ->
-            begin
-                buf << "not ";
-                constraints c
-            end
-        | C_Imply (c1, c2) ->
-            begin
-                buf << "if ";
-                constraints c1;
-                buf << " then ";
-                constraints c2
-            end
-        | C_And cs ->
-            begin
-                buf << "{\n";
-                List.iter (fun c ->
-                    constraints c;
-                    buf <. '\n'
-                ) cs;
-                buf <. '}'
-            end
-        | C_Or cs ->
-            begin
-                buf << "(\n";
-                List.iter (fun c ->
-                    constraints c;
-                    buf <. '\n'
-                ) cs;
-                buf <. ')'
-            end
-        | C_In (r, vec) ->
-            begin
-                reference r;
-                buf << " in ";
-                vector vec;
-                buf <. ';'
-            end
-        | C_Greater (r, v) ->
-            begin
-                reference r;
-                buf << " > ";
-                basic_value v;
-                buf <. ';'
-            end
-        | C_GreaterEqual (r, v) ->
-            begin
-                reference r;
-                buf << " >= ";
-                basic_value v;
-                buf <. ';'
-            end
-        | C_Less (r, v) ->
-            begin
-                reference r;
-                buf << " < ";
-                basic_value v;
-                buf <. ';'
-            end
-        | C_LessEqual (r, v) ->
-            begin
-                reference r;
-                buf << " <= ";
-                basic_value v;
-                buf <. ';'
-            end
+    | T_Forward T_ReferenceForward r ->
+      error 302 "T_ReferenceForward is not allowed."
 
-    and effect (r, v) =
+  and type_object t = match t with
+    | T_Plain        -> buf << "object"
+    | T_User (id, _) -> buf << id;
+
+  and super_schema ss = match ss with
+    | SID id      -> buf <<| " isa " << id
+    | EmptySchema -> ()
+
+  and schema (sid, super, b) =
+    buf <<| "schema " << sid;
+    super_schema super;
+    buf << " {\n";
+    block b;
+    buf <. '}'
+
+  and enum (id, symbols) =
+    buf <<| "enum " <<| id <<| " {\n" <<| (String.concat ", " symbols) << "\n}"
+
+  (*** constraints ***)
+
+  and trajectory t = match t with
+    | Global g -> global g
+
+  and global g =
+    buf << "global ";
+    constraints g;
+    buf <. '\n'
+
+  and constraints c = match c with
+    | C_Equal (r, bv) ->
+      begin
         reference r;
         buf << " = ";
+        basic_value bv;
+        buf <. ';'
+      end
+    | C_NotEqual (r, bv) ->
+      begin
+        reference r;
+        buf << " != ";
+        basic_value bv;
+        buf <. ';'
+      end
+    | C_Not c ->
+      begin
+        buf << "not ";
+        constraints c
+      end
+    | C_Imply (c1, c2) ->
+      begin
+        buf << "if ";
+        constraints c1;
+        buf << " then ";
+        constraints c2
+      end
+    | C_And cs ->
+      begin
+        buf << "{\n";
+        List.iter (fun c ->
+          constraints c;
+          buf <. '\n'
+        ) cs;
+        buf <. '}'
+      end
+    | C_Or cs ->
+      begin
+        buf << "(\n";
+        List.iter (fun c ->
+          constraints c;
+          buf <. '\n'
+        ) cs;
+        buf <. ')'
+      end
+    | C_In (r, vec) ->
+      begin
+        reference r;
+        buf << " in ";
+        vector vec;
+        buf <. ';'
+      end
+    | C_Greater (r, v) ->
+      begin
+        reference r;
+        buf << " > ";
         basic_value v;
         buf <. ';'
+      end
+    | C_GreaterEqual (r, v) ->
+      begin
+        reference r;
+        buf << " >= ";
+        basic_value v;
+        buf <. ';'
+      end
+    | C_Less (r, v) ->
+      begin
+        reference r;
+        buf << " < ";
+        basic_value v;
+        buf <. ';'
+      end
+    | C_LessEqual (r, v) ->
+      begin
+        reference r;
+        buf << " <= ";
+        basic_value v;
+        buf <. ';'
+      end
 
-    and effects effs =
-        buf << "{\n";
-        List.iter (fun e ->
-            effect e;
-            buf <. '\n'
-        ) effs;
-        buf <. '}'
+  and effect (r, v) =
+    reference r;
+    buf << " = ";
+    basic_value v;
+    buf <. ';'
 
-    and conditions c = match c with
-        | EmptyCondition -> ()
-        | Condition c ->
-            begin
-                buf << "conditions ";
-                constraints c
-            end
+  and effects effs =
+    buf << "{\n";
+    List.iter (fun e ->
+      effect e;
+      buf <. '\n'
+    ) effs;
+    buf <. '}'
 
-    and cost c = match c with
-        | EmptyCost -> ()
-        | Cost n ->
-            begin
-                buf << "cost = ";
-                buf << n;
-                buf <. ';'
-            end
+  and conditions c = match c with
+    | EmptyCondition -> ()
+    | Condition c ->
+      begin
+        buf << "conditions ";
+        constraints c
+      end
 
-    and parameter (id, t) =
-        buf << id;
-        buf <. ':';
-        _type t
+  and cost c = match c with
+    | EmptyCost -> ()
+    | Cost n -> buf <<| "cost = " <<| n <. ';'
 
-    and parameters params = match params with
-        | [] -> ()
-        | head :: [] ->
-            begin
-                buf <. '(';
-                parameter head;
-                buf <. ')'
-            end
-        | head :: tail ->
-            begin
-                buf <. '(';
-                parameter head;
-                List.iter (fun p ->
-                    buf <. ',';
-                    parameter p
-                ) tail;
-                buf <. ')'
-            end
+  and parameter (id, t) =
+    buf <<| id <. ';';
+    _type t
 
-    and action (params, c, cond, effs) : unit =
-        buf << "def ";
-        parameters params;
-        buf << " {\n";
-        cost c;
-        conditions cond;
-        effects effs;
-        buf <. '}'
+  and parameters params = match params with
+    | [] -> ()
+    | head :: [] ->
+      begin
+        buf <. '(';
+        parameter head;
+        buf <. ')'
+      end
+    | head :: tail ->
+      begin
+        buf <. '(';
+        parameter head;
+        List.iter (fun p ->
+          buf <. ',';
+          parameter p
+        ) tail;
+        buf <. ')'
+      end
 
-    in
-    context nuri;
-    Buffer.contents buf
+  and action (params, c, cond, effs) : unit =
+    buf << "def ";
+    parameters params;
+    buf << " {\n";
+    cost c;
+    conditions cond;
+    effects effs;
+    buf <. '}'
+
+  in
+  context nuri;
+  Buffer.contents buf
 ;;
 
 

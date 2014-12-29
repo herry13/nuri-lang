@@ -36,27 +36,35 @@ and  block         = AssignmentBlock   of assignment * block
 and  assignment    = reference * t * value
                      (** Variable, type, and value *)
 
-and  expression    = Basic of basic_value (** Basic value *)
-                   | Shell of string (** External-command-value (via shell) *)
-                   | Exp_Eager of expression (** Eager-evaluation expression *)
-                   | Exp_IString of string
+and  expression    = Basic           of basic_value (** Basic value *)
+                   | Shell           of string
+                     (** External-command-value (via shell) *)
+                   | Exp_Eager       of expression
+                     (** Eager-evaluation expression *)
+                   | Exp_IString     of string
                      (** String with variable interpolation *)
-                   | Exp_Not of expression (** Negation *)
-                   | Exp_Equal of expression * expression (** Equality *)
-                   | Exp_NotEqual of expression * expression (** Inequality *)
-                   | Exp_And of expression * expression (** Conjunction *)
-                   | Exp_Or of expression * expression (** Disjunction *)
-                   | Exp_Imply of expression * expression (** Implication *)
+                   | Exp_Not         of expression (** Negation *)
+                   | Exp_Equal       of expression * expression
+                     (** Equality *)
+                   | Exp_NotEqual    of expression * expression
+                     (** Inequality *)
+                   | Exp_And         of expression * expression
+                     (** Conjunction *)
+                   | Exp_Or          of expression * expression
+                     (** Disjunction *)
+                   | Exp_Imply       of expression * expression
+                     (** Implication *)
                    | Exp_MatchRegexp of expression * string
                      (** String pattern-matching *)
-                   | Exp_Add of expression * expression (** Numeric addition *)
-                   | Exp_Subtract of expression * expression
+                   | Exp_Add         of expression * expression
+                     (** Numeric addition or string concatenation *)
+                   | Exp_Subtract    of expression * expression
                      (** Numeric subtraction *)
-                   | Exp_Multiply of expression * expression
+                   | Exp_Multiply    of expression * expression
                      (** Numeric multiplication *)
-                   | Exp_Divide of expression * expression
+                   | Exp_Divide      of expression * expression
                      (** Numeric division *)
-                   | Exp_Modulo of expression * expression
+                   | Exp_Modulo      of expression * expression
                      (** Numeric modulo *)
                    | Exp_IfThenElse  of expression * expression * expression
                      (** Conditional branch *)
@@ -97,22 +105,22 @@ and super  = SID of string
 and enum = string * string list  (** User-defined Enum *)
 
 (* type syntax *)
-and t        = T_Bool        (** bool *)
-             | T_Int         (** int *)
-             | T_Float       (** float *)
-             | T_String      (** string *)
-             | T_Null        (** null-type *)
-             | T_Undefined   (** It is used when the type is indeterminate. *)
-             | T_Any         (** Value 'Unknown' & 'None' has type 'T_Any' *)
-             | T_Action      (** Every action has this type *)
-             | T_Constraint  (** The elements of global constraints has type
-                                 'T_Constraint' *)
-             | T_Enum      of string * string list  (** Enum *)
-             | T_List      of t          (** Every vector has this type *)
-             | T_Schema    of t_object   (** Static schema *)
-             | T_Object    of t_object   (** Object *)
-             | T_Reference of t_object   (** Reference of object *)
-             | T_Forward   of t_forward  (** For forward references *)
+and t = T_Bool        (** bool *)
+      | T_Int         (** int *)
+      | T_Float       (** float *)
+      | T_String      (** string *)
+      | T_Null        (** null-type *)
+      | T_Undefined   (** It is used when the type is indeterminate. *)
+      | T_Any         (** Value 'Unknown' & 'None' has type 'T_Any' *)
+      | T_Action      (** Every action has this type *)
+      | T_Constraint  (** The elements of global constraints has this type. *)
+      | T_Enum      of string * string list  (** Enum *)
+      | T_Symbol    of string
+      | T_List      of t          (** Every vector has this type *)
+      | T_Schema    of t_object   (** Static schema *)
+      | T_Object    of t_object   (** Object *)
+      | T_Reference of t_object   (** Reference of object *)
+      | T_Forward   of t_forward  (** For forward references *)
 
 and t_object = T_Plain                      (** Plain built-in object *)
              | T_User of string * t_object  (** User-defined schema *)
