@@ -79,18 +79,8 @@ let rec json_of_basic_value buf v =
         buf <. '"'
     in
     let json_vector vector =
-        let rec iter vec = match vec with
-            | [] -> ()
-            | head :: [] -> json_of_basic_value buf head
-            | head :: tail ->
-                begin
-                    json_of_basic_value buf head;
-                    buf <. ',';
-                    iter tail
-                end
-        in
         buf <. '[';
-        iter vector;
+        dash buf "," json_of_basic_value vector;
         buf <. ']'
     in
     match v with
@@ -105,18 +95,9 @@ let rec json_of_basic_value buf v =
         end
     | String s    -> json_of_string s
     | Null        -> buf << "null"
-    | Reference r ->
-        begin
-            buf << "\"$";
-            buf << !^r;
-            buf <. '"'
-        end
-    | Vector vec -> json_vector vec
-    | Symbol sym ->
-        begin
-            buf << "§";
-            buf << sym
-        end
+    | Reference r -> buf <<| "\"$" <<| !^r <. '"'
+    | Vector vec  -> json_vector vec
+    | Symbol sym  -> buf <<| "§" << sym
 ;;
 
 
@@ -132,7 +113,7 @@ let of_basic_value v =
 
 let rec json_constraint buf c =
     match c with
-    | Equal (r, v) -> 
+    | Equal (r, v) ->
         begin
             constraint_left_side buf "=" r;
             json_of_basic_value buf v;
@@ -211,15 +192,12 @@ let rec json_constraint buf c =
         end
     | True -> buf << "true"
     | False -> buf << "false"
-and constraint_label buf operator =
-    buf << "[\"";
-    buf << operator;
-    buf <. '"'
+
+and constraint_label buf operator = buf <<| "[\"" <<| operator <. '"'
+
 and constraint_left_side buf operator r =
     constraint_label buf operator;
-    buf << ",\"";
-    buf << !^r;
-    buf << "\","
+    buf <<| ",\"" <<| !^r << "\","
 ;;
 
 let of_constraint c =
@@ -228,9 +206,8 @@ let of_constraint c =
     Buffer.contents buf
 ;;
 
-let add_ident ?_type:(t="") buf id =
-    buf <. '"';
-    buf << id;
+let add_ident ?_type:(t = "") buf id =
+    buf <.| '"' << id;
     if t <> "" then begin
         buf <. ':';
         buf << t
@@ -244,16 +221,16 @@ let json_action buf (_, parameters, cost, conditions, effects) =
         | (id, t) :: [] ->
             begin
                 add_ident buf id;
-                buf <. '"';
-                buf << (of_type t);
-                buf <. '"'
+                buf <.| '"'
+                    <<| (of_type t)
+                    <.  '"'
             end
         | (id, t) :: tail ->
             begin
                 add_ident buf id;
-                buf <. '"';
-                buf << (of_type t);
-                buf << "\",";
+                buf <.| '"'
+                    <<| (of_type t)
+                    << "\",";
                 json_parameters tail
             end
     in
@@ -286,8 +263,7 @@ let json_action buf (_, parameters, cost, conditions, effects) =
                 buf <. ']'
             end
     in
-    buf << ",\"effects\":";
-    buf <. '[';
+    buf << ",\"effects\":[";
     json_effects effects;
     buf << "]}"
 ;;
@@ -296,12 +272,7 @@ let rec of_value ?no_lazy:(no_lazy=true) value =
     let buf = Buffer.create 42 in
     begin match value with
     | Basic bv -> json_of_basic_value buf bv
-    | Link r ->
-        begin
-            buf << "\"§";
-            buf << !^r;
-            buf <. '"'
-        end
+    | Link r -> buf <<| "\"§" <<| !^r <. '"'
     | TBD -> buf << "\"$TBD\""
     | Unknown -> buf << "\"$unknown\""
     | None -> buf << "\"$none\""
@@ -335,18 +306,9 @@ let of_store typeEnv store =
                 match t with
                 | Syntax.T_Plain -> ()
                 | Syntax.T_User (id, _) ->
-                    begin
-                        buf << "\".super\":\"";
-                        buf << id;
-                        buf <. '"'
-                    end
+                  buf <<| "\".super\":\"" <<| id <. '"'
             end
-        | t ->
-            begin
-                buf << "\".type\":\"";
-                buf << (of_type t);
-                buf <. '"'
-            end
+        | t -> buf <<| "\".type\":\"" <<| (of_type t) <. '"'
     in
     let rec json_store ns s = match s with
         | [] -> ()
@@ -375,9 +337,7 @@ let of_store typeEnv store =
         | Link r ->
             begin
                 add_ident buf id;
-                buf << "\"§";
-                buf << !^r;
-                buf <. '"'
+                buf <<| "\"§" <<| !^r <. '"'
             end
         | TBD ->
             begin
@@ -433,10 +393,7 @@ let of_flatstore flatstore =
             end else begin
                 buf << ",\n"
             end;
-            buf << "  \"";
-            buf << !^r;
-            buf << "\": ";
-            buf << (of_value v);
+            buf <<| "  \"" <<| !^r <<| "\": " << (of_value v);
     ) flatstore;
     buf << "\n}";
     Buffer.contents buf
