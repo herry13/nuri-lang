@@ -1,37 +1,53 @@
-(* Author: Herry (herry13@gmail.com) *)
+(** Module Variable contains the data structures and functions of variables
+    of Finite Domain Representation (FDR).
+
+    Module dependencies:
+    - Common
+    - Syntax
+    - Domain
+    - Type
+
+    @author Herry (herry13\@gmail.com)
+    @since 2014
+*)
 
 open Common
 open Domain
 
-(** variable := name * index * values * init * goal **)
-type t = {
-	name   : reference;
-	index  : int;
-	values : value array;
-	init   : value;
-	goal   : value
+(** A data structure of a variable. *)
+type t =
+{
+  name   : reference;   (** variable's name *)
+  index  : int;         (** variable's index *)
+  values : value array; (** domain of values *)
+  init   : value;       (** initial value *)
+  goal   : value        (** goal value *)
 }
 
-(** collection of variables **)
-type ts = {
-	map : t MapRef.t;
-	arr : t array
+(** A collection of variables. The variables are kept in two data-structures.
+    First is a map where the keys are the variables' name. Second is an array
+    where the indexes are the variables' index.
+*)
+type ts =
+{
+  map : t MapRef.t;
+  arr : t array
 }
+
+exception Error of int * string
 
 
 (*****************************************************************
- * variable functions
+ * Variable operation functions
  *****************************************************************)
 
 val make : reference -> int -> value array -> value -> value -> t
 
 val iteri_values : (int -> value -> unit) -> t -> unit
 
-val string_of_values : value array -> string
-
 val string_of_variable : t -> string
 
-val r_dummy : reference
+val reference_of_dummy : reference
 
 val dummy : t
 
@@ -49,13 +65,15 @@ val values : t -> value array
 
 val index_of_value : value -> t -> int 
 
+val intersect : value list -> t -> t
+
 
 (*****************************************************************
- * variables functions
+ * Collection of variables operation functions
  *****************************************************************)
 
 val make_ts : Type.map -> flatstore -> Type.map -> flatstore ->
-	Type.type_values -> ts
+              Type.type_values -> ts
 
 val mem : reference -> ts -> bool
 
@@ -72,6 +90,8 @@ val sort : ts -> unit
 val intersection_with_values : reference -> vector -> ts -> ts
 
 val intersection_with_value : reference -> value -> ts -> ts
+
+val intersect_ts : value list -> reference -> ts -> ts
 
 val remove_value_from : reference -> value -> ts -> ts
 
