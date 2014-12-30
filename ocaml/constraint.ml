@@ -1,85 +1,73 @@
-(* Author: Herry (herry13@gmail.com) *)
+(** Module Constraint contains functions that operates over constraints
+    domain.
+
+    Module dependencies:
+    - Common
+    - Domain
+
+    @author Herry (herry13\@gmail.com)
+    @since 2014
+*)
 
 open Common
 open Domain
 
+
 let rec apply store _constraint =
-    let resolve_value v = match v with
-        | Reference r -> (
-                match find_follow store r with
-                | Undefined -> Basic (Reference r)
-                | Val v     -> v
-            )
-        | _ -> Basic v
-    in
-    let numeric_compare num1 num2 comparator = match num1, num2 with
-        | Val (Basic (Int int1)), Basic Int int2 ->
-            comparator (float_of_int int1) (float_of_int int2)
-        | Val (Basic (Int int1)), Basic Float float2 ->
-            comparator (float_of_int int1) float2
-        | Val (Basic (Float float1)), Basic Int int2 ->
-            comparator float1 (float_of_int int2)
-        | Val (Basic (Float float1)), Basic Float float2 ->
-            comparator float1 float2
-        | _ ->
-            false
-    in
-    match _constraint with
-    | Equal (r, v) -> (
-            match (find_follow store r), (resolve_value v) with
-            | Val Basic Int i, Basic Float f
-            | Val Basic Float f, Basic Int i -> (float_of_int i) = f
-            | Val v1, v2 -> v1 = v2
-            | _ -> false
-        )
-    | NotEqual (r, v) -> (
-            let v2 = resolve_value v in
-            match (find_follow store r), v2 with
-            | Val Basic Int i, Basic Float f
-            | Val Basic Float f, Basic Int i -> (float_of_int i) <> f
-            | Val v1, _ -> v1 <> v2
-            | _ -> false
-        )
-    | Greater (r, v) -> numeric_compare (find_follow store r) (resolve_value v) (>)
-    | GreaterEqual (r, v) -> numeric_compare (find_follow store r) (resolve_value v) (>=)
-    | Less (r, v) -> numeric_compare (find_follow store r) (resolve_value v) (<)
-    | LessEqual (r, v) -> numeric_compare (find_follow store r) (resolve_value v) (<=)
-    | In (r, vec) -> (
-            match find_follow store r with
-            | Val (Basic v1) ->
-                List.exists (fun v ->
-                    match v, v1 with
-                    | Int i, Float f
-                    | Float f, Int i -> (float_of_int i) = f
-                    | _ -> v = v1
-                ) vec
-            | _ -> false
-        )
-    | Not c1 -> not (apply store c1)
-    | Imply (c1, c2) -> not (apply store c1) || (apply store c2)
-    | And clauses -> (
-            let rec iter clauses =
-                match clauses with
-                | [] -> true
-                | head :: tail ->
-                    if not (apply store head) then false
-                    else iter tail
-            in
-            iter clauses
-        )
-    | Or clauses -> (
-            let rec iter cs =
-                match cs with
-                | [] -> false
-                | head :: tail ->
-                    if apply store head then true
-                    else iter tail
-            in
-            if clauses = [] then true
-            else iter clauses
-        )
-    | True -> true
-    | False -> false
+  let eval_ref reference = match resolve_follow reference [] [] store with
+    | _, value -> value
+  in
+  let eval_val = function
+    | Reference ref ->
+      begin match eval_ref ref with
+      | Undefined -> Basic (Reference ref)
+      | Val value -> value
+      end
+    | value -> Basic value
+  in
+  let compare_values comparator (value1 : value) (value2 : basic) =
+    begin match value1, eval_val value2 with
+    | Basic Int i, ((Basic Float _) as f) ->
+      comparator (Basic (Float (float_of_int i))) f
+
+    | ((Basic Float _) as f), Basic Int i ->
+      comparator f (Basic (Float (float_of_int i)))
+
+    | v1, v2 ->
+      comparator v1 v2
+    end
+  in
+  let compare comparator reference value = match eval_ref reference with
+    | Undefined -> false
+    | Val v     -> compare_values comparator v value
+  in
+  match _constraint with
+  | Equal (ref, value)        -> compare (=) ref value
+  | NotEqual (ref, value)     -> compare (<>) ref value
+  | Greater (ref, value)      -> compare (>) ref value
+  | GreaterEqual (ref, value) -> compare (>=) ref value
+  | Less (ref, value)         -> compare (<) ref value
+  | LessEqual (ref, value)    -> compare (<=) ref value
+  | In (ref, vec) ->
+    begin match eval_ref ref with
+    | Undefined -> false
+    | Val value -> List.exists (compare_values (=) value) vec
+    end
+
+  | Not c1         -> not (apply store c1)
+  | Imply (c1, c2) -> not (apply store c1) || (apply store c2)
+  | And [] | Or [] -> true
+  | And clauses    -> List.for_all (fun c -> apply store c) clauses
+  | Or clauses     -> List.exists (fun c -> apply store c) clauses
+  | True           -> true
+  | False          -> false
+;;
+
+let rec prevail_of (reference : reference) (variables : Variable.ts) =
+  match reference with
+  | [] -> error 702 "Invalid nested reference."
+  | _ when Variable.mem reference variables -> reference
+  | _ -> prevail_of !-reference variables
 ;;
 
 (**
@@ -98,39 +86,39 @@ let rec apply store _constraint =
  * - 8 = LessOrEqualsThan
  *)
 let rec nested_to_prevail reference value variables typeEnvironment mode =
-    let rec prevail_of r =
-        if r = [] then error 702 "invalid nested reference"
-        else if Variable.mem r variables then r
-        else prevail_of (!-r)
-    in
-    let rec iter r cs =
-        let prevail = prevail_of r in
-        if prevail = r then
-            match mode, value with
-            | 1, _          -> (Equal (r, value)) :: cs
-            | 2, _          -> (NotEqual (r, value)) :: cs
-            | 3, Vector vec -> (In (r, vec)) :: cs
-            | 4, Vector vec -> (Not (In (r, vec))) :: cs
-            | 5, _          -> (Greater (r, value)) :: cs
-            | 6, _          -> (GreaterEqual (r, value)) :: cs
-            | 7, _          -> (Less (r, value)) :: cs
-            | 8, _          -> (LessEqual (r, value)) :: cs
-            | _             -> error 703 "invalid mode"
-        else
-            let cs1 = (NotEqual (prevail, Null)) :: cs in
-            let rs1 = r @- prevail in
-            Array.fold_left (
-                fun acc vp ->
-                    match vp with
-                    | Basic (Reference rp) ->
-                        let premise = Equal (prevail, Reference rp) in
-                        let conclusion = And (iter (rp @+ rs1) []) in
-                        (Imply (premise, conclusion)) :: acc
-                    | Basic Null     -> acc
-                    | _              -> error 704 ""
-            ) cs1 (Variable.values_of prevail variables)
-    in
-    And (iter reference [])
+  let rec iter r cs =
+    let prevail = prevail_of r variables in
+    if prevail = r then
+      begin match mode, value with
+      | 1, _          -> (Equal (r, value)) :: cs
+      | 2, _          -> (NotEqual (r, value)) :: cs
+      | 3, Vector vec -> (In (r, vec)) :: cs
+      | 4, Vector vec -> (Not (In (r, vec))) :: cs
+      | 5, _          -> (Greater (r, value)) :: cs
+      | 6, _          -> (GreaterEqual (r, value)) :: cs
+      | 7, _          -> (Less (r, value)) :: cs
+      | 8, _          -> (LessEqual (r, value)) :: cs
+      | _             -> error 703 "invalid mode"
+      end
+    else
+      begin
+        let cs1 = (NotEqual (prevail, Null)) :: cs in
+        let rs1 = r @- prevail in
+        let foreach_value accumulator value = match value with
+          | Basic ((Reference ref) as v) ->
+            begin
+              let premise = Equal (prevail, v) in
+              let conclusion = And (iter (ref @+ rs1) []) in
+              (Imply (premise, conclusion)) :: accumulator
+            end
+          | Basic Null -> accumulator
+          | _ -> error 704 "Invalid nested reference."
+        in
+        let prevailValues = Variable.values_of prevail variables in
+        Array.fold_left foreach_value cs1 prevailValues
+      end
+  in
+  And (iter reference [])
 
 (**
  * simplify a conjunction formula
@@ -138,351 +126,370 @@ let rec nested_to_prevail reference value variables typeEnvironment mode =
  * - determine whether the formula is always false
  *)
 and simplify_conjunction conjunction =
-    let rec iter clauses acc =
-        match clauses with
-        | []         -> And acc
-        | c1 :: tail -> 
-            if List.exists (fun c2 ->
-                    (* return false if formula 'c1' negates 'c2'
-                       (or vice versa), otherwise true *)
-                    match c1, c2 with
-                    | Equal (r1, v1), Equal (r2, v2) ->
-                        if r1 = r2 then not (v1 = v2) else false
-                    | Equal (r1, v1), NotEqual (r2, v2) ->
-                        if r1 = r2 then v1 = v2 else false
-                    | NotEqual (r1, v1), Equal (r2, v2) ->
-                        if r1 = r2 then v1 = v2 else false
-                    | _ -> false
-                ) tail then False
-            else if List.mem c1 tail then iter tail acc
-            else iter tail (c1 :: acc)
-    in
-    match conjunction with
-    | And clauses -> iter clauses []
-    | _           -> error 705 "the constraint is not a conjunction"
+  let test c1 c2 = match c1, c2 with
+    | Equal (r1, v1), NotEqual (r2, v2)
+    | NotEqual (r1, v1), Equal (r2, v2) -> (r1 = r2) && (v1 = v2)
+    | Equal (r1, v1), Equal (r2, v2) -> (r1 = r2) && (not (v1 = v2))
+    | _ -> false
+  in
+  let rec iter clauses acc =
+    match clauses with
+    | []         -> And acc
+    | c1 :: tail ->
+      begin
+        if List.exists (test c1) tail then False
+        else if List.mem c1 tail then iter tail acc
+        else iter tail (c1 :: acc)
+      end
+  in
+  match conjunction with
+  | And clauses -> iter clauses []
+  | _           -> error 705 "the constraint is not a conjunction"
 
 (**
  * simplify a disjunction formula
  * - remove duplications
  *)
 and simplify_disjunction disjunction =
-    let rec iter clauses acc =
-        match clauses with
-        | [] -> Or acc
-        | clause :: tail ->
-            if List.mem clause tail then iter tail acc
-            else iter tail (clause :: acc)
-    in
-    match disjunction with
-    | Or clauses -> iter clauses []
-    | _          -> error 706 "the constraint is not a disjunction"
+  let rec iter clauses acc =
+    match clauses with
+    | []             -> Or acc
+    | clause :: tail -> if List.mem clause tail then iter tail acc
+                        else iter tail (clause :: acc)
+  in
+  match disjunction with
+  | Or clauses -> iter clauses []
+  | _          -> error 706 "the constraint is not a disjunction"
+
+and cross_product callback list1 list2 =
+  List.fold_left (fun accumulator1 element1 ->
+    List.fold_left (fun accumulator2 element2 ->
+      (callback element1 element2) :: accumulator2
+    ) accumulator1 list2
+  ) [] list1
 
 (**
  * cross product of disjunction clauses of a conjunction formula
  * @param ands conjunction clauses of the formula
  * @param ors  disjunction clauses of the formula
  *)
-and cross_product_of andClauses orClauses =
-    let cross clauses1 clauses2 =
-        List.fold_left (fun acc1 clause1 ->
-            List.fold_left (fun acc2 clause2 ->
-                (And [clause1; clause2]) :: acc2
-            ) acc1 clauses2
-        ) [] clauses1
-    in
-    let rec iter clauses =
-        match clauses with
-        | []            -> []
-        | (Or cs) :: [] ->
-            List.fold_left (
-                fun acc c ->
-                    match c with
-                    | And css ->
-                        (simplify_conjunction (
-                            And (List.append css andClauses))
-                        ) :: acc
-                    | _       -> error 707 "not a conjunction"
-            ) [] cs
-        | (Or cs1) :: (Or cs2) :: tail -> iter ((Or (cross cs1 cs2)) :: tail)
-        | _ -> error 708 "invalid constraint"
-    in
-    dnf_of (Or (iter orClauses))
+and cross_product_ands_ors andClauses orClauses =
+  let cross_ors =
+    cross_product (fun clause1 clause2 -> And [clause1; clause2])
+  in
+  let foreach_or_clause accumulator clause = match clause with
+    | And css -> (simplify_conjunction (And (List.append css andClauses))) ::
+                 accumulator
+    | _ -> error 707 "Clause is not a conjunction."
+  in
+  let rec iter clauses =
+    match clauses with
+    | [] -> []
+    | (Or cs) :: [] -> List.fold_left foreach_or_clause [] cs
+    | (Or cs1) :: (Or cs2) :: tail -> iter ((Or (cross_ors cs1 cs2)) :: tail)
+    | _ -> error 708 "Invalid constraint."
+  in
+  dnf_of (Or (iter orClauses))
 
 (** convert a constraint formula to a DNF formula **)
 and dnf_of _constraint variables typeEnvironment =
-    match _constraint with
-    | Equal (r, v)      -> dnf_of_equal r v variables typeEnvironment
-    | NotEqual (r, v)      -> dnf_of_not_equal r v variables typeEnvironment
-    | Not c1         -> dnf_of_negation c1 variables typeEnvironment
-    | Imply (c1, c2) -> dnf_of_implication c1 c2 variables typeEnvironment
-    | In (r, vec)    -> dnf_of_membership r vec variables typeEnvironment
-    | And cs         -> dnf_of_conjunction cs variables typeEnvironment
-    | Or cs          -> dnf_of_disjunction cs variables typeEnvironment
-    | Greater (r, v) ->
-        dnf_of_numeric r v variables typeEnvironment (fun x1 x2 -> x1 > x2)
-    | GreaterEqual (r, v) ->
-        dnf_of_numeric r v variables typeEnvironment (fun x1 x2 -> x1 >= x2)
-    | Less (r, v) ->
-        dnf_of_numeric r v variables typeEnvironment (fun x1 x2 -> x1 < x2)
-    | LessEqual (r, v) ->
-        dnf_of_numeric r v variables typeEnvironment (fun x1 x2 -> x1 <= x2)
-    | True -> True
-    | False -> False
+  match _constraint with
+  | True -> True
+  | False -> False
+  | Equal (r, v)    -> dnf_of_equal r v variables typeEnvironment
+  | NotEqual (r, v) -> dnf_of_not_equal r v variables typeEnvironment
+  | Not c1          -> dnf_of_negation c1 variables typeEnvironment
+  | Imply (c1, c2)  -> dnf_of_implication c1 c2 variables typeEnvironment
+  | In (r, vec)     -> dnf_of_membership r vec variables typeEnvironment
+  | And cs          -> dnf_of_conjunction cs variables typeEnvironment
+  | Or cs           -> dnf_of_disjunction cs variables typeEnvironment
+  | Greater (r, v)  ->
+    dnf_of_numeric r v variables typeEnvironment (fun x1 x2 -> x1 > x2)
+
+  | GreaterEqual (r, v) ->
+    dnf_of_numeric r v variables typeEnvironment (fun x1 x2 -> x1 >= x2)
+
+  | Less (r, v) ->
+    dnf_of_numeric r v variables typeEnvironment (fun x1 x2 -> x1 < x2)
+
+  | LessEqual (r, v) ->
+    dnf_of_numeric r v variables typeEnvironment (fun x1 x2 -> x1 <= x2)
 
 and dnf_of_numeric r v variables typeEnvironment comparator =
-    let convert x =
-        let values =
-            Array.fold_left (
-                fun acc v1 -> (
-                    match v1 with
-                    | Basic (Int i) ->
-                        if comparator (float_of_int i) x then (Int i) :: acc
-                        else acc
-                    | Basic (Float f) ->
-                        if comparator f x then (Float f) :: acc
-                        else acc
-                    | _ ->
-                        error 710 "not an integer of float"
-                )
-            ) [] (Variable.values_of r variables)
-        in
-        if values = [] then False
-        else dnf_of (In (r, values)) variables typeEnvironment
+  let compare_with x accumulator value = match value with
+    | Basic ((Int i) as v) when comparator (float_of_int i) x ->
+      v :: accumulator
+
+    | Basic ((Float f) as v) when comparator f x -> v :: accumulator
+    | Basic (Int _) | Basic (Float _) -> accumulator
+    | _ -> error 710 "Not an integer or float."
+  in
+  let convert x =
+    let values = Array.fold_left (compare_with x)
+                                 []
+                                 (Variable.values_of r variables)
     in
-    if Variable.mem r variables then (
-        match v with
-        | Int i   -> convert (float_of_int i)
-        | Float f -> convert f
-        | Reference r2  ->
-            let conjunction r1 v1 r2 v2 = And [Equal (r1, v1); Equal (r2, v2)] in
-            if Variable.mem r2 variables then
-                let leftValues = Variable.values_of r variables in
-                let rightValues = Variable.values_of r2 variables in
-                let clauses =
-                    Array.fold_left (fun acc1 leftValue ->
-                        Array.fold_left (fun acc2 rightValue ->
-                            match leftValue, rightValue with
-                            | Basic (Int v1), Basic (Int v2) when
-                              comparator (float_of_int v1) (float_of_int v2) ->
-                                  (conjunction r (Int v1) r2 (Int v2)) :: acc2
-                            | Basic (Int v1), Basic (Float v2) when
-                              comparator (float_of_int v1) v2 ->
-                                  (conjunction r (Int v1) r2 (Float v2)) ::
-                                      acc2
-                            | Basic (Float v1), Basic (Float v2) when
-                              comparator v1 v2 ->
-                                    (conjunction r (Float v1) r2 (Float v2)) ::
-                                      acc2
-                            | Basic (Float v1), Basic (Int v2) when
-                              comparator v1 (float_of_int v2) ->
-                                  (conjunction r (Float v1) r2 (Int v2)) ::
-                                      acc2
-                            | _ -> acc2
-                        ) acc1 rightValues
-                    ) [] leftValues
-                in
-                Or clauses
-            else
-                error 712 "right-hand side is a nested reference"
-                (* right-hand is a nested reference *)
-        | _       -> error 713 ""
-    ) else
-        dnf_of (nested_to_prevail r v variables typeEnvironment 5)
-            variables typeEnvironment
+(*
+    let values =
+      Array.fold_left (
+        fun acc v1 -> (
+          match v1 with
+          | Basic (Int i) ->
+            if comparator (float_of_int i) x then (Int i) :: acc
+            else acc
+          | Basic (Float f) ->
+            if comparator f x then (Float f) :: acc
+            else acc
+          | _ ->
+            error 710 "not an integer of float"
+        )
+      ) [] (Variable.values_of r variables)
+    in
+*)
+    if values = [] then False
+    else dnf_of (In (r, values)) variables typeEnvironment
+  in
+  if Variable.mem r variables then
+    begin match v with
+    | Int i   -> convert (float_of_int i)
+    | Float f -> convert f
+    | Reference r2  ->
+      begin
+      let conjunction r1 v1 r2 v2 = And [Equal (r1, v1); Equal (r2, v2)] in
+      if Variable.mem r2 variables then
+        let leftValues = Variable.values_of r variables in
+        let rightValues = Variable.values_of r2 variables in
+        let clauses =
+          Array.fold_left (fun acc1 leftValue ->
+            Array.fold_left (fun acc2 rightValue ->
+              match leftValue, rightValue with
+              | Basic (Int v1), Basic (Int v2) when
+                comparator (float_of_int v1) (float_of_int v2) ->
+                  (conjunction r (Int v1) r2 (Int v2)) :: acc2
+              | Basic (Int v1), Basic (Float v2) when
+                comparator (float_of_int v1) v2 ->
+                  (conjunction r (Int v1) r2 (Float v2)) :: acc2
+              | Basic (Float v1), Basic (Float v2) when
+                comparator v1 v2 ->
+                  (conjunction r (Float v1) r2 (Float v2)) ::
+                    acc2
+              | Basic (Float v1), Basic (Int v2) when
+                comparator v1 (float_of_int v2) ->
+                  (conjunction r (Float v1) r2 (Int v2)) ::
+                    acc2
+              | _ -> acc2
+            ) acc1 rightValues
+          ) [] leftValues
+        in
+        Or clauses
+      else
+        error 712 "right-hand side is a nested reference"
+        (* right-hand is a nested reference *)
+      end
+    | _ -> error 713 ""
+    end
+
+  else
+    dnf_of (nested_to_prevail r v variables typeEnvironment 5)
+           variables
+           typeEnvironment
 
 (** convert equality to DNF, and convert a left-nested reference to prevail
     ones **)
 and dnf_of_equal reference value variables typeEnvironment =
-    if Variable.mem reference variables then
-        Equal (reference, value)
-    else
-        dnf_of (nested_to_prevail reference value variables typeEnvironment 1)
-            variables typeEnvironment
+  if Variable.mem reference variables then
+    Equal (reference, value)
+  else
+    dnf_of (nested_to_prevail reference value variables typeEnvironment 1)
+           variables
+           typeEnvironment
 
 (** convert inequality to DNF, and convert a left-nested reference to
     prevail ones **)
 and dnf_of_not_equal reference value variables typeEnvironment =
-    if Variable.mem reference variables then
-        let values =
-            Array.fold_left (
-                fun acc v ->
-                    match v with
-                    | Basic bv -> if bv = value then acc else bv :: acc
-                    | _  -> error 714 "right-hand side is not a basic value"
-                        (* the right-hand side is not a basic value *)
-            ) [] (Variable.values_of reference variables)
-        in
-        if values = [] then False
-        else dnf_of (In (reference, values)) variables typeEnvironment
-    else
-        dnf_of (nested_to_prevail reference value variables typeEnvironment 2)
-            variables typeEnvironment
+  if Variable.mem reference variables then
+    begin
+      let values = Variable.values_of reference variables in
+      let filter accumulator v = match v with
+        | Basic bv when bv = value -> accumulator
+        | Basic bv -> bv :: accumulator
+        | _ -> error 714 "Right-hand side of '=' is not a basic value."
+      in
+      match Array.fold_left filter [] values with
+      | [] -> False
+      | vector -> dnf_of (In (reference, vector)) variables typeEnvironment
+    end
+  else
+    begin
+      let c = nested_to_prevail reference value variables typeEnvironment 2 in
+      dnf_of c variables typeEnvironment
+    end
 
 (** convert negation to DNF **)
 and dnf_of_negation _constraint variables typeEnvironment =
-    match _constraint with
-    | True -> False
-    | False -> True
-    | Equal (r, v) -> dnf_of (NotEqual (r, v)) variables typeEnvironment
-    | NotEqual (r, v) -> dnf_of (Equal (r, v)) variables typeEnvironment
-    | Greater (r, v) -> dnf_of (LessEqual (r, v)) variables typeEnvironment
-    | GreaterEqual (r, v) -> dnf_of (Less (r, v)) variables typeEnvironment
-    | Less (r, v) -> dnf_of (GreaterEqual (r, v)) variables typeEnvironment
-    | LessEqual (r, v) -> dnf_of (Greater (r, v)) variables typeEnvironment
-    | Not c1 -> dnf_of c1 variables typeEnvironment
-    | Imply (premise, conclusion) ->
-        (* -(p -> q) = p ^ -q *)
-        dnf_of (And [premise; (Not conclusion)]) variables typeEnvironment
-    | And cs ->
-        (* De Morgan's laws *)
-        let cs1 = List.fold_left (fun acc c -> (Not c) :: acc) [] cs in
-        dnf_of (Or cs1) variables typeEnvironment
-    | Or cs  ->
-        (* De Morgan's laws *)
-        let cs1 = List.fold_left (fun acc c -> (Not c) :: acc) [] cs in
-        dnf_of (And cs1) variables typeEnvironment
-    | In (r, vector) ->
-        if Variable.mem r variables then
-            let cs = Array.fold_left (
-                    fun acc v ->
-                        match v with
-                        | Basic v1 ->
-                            if List.mem v1 vector then acc
-                            else (Equal (r, v1)) :: acc
-                        | _        -> error 715 ""
-                ) [] (Variable.values_of r variables)
-            in
-            if cs = [] then False
-            else dnf_of (Or cs) variables typeEnvironment
-        else
-            dnf_of (nested_to_prevail r (Vector vector) variables
-                typeEnvironment 4) variables typeEnvironment
+  match _constraint with
+  | True -> False
+  | False -> True
+  | Equal (r, v) -> dnf_of (NotEqual (r, v)) variables typeEnvironment
+  | NotEqual (r, v) -> dnf_of (Equal (r, v)) variables typeEnvironment
+  | Greater (r, v) -> dnf_of (LessEqual (r, v)) variables typeEnvironment
+  | GreaterEqual (r, v) -> dnf_of (Less (r, v)) variables typeEnvironment
+  | Less (r, v) -> dnf_of (GreaterEqual (r, v)) variables typeEnvironment
+  | LessEqual (r, v) -> dnf_of (Greater (r, v)) variables typeEnvironment
+  | Not c1 -> dnf_of c1 variables typeEnvironment
+  | Imply (premise, conclusion) ->
+    begin
+      (* -(p -> q) = p ^ -q *)
+      dnf_of (And [premise; (Not conclusion)]) variables typeEnvironment
+    end
+
+  | And cs ->
+    begin
+      (* De Morgan's laws *)
+      let css = List.fold_left (fun acc c -> (Not c) :: acc) [] cs in
+      dnf_of (Or css) variables typeEnvironment
+    end
+
+  | Or cs  ->
+    begin
+      (* De Morgan's laws *)
+      let css = List.fold_left (fun acc c -> (Not c) :: acc) [] cs in
+      dnf_of (And css) variables typeEnvironment
+    end
+
+  | In (r, vector) ->
+    begin
+      if Variable.mem r variables then
+        begin
+          let values = Variable.values_of r variables in
+          let foreach_value accumulator value = match value with
+            | Basic v when not (List.mem v vector) -> accumulator
+            | Basic v -> (Equal (r, v)) :: accumulator
+            | _ -> error 715 "Invalid in constraint."
+          in
+          match Array.fold_left foreach_value [] values with
+          | [] -> False
+          | clauses -> dnf_of (Or clauses) variables typeEnvironment
+        end
+      else
+        begin
+          let c = nested_to_prevail r
+                                    (Vector vector)
+                                    variables
+                                    typeEnvironment
+                                    4
+          in
+          dnf_of c variables typeEnvironment
+        end
+    end
 
 (** convert implication to DNF **)
-and dnf_of_implication premise conclusion variables typeEnvironment =
-    dnf_of (Or [(Not premise); conclusion]) variables typeEnvironment
+and dnf_of_implication premise conclusion =
+  dnf_of (Or [(Not premise); conclusion])
 
 (** convert membership constraint to DNF **)
 and dnf_of_membership reference vector variables typeEnvironment =
-    if Variable.mem reference variables then
-        let clauses = Array.fold_left (
-                fun acc value ->
-                    match value with
-                    | Basic v ->
-                        if List.mem v vector then (Equal (reference, v)) :: acc
-                        else acc
-                    | _        -> error 716 ""
-            ) [] (Variable.values_of reference variables)
-        in
-        if clauses = [] then False
-        else dnf_of (Or clauses) variables typeEnvironment
-    else
-        dnf_of (nested_to_prevail reference (Vector vector) variables
-            typeEnvironment 3) variables typeEnvironment
+  if Variable.mem reference variables then
+    begin
+      let values = Variable.values_of reference variables in
+      let foreach_value accumulator value = match value with
+        | Basic v when not (List.mem v vector) -> accumulator
+        | Basic v -> (Equal (reference, v)) :: accumulator
+        | _ -> error 716 "Invalid membership constraint."
+      in
+      match Array.fold_left foreach_value [] values with
+      | []      -> False
+      | clauses -> dnf_of (Or clauses) variables typeEnvironment
+    end
+  else
+    begin
+      let c = nested_to_prevail reference
+                                (Vector vector)
+                                variables
+                                typeEnvironment
+                                3
+      in
+      dnf_of c variables typeEnvironment
+    end
 
-(** convert conjunction to DNF, performs cross-products when it has disjunction clause **)
+(** convert conjunction to DNF, performs cross-products when it has
+    disjunction clause *)
 and dnf_of_conjunction clauses variables typeEnvironment =
-    let rec iter clauses ands ors =
-        if clauses = [] then (false, ands, ors)
-        else
-            match dnf_of (List.hd clauses) variables typeEnvironment with
-            | And css -> iter (List.tl clauses) (List.append css ands) ors
-            | False   -> (true, ands, ors)
-            | True    -> iter (List.tl clauses) ands ors
-            | Or css  -> iter (List.tl clauses) ands ((Or css) :: ors)
-            | css     -> iter (List.tl clauses) (css :: ands) ors
-    in
-    match clauses with
-    | [] -> True
-    | _  ->
-        let (allFalse, andClauses, orClauses) = iter clauses [] [] in
-        if allFalse then False
-        else
-            match andClauses, orClauses with
-            | [], []         -> True
-            | head :: [], [] -> head
-            | [], head :: [] -> head
-            | _, []          -> simplify_conjunction (And andClauses)
-            | _, _           ->
-                (cross_product_of andClauses orClauses) variables
-                    typeEnvironment
+  let rec fold clauses ands ors = match clauses with
+    | [] -> (false, ands, ors)
+    | head :: tail ->
+      begin match dnf_of head variables typeEnvironment with
+      | And cs       -> fold tail (List.append cs ands) ors
+      | False        -> (true, ands, ors)
+      | True         -> fold tail ands ors
+      | (Or cs) as c -> fold tail ands (c :: ors)
+      | c            -> fold tail (c :: ands) ors
+      end
+  in
+  match clauses with
+  | [] -> True
+  | _  ->
+    begin match fold clauses [] [] with
+    | true, _, _ -> False
+    | _, [], []  -> True
+    | _, head :: [], [] -> head
+    | _, [], head :: [] -> head
+    | _, ands, []  -> simplify_conjunction (And ands)
+    | _, ands, ors ->
+      (cross_product_ands_ors ands ors) variables typeEnvironment
+    end
 
-(** convert disjunction to DNF **)
+(** convert disjunction to DNF *)
 and dnf_of_disjunction clauses variables typeEnvironment =
-    let rec iter clauses acc =
-        if clauses = [] then (false, acc)
-        else
-            match dnf_of (List.hd clauses) variables typeEnvironment with
-            | Or cs -> iter (List.tl clauses) (List.append cs acc)
-            | False -> iter (List.tl clauses) acc
-            | True  -> (true, acc)
-            | c     -> iter (List.tl clauses) (c :: acc)
-    in
-    match clauses with
-    | [] -> True
-    | _ ->
-        let (allTrue, clauses1) = iter clauses [] in
-        if allTrue then True
-        else
-            match clauses1 with
-            | clause :: [] -> clause
-            | _            -> simplify_disjunction (Or clauses1)
+  let rec fold accumulator clauses = match clauses with
+    | []           -> (false, accumulator)
+    | head :: tail ->
+      begin match dnf_of head variables typeEnvironment with
+      | Or cs -> fold (List.append cs accumulator) tail
+      | False -> fold accumulator tail
+      | True  -> (true, accumulator)
+      | c     -> fold (c :: accumulator) tail
+      end
+  in
+  match clauses with
+  | [] -> True
+  | _  ->
+    begin match fold [] clauses with
+    | true, _         -> True
+    | _, clause :: [] -> clause
+    | _, cs           -> simplify_disjunction (Or cs)
+    end
 ;;
 
-(**
- * substitute each parameter with a value as specified in the map of
- * parameters
- *)
+(** Substitute each parameter with a value as specified in the map of
+    parameters *)
 let rec substitute_free_variables_of _constraint parameters =
-    match _constraint with
-    | Equal (r, v) ->
-        let r1 = substitute_parameter_of_reference r parameters in
-        let v1 = substitute_parameter_of_basic_value v parameters in
-        Equal (r1, v1)
-    | NotEqual (r, v) ->
-        let r1 = substitute_parameter_of_reference r parameters in
-        let v1 = substitute_parameter_of_basic_value v parameters in
-        NotEqual (r1, v1)
-    | Greater (r, v) ->
-        let r1 = substitute_parameter_of_reference r parameters in
-        let v1 = substitute_parameter_of_basic_value v parameters in
-        Greater (r1, v1)
-    | GreaterEqual (r, v) ->
-        let r1 = substitute_parameter_of_reference r parameters in
-        let v1 = substitute_parameter_of_basic_value v parameters in
-        GreaterEqual (r1, v1)
-    | Less (r, v) ->
-        let r1 = substitute_parameter_of_reference r parameters in
-        let v1 = substitute_parameter_of_basic_value v parameters in
-        Less (r1, v1)
-    | LessEqual (r, v) ->
-        let r1 = substitute_parameter_of_reference r parameters in
-        let v1 = substitute_parameter_of_basic_value v parameters in
-        LessEqual (r1, v1)
-    | Not c ->
-        Not (substitute_free_variables_of c parameters)
-    | Imply (c1, c2) ->
-        Imply (
-            substitute_free_variables_of c1 parameters,
-            substitute_free_variables_of c2 parameters
-        )
-    | And cs ->
-        And (
-            List.fold_left (
-                fun css c -> (substitute_free_variables_of c parameters) :: css
-            ) [] cs
-        )
-    | Or cs ->
-        Or (
-            List.fold_left (
-                fun css c -> (substitute_free_variables_of c parameters) :: css
-            ) [] cs
-        )
-    | In (r, v) ->
-        let r1 = substitute_parameter_of_reference r parameters in
-        In (r1, v)
-    | True -> True
-    | False -> False
+  let sub_ref ref = substitute_parameter_of_reference ref parameters in
+  let sub_val value = substitute_parameter_of_basic_value value parameters in
+  match _constraint with
+  | Equal (r, v) -> Equal (sub_ref r, sub_val v)
+  | NotEqual (r, v) -> NotEqual (sub_ref r, sub_val v)
+  | Greater (r, v) -> Greater (sub_ref r, sub_val v)
+  | GreaterEqual (r, v) -> GreaterEqual (sub_ref r, sub_val v)
+  | Less (r, v) -> Less (sub_ref r, sub_val v)
+  | LessEqual (r, v) -> LessEqual (sub_ref r, sub_val v)
+  | Not c -> Not (substitute_free_variables_of c parameters)
+  | Imply (c1, c2) -> Imply (
+      substitute_free_variables_of c1 parameters,
+      substitute_free_variables_of c2 parameters
+    )
+  | And cs -> And (List.fold_left (fun css c ->
+        (substitute_free_variables_of c parameters) :: css
+      ) [] cs
+    )
+  | Or cs -> Or (List.fold_left (fun css c ->
+        (substitute_free_variables_of c parameters) :: css
+      ) [] cs
+    )
+  | In (r, vec) -> In (sub_ref r, vec)
+    (* TODO: every element of the vector should be evaluated as well! *)
+  | True -> True
+  | False -> False
 ;;
 
 
@@ -491,196 +498,195 @@ let rec substitute_free_variables_of _constraint parameters =
  ************************************************************************)
 
 type data = {
-    complex   : _constraint list;
-    simple    : _constraint list;
-    variables : Variable.ts
+  complex   : _constraint list;
+  simple    : _constraint list;
+  variables : Variable.ts
 }
 
-(** compile simple membership of global constraints **)
+(** compile simple membership of global constraints *)
 let compile_membership isNegation reference vector data =
-    let rec prevail_of r =
-        if r = [] then error 718 "invalid nested reference"
-        else if Variable.mem r data.variables then r
-        else prevail_of (!-r)
+  let prevail = prevail_of reference data.variables in
+  if prevail = reference then
+    {
+      complex   = data.complex;
+      simple    = data.simple;
+      variables =
+      if isNegation then
+        Variable.remove_values_from reference vector
+                      data.variables
+      else
+        Variable.intersection_with_values reference vector
+                        data.variables
+    }
+  else
+    let variables1 = Variable.remove_value_from prevail (Basic Null)
+        data.variables
     in
-    let prevail = prevail_of reference in
-    if prevail = reference then
-        {
-            complex   = data.complex;
-            simple    = data.simple;
-            variables =
-                if isNegation then
-                    Variable.remove_values_from reference vector
-                        data.variables
-                else
-                    Variable.intersection_with_values reference vector
-                        data.variables
-        }
-    else
-        let variables1 = Variable.remove_value_from prevail (Basic Null)
-            data.variables
+    let rs = reference @- prevail in
+    let accumulator = {
+        complex   = data.complex;
+        simple    = data.simple;
+        variables = variables1
+      }
+    in
+    let values = Variable.values_of prevail variables1 in
+    Array.fold_left (fun acc v ->
+      match v with
+      | Basic (Reference r) ->
+        let r1 = r @+ rs in
+        let c =
+          if isNegation then
+            Imply (Equal (prevail, Reference r), Not (In (r1, vector)))
+          else
+            Imply (Equal (prevail, Reference r), In (r1, vector))
         in
-        let rs = reference @- prevail in
-        let accumulator = {
-                complex   = data.complex;
-                simple    = data.simple;
-                variables = variables1
-            }
-        in
-        let values = Variable.values_of prevail variables1 in
-        Array.fold_left (fun acc v ->
-            match v with
-            | Basic (Reference r) ->
-                let r1 = r @+ rs in
-                let c =
-                    if isNegation then
-                        Imply (Equal (prevail, Reference r), Not (In (r1, vector)))
-                    else
-                        Imply (Equal (prevail, Reference r), In (r1, vector))
-                in
-                {
-                    complex   = c :: acc.complex;
-                    simple    = acc.simple;
-                    variables = acc.variables
-                }
-            | _ -> error 719 "not a basic value"
-        ) accumulator values
+          {
+            complex   = c :: acc.complex;
+            simple    = acc.simple;
+            variables = acc.variables
+          }
+      | _ -> error 719 "not a basic value"
+    ) accumulator values
 ;;
 
-(** compile simple equality of global constraints **)
+(** compile simple equality of global constraints *)
 let compile_equality isNegation reference value data =
-    let rec prevail_of r =
-        if r = [] then error 720 "invalid nested reference"
-        else if Variable.mem r data.variables then r
-        else prevail_of (!-r)
+  let prevail = prevail_of reference data.variables in
+  if prevail = reference then
+    {
+      complex   = data.complex;
+      simple    = data.simple;
+      variables =
+        if isNegation then
+          Variable.remove_value_from reference (Basic value)
+                                     data.variables
+        else
+          Variable.intersection_with_value reference (Basic value)
+                                           data.variables
+    }
+  else 
+    let variables1 = Variable.remove_value_from prevail (Basic Null)
+        data.variables
     in
-    let prevail = prevail_of reference in
-    if prevail = reference then
-        {
-            complex   = data.complex;
-            simple    = data.simple;
-            variables =
-                if isNegation then
-                    Variable.remove_value_from reference (Basic value)
-                        data.variables
-                else
-                    Variable.intersection_with_value reference (Basic value)
-                        data.variables
-        }
-    else 
-        let variables1 = Variable.remove_value_from prevail (Basic Null)
-            data.variables
+    let rs = reference @- prevail in
+    let accumulator = {
+        complex   = data.complex;
+        simple    = data.simple;
+        variables = variables1
+      }
+    in
+    let values = Variable.values_of prevail variables1 in
+    Array.fold_left (fun acc v ->
+      match v with
+      | Basic (Reference r) ->
+        let r1 = r @+ rs in
+        let _constraint =
+          if isNegation then
+            Imply (Equal (prevail, Reference r),
+            NotEqual (r1, value))
+          else
+            Imply (Equal (prevail, Reference r),
+            Equal (r1, value))
         in
-        let rs = reference @- prevail in
-        let accumulator = {
-                complex   = data.complex;
-                simple    = data.simple;
-                variables = variables1
+          if not isNegation && (Variable.mem r1 acc.variables)
+            then {
+              complex = acc.complex;
+              simple = _constraint :: acc.simple;
+              variables = acc.variables
             }
-        in
-        let values = Variable.values_of prevail variables1 in
-        Array.fold_left (fun acc v ->
-            match v with
-            | Basic (Reference r) ->
-                let r1 = r @+ rs in
-                let _constraint =
-                    if isNegation
-                        then Imply (Equal (prevail, Reference r), NotEqual (r1, value))
-                    else
-                        Imply (Equal (prevail, Reference r), Equal (r1, value))
-                in
-                if not isNegation && (Variable.mem r1 acc.variables)
-                    then {
-                        complex = acc.complex;
-                        simple = _constraint :: acc.simple;
-                        variables = acc.variables
-                    }
-                else
-                    {
-                        complex = _constraint :: acc.complex;
-                        simple = acc.simple;
-                        variables = acc.variables
-                    }
-            | _ -> error 721 "invalid constraint"
-        ) accumulator values
+          else
+            {
+              complex = _constraint :: acc.complex;
+              simple = acc.simple;
+              variables = acc.variables
+            }
+      | _ -> error 721 "invalid constraint"
+    ) accumulator values
 ;;
 
-(** compile simple equality and membership of global constraints **)
+(** compile simple equality and membership of global constraints *)
 let compile_simple_constraints globalConstraints variables =
-    match globalConstraints with
-    | And clauses ->
-        let accumulator = {
-                complex   = [];
-                simple    = [];
-                variables = variables
-            }
-        in
-        let data =
-            List.fold_left (fun acc clause ->
-                match clause with
-                | Equal (r, v)         -> compile_equality false r v acc
-                | Not (Equal (r, v))   -> compile_equality true r v acc
-                | NotEqual (r, v)         -> compile_equality true r v acc
-                | Not (NotEqual (r, v))   -> compile_equality false r v acc
-                | In (r, vec)       -> compile_membership false r vec acc
-                | Not (In (r, vec)) -> compile_membership true r vec acc
-                | Imply (Equal (_, _), Equal (_, _)) -> {
-                        complex   = acc.complex;
-                        simple    = clause :: acc.simple;
-                        variables = acc.variables
-                    }
-                | Imply (Equal (r, v), And clauses) -> (
-                        let eq = Equal (r, v) in
-                        List.fold_left (fun (acc: data) (c: _constraint) ->
-                            match c with
-                            | Equal (_, _) ->
-                                {
-                                    complex   = acc.complex;
-                                    simple    = (Imply (eq, clause)) ::
-                                                    acc.simple;
-                                    variables = acc.variables
-                                }
-                            | _ ->
-                                {
-                                    complex   = (Imply (eq, clause)) ::
-                                                    acc.complex;
-                                    simple    = acc.simple;
-                                    variables = acc.variables
-                                }
-                        ) acc clauses
-                    )
-                | _ ->
-                    {
-                        complex   = clause :: acc.complex;
-                        simple    = acc.simple;
-                        variables = acc.variables
-                    }
-            ) accumulator clauses
-        in
-        (And data.complex, data.simple, data.variables)
-    | _  -> (globalConstraints, [], variables)
+  let accumulator =
+    {
+      complex   = [];
+      simple    = [];
+      variables = variables
+    }
+  in
+  let compile clauses =
+    let data =
+      List.fold_left (fun acc clause ->
+        match clause with
+        | Equal (r, v)         -> compile_equality false r v acc
+        | Not (Equal (r, v))   -> compile_equality true r v acc
+        | NotEqual (r, v)         -> compile_equality true r v acc
+        | Not (NotEqual (r, v))   -> compile_equality false r v acc
+        | In (r, vec)       -> compile_membership false r vec acc
+        | Not (In (r, vec)) -> compile_membership true r vec acc
+        | Imply (Equal (_, _), Equal (_, _)) -> {
+            complex   = acc.complex;
+            simple    = clause :: acc.simple;
+            variables = acc.variables
+          }
+        | Imply (Equal (r, v), And clauses) -> (
+          let eq = Equal (r, v) in
+            List.fold_left (fun (acc: data) (c: _constraint) ->
+              match c with
+              | Equal (_, _) ->
+                {
+                  complex   = acc.complex;
+                  simple    = (Imply (eq, clause)) ::
+                                      acc.simple;
+                  variables = acc.variables
+                }
+              | _ ->
+                {
+                  complex   = (Imply (eq, clause)) ::
+                              acc.complex;
+                  simple    = acc.simple;
+                  variables = acc.variables
+                }
+            ) acc clauses
+          )
+        | _ ->
+          {
+            complex   = clause :: acc.complex;
+            simple    = acc.simple;
+            variables = acc.variables
+          }
+      ) accumulator clauses
+    in
+    (And data.complex, data.simple, data.variables)
+  in
+  match globalConstraints with
+  | And clauses -> compile clauses
+  | _  -> (globalConstraints, [], variables)
 ;;
 
-(**
- * This function performs:
- * 1. find the global constraints in given flat-store
- * 2. modify variables' domain based on 'membership' constraints
- * 3. separate simple implication clauses from the global constraints formula
- *    with others
- * 4. convert the other clauses (complex formula) into a DNF formula 
- *)
+(** This function performs:
+    1. find the global constraints in given flat-store
+    2. modify variables' domain based on 'membership' constraints
+    3. separate simple implication clauses from the global constraints formula
+       with others
+    4. convert the other clauses (complex formula) into a DNF formula 
+*)
 let global_of typeEnvironment flatStore variables =
-    let referenceGlobal = ["global"] in
-    if MapRef.mem referenceGlobal flatStore then
-        match MapRef.find referenceGlobal flatStore with
-        | Global globalConstraints ->
-            let (globalConstraints1, globalImplications, variables1) =
-                compile_simple_constraints globalConstraints variables
-            in
-            let dnfGlobalConstraints1 = dnf_of globalConstraints1
-                variables typeEnvironment
-            in
-            (dnfGlobalConstraints1, globalImplications, variables1)
-        | _ -> error 722 "not a global constraint"
-    else (True, [], variables)
+  if MapRef.mem reference_of_global flatStore then
+    begin match MapRef.find reference_of_global flatStore with
+    | Global globalConstraints ->
+      begin
+        let (globalConstraints1, globalImplications, variables1) =
+          compile_simple_constraints globalConstraints variables
+        in
+        let dnfGlobalConstraints1 = dnf_of globalConstraints1
+                                           variables
+                                           typeEnvironment
+        in
+        (dnfGlobalConstraints1, globalImplications, variables1)
+      end
+
+    | _ -> error 722 "not a global constraint"
+    end
+  else
+    (True, [], variables)
 ;;
