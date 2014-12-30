@@ -36,11 +36,24 @@ val (<<) : Buffer.t -> string -> unit
 (** Add a string to a buffer, and then return the buffer. *)
 val (<<|) : Buffer.t -> string -> Buffer.t
 
+(** Add a string to a buffer, and then return the string from buffer. *)
+val (<<$) : Buffer.t -> string -> string
+
 (** Add a character to a buffer. *)
 val (<.) : Buffer.t -> char -> unit
 
 (** Add a character to a buffer, and then return the buffer. *)
 val (<.|) : Buffer.t -> char -> Buffer.t
+
+(** Add a character to a buffer, and then return the string from buffer. *)
+val (<.$) : Buffer.t -> char -> string
+
+(** Concat a list of strings with given separator and string buffer. *)
+val join : Buffer.t -> string -> ('a -> string) -> 'a list -> unit
+
+(** Visit every list's element, and add the separator to the buffer inbetween
+    two visits. *)
+val dash : Buffer.t -> string -> (Buffer.t -> 'a -> unit) -> 'a list -> unit
 
 (*** helper operator for references ***)
 

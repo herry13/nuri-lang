@@ -79,8 +79,14 @@ let (<<) buffer str = Buffer.add_string buffer str ;;
 
 (** Add a string to a buffer, and then return the buffer. *)
 let (<<|) buffer str =
-    Buffer.add_string buffer str;
-    buffer
+  buffer << str;
+  buffer
+;;
+
+(** Add a string to a buffer, and then return the string from buffer. *)
+let (<<$) buffer str =
+  buffer << str;
+  Buffer.contents buffer
 ;;
 
 (** Add a character to a buffer *)
@@ -88,8 +94,44 @@ let (<.) buffer character = Buffer.add_char buffer character ;;
 
 (** Add a character to a buffer, and then return the buffer. *)
 let (<.|) buffer character =
-    Buffer.add_char buffer character;
-    buffer
+  buffer <. character;
+  buffer
+;;
+
+(** Add a character to a buffer, and then return the string from buffer. *)
+let (<.$) buffer character =
+  buffer <. character;
+  Buffer.contents buffer
+;;
+
+(** Concat a list of strings with given separator and string buffer. *)
+let join buffer separator to_string =
+  let rec iter = function
+    | [] -> () 
+    | head :: [] -> buffer << (to_string head)
+    | head :: tail ->
+      begin
+        buffer <<| (to_string head) << separator;
+        iter tail
+      end
+  in
+  iter
+;;
+
+(** Visit every list's element, and add the separator to the buffer inbetween
+    two visits. *)
+let dash buffer separator callback =
+  let rec iter = function
+    | [] -> ()
+    | head :: [] -> callback buffer head
+    | head :: tail ->
+      begin
+        callback buffer head;
+        buffer << separator;
+        iter tail
+      end
+  in
+  iter
 ;;
 
 (*** helper operator for references ***)
