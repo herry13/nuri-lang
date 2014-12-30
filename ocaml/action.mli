@@ -9,11 +9,11 @@ open Domain
 
 (** type of an action **)
 type t = {
-	name:          reference;
-	parameters:    basic MapStr.t;
-	cost:          cost;
-	preconditions: basic MapRef.t;
-	effects:       basic MapRef.t
+  name          : reference;
+  parameters    : basic MapStr.t;
+  cost          : cost;
+  preconditions : basic MapRef.t;
+  effects       : basic MapRef.t
 }
 
 (** type of a collection of actions **)
@@ -61,7 +61,7 @@ val fold : ('a -> t -> 'a) -> 'a -> ts -> 'a
 val add : t -> ts -> ts
 
 (** return an empty collection of actions **)
-val empty : ts
+val empty_ts : ts
 
 (** convert a collection of actions to an array of actions **)
 val to_array : ts -> t array
