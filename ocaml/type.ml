@@ -199,7 +199,8 @@ let well_formed completeTypeMap =
 ;;
 
 
-let enum_symbol symbol enumID environment = match [enumID] @: environment with
+let symbol_of_enum enumID environment symbol =
+  match [enumID] @: environment with
   | T_Enum (name, symbols) when enumID = name ->
     List.exists (fun sym -> sym = symbol) symbols
   | _ -> false
@@ -238,8 +239,8 @@ and bind_value t_explicit t_value variable environment =
   | T_Undefined, _, _ ->
     error ~env:environment
           403
-          ("The value's type is not subtype of the explicit type of '" ^
-            !^variable ^ "'.")
+          ((string_of_type t_value) ^ " (value) is not a subtype of " ^
+            (string_of_type t_explicit) ^ " (explicit) -- " ^ !^variable ^ ".")
 
   | T_Schema _, _, _ -> error ~env:environment
                               404
