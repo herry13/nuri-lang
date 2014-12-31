@@ -181,17 +181,17 @@ rule token = parse
   | effects       { EFFECTS }
   | action        { ACTION }
   | hash_echo     { HASH_ECHO "#echo" }
-  | '\''          { STRING (read_string (Buffer.create 17) lexbuf) }
-  | '"'           { ISTRING (read_interpolated_string (Buffer.create 17) lexbuf) }
-  | '`'           { SHELL (read_shell (Buffer.create 17) lexbuf) }
-  | ident         {
-                    let id = Lexing.lexeme lexbuf in
-                    if is_keyword id then
-                      raise (SyntaxError (id ^ " is a reserved identifier"))
-                    else
-                      ID id
-                  }
-  | eof           { EOF }
+  | '\''      { STRING (read_string (Buffer.create 17) lexbuf) }
+  | '"'       { ISTRING (read_interpolated_string (Buffer.create 17) lexbuf) }
+  | '`'       { SHELL (read_shell (Buffer.create 17) lexbuf) }
+  | ident     {
+                let id = Lexing.lexeme lexbuf in
+                if is_keyword id then
+                  raise (SyntaxError (id ^ " is a reserved identifier"))
+                else
+                  ID id
+              }
+  | eof       { EOF }
 
 and read_interpolated_string buf = parse
   | '"'       { Buffer.contents buf }
