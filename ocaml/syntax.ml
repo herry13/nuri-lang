@@ -90,8 +90,8 @@ and t = T_Bool
 and t_object = T_Plain
              | T_User of string * t_object
     
-and t_forward = T_LinkForward      of reference
-              | T_ReferenceForward of reference
+and t_forward = T_Link      of reference
+              | T_Ref of reference
 
 (** state-trajectory syntax **)
 and trajectory = Global of _constraint
@@ -150,7 +150,7 @@ let string_of_type t =
     | T_Any          -> buf << "any"
     | T_Action       -> buf << "action"
     | T_Constraint   -> buf << "global"
-    | T_Enum (id, _) -> buf <<| "enum~" << id
+    | T_Enum (id, _) -> buf <<| "enum(" <<| id <. ')'
     | T_Symbol id    -> buf <<| "enum:" << id
     | T_List t ->
       begin
@@ -168,8 +168,8 @@ let string_of_type t =
         buf <. '*';
         type_object t
       end
-    | T_Forward T_LinkForward r -> buf <<| "forward~" << !^r
-    | T_Forward T_ReferenceForward r -> buf <<| "forward*~" << !^r
+    | T_Forward T_Link r -> buf <<| "forward(" <<| !^r <. ')'
+    | T_Forward T_Ref r -> buf <<| "forward*(" <<| !^r <. ')'
 
   and type_object t = match t with
     | T_Plain            -> buf << "object"
@@ -438,11 +438,11 @@ let rec string_of nuri =
         buf <. '*';
         type_object t
       end
-    | T_Forward T_LinkForward r ->
-      error 301 "T_LinkForward is not allowed."
+    | T_Forward T_Link r ->
+      error 301 "T_Link is not allowed."
 
-    | T_Forward T_ReferenceForward r ->
-      error 302 "T_ReferenceForward is not allowed."
+    | T_Forward T_Ref r ->
+      error 302 "T_Ref is not allowed."
 
   and type_object t = match t with
     | T_Plain        -> buf << "object"

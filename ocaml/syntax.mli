@@ -125,8 +125,8 @@ and t = T_Bool        (** bool *)
 and t_object = T_Plain                      (** Plain built-in object *)
              | T_User of string * t_object  (** User-defined schema *)
 
-and t_forward = T_LinkForward      of reference (** Forward link-reference *)
-              | T_ReferenceForward of reference (** Forward (data) reference *)
+and t_forward = T_Link      of reference (** Forward link-reference *)
+              | T_Ref       of reference (** Forward (data) reference *)
 
 (* state-trajectory syntax *)
 and trajectory = Global of _constraint
