@@ -4,7 +4,11 @@ herry2.nuri
 herry3.nuri
 herry4.nuri
 herry5.nuri
+# array
+array1.nuri
+# file inclusion
 main-include1.nuri
+main-include2.nuri
 main-include3.nuri
 object1.nuri
 primitive1.nuri
@@ -43,6 +47,8 @@ import2/main-import1.nuri
 enum1.nuri
 enum2-init.nuri
 enum2-goal.nuri
+enum3.nuri
+enum4.nuri
 # Expressions
 expression1.nuri
 expression2.nuri
