@@ -1,7 +1,21 @@
 enum State { stopped, running }
 
 main {
+    // standard enum-symbol
     a State.stopped;
+
+    // explicit enum-type with its symbol value
     b : State running;
+
+    // simple enum-symbol
     b stopped;
+
+    // explicit enum-type with TBD value
+    c : State TBD;
+
+    // TODO: forward reference with symbol -- this produces an error
+    /*d stopped;
+    d State.running;*/
 }
+
+main.c running;

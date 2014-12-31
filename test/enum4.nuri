@@ -1,0 +1,17 @@
+enum State { running, stopped }
+
+main {
+    a [1];
+    b [[1], [2]];
+
+    c [State.running, State.stopped];
+    d : []State [State.running, State.stopped];
+    e [[State.running], [State.stopped]];
+    f : [][]State [[State.running], [State.stopped]];
+
+    g : []State [running, stopped];
+    g [running];
+
+    h : [][]State [[running, stopped], [running, stopped]];
+    h [[running], [stopped]];
+}
