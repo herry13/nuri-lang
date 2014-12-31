@@ -33,9 +33,11 @@ open Syntax
 %token <string> REGEXP
 %token COST CONDITIONS EFFECTS ACTION
 %token <string> HASH_ECHO
+%token <string list * string list> REF_INDEX
 
-/* entry point to included file */
+/* entry point for included file */
 %token <Syntax.block -> Syntax.block> INCLUDE
+/* entry point for imported file */
 %token <Syntax.context -> Syntax.context> IMPORT
 
 /**
@@ -78,9 +80,14 @@ trajectory
   : GLOBAL global  { Global $2 }
 
 assignment
-  : ACTION reference action  { ($2, T_Undefined, $3) }
-  | reference type_def value { ($1, $2, $3) }
-  | HASH_ECHO value          { ([$1], T_Undefined, $2) }
+  : ACTION reference action  { TypeValue ($2, T_Undefined, $3) }
+  | HASH_ECHO value          { TypeValue ([$1], T_Undefined, $2) }
+  | reference type_def value { TypeValue ($1, $2, $3) }
+  | reference_index value
+    {
+      match ($1) with
+      | (ref, index) -> RefIndexValue (ref, index, $2)
+    }
 
 value
   : simple_value EOS                   { $1 }
@@ -101,26 +108,34 @@ exp
   | IF exp THEN exp ELSE exp { Exp_IfThenElse ($2, $4, $6) }
 
 exp1
-  : exp2 binary_op { $2 $1 }
+  : exp2 infix_op { $2 $1 }
+  | exp2 suffix_op { $2 $1 }
 
-binary_op
-  : TOK_EQUAL_EQUAL exp2 binary_op { fun left -> $3 (Exp_Equal (left, $2)) }
-  | NOT_EQUAL exp2 binary_op     { fun left -> $3 (Exp_NotEqual (left, $2)) }
-  | TOK_PLUS exp2 binary_op      { fun left -> $3 (Exp_Add (left, $2)) }
-  | TOK_SUBTRACT exp2 binary_op  { fun left -> $3 (Exp_Subtract (left, $2)) }
-  | ASTERIX exp2 binary_op     { fun left -> $3 (Exp_Multiply (left, $2)) }
-  | TOK_DIVIDER exp2 binary_op { fun left -> $3 (Exp_Divide (left, $2)) }
-  | TOK_MODULO exp2 binary_op  { fun left -> $3 (Exp_Modulo (left, $2)) }
-  | TOK_AND exp2 binary_op     { fun left -> $3 (Exp_And (left, $2)) }
-  | TOK_OR exp2 binary_op      { fun left -> $3 (Exp_Or (left, $2)) }
-  | TOK_IMPLY exp2 binary_op   { fun left -> $3 (Exp_Imply (left, $2)) }
-  | REGEXP binary_op           { fun left -> $2 (Exp_MatchRegexp (left, $1)) }
-  |                            { fun v -> v }
+suffix_op
+  : LBRACKET element_index { fun left -> Exp_Index (left, $2) }
+
+infix_op
+  : TOK_EQUAL_EQUAL exp2 infix_op { fun left -> $3 (Exp_Equal (left, $2)) }
+  | NOT_EQUAL exp2 infix_op     { fun left -> $3 (Exp_NotEqual (left, $2)) }
+  | TOK_PLUS exp2 infix_op      { fun left -> $3 (Exp_Add (left, $2)) }
+  | TOK_SUBTRACT exp2 infix_op  { fun left -> $3 (Exp_Subtract (left, $2)) }
+  | ASTERIX exp2 infix_op     { fun left -> $3 (Exp_Multiply (left, $2)) }
+  | TOK_DIVIDER exp2 infix_op { fun left -> $3 (Exp_Divide (left, $2)) }
+  | TOK_MODULO exp2 infix_op  { fun left -> $3 (Exp_Modulo (left, $2)) }
+  | TOK_AND exp2 infix_op     { fun left -> $3 (Exp_And (left, $2)) }
+  | TOK_OR exp2 infix_op      { fun left -> $3 (Exp_Or (left, $2)) }
+  | TOK_IMPLY exp2 infix_op   { fun left -> $3 (Exp_Imply (left, $2)) }
+  | REGEXP infix_op           { fun left -> $2 (Exp_MatchRegexp (left, $1)) }
+  |                           { fun v -> v }
 
 exp2
   : basic                         { Basic $1 }
   | func                          { $1 }
   | LPARENTHESIS exp RPARENTHESIS { $2 }
+
+element_index
+  : INT RBRACKET LBRACKET element_index { $1 :: $4 }
+  | INT RBRACKET                        { [$1] }
 
 func
   : SHELL   { Shell $1 }
@@ -146,6 +161,11 @@ basic
   | data_reference { $1 }
   | NULL           { Null }
   | vector         { Vector $1 }
+  | reference_index
+    {
+      match ($1) with
+      | ref, index -> RefIndex (ref, index)
+    }
 
 vector
   : LBRACKET items RBRACKET { $2 }
@@ -163,6 +183,14 @@ data_reference
 reference
   : ID SEP reference { $1 :: $3 }
   | ID               { [$1] }
+
+reference_index
+  : ID SEP reference_index
+    {
+      match ($3) with
+      | ref, index -> ($1 :: ref, index)
+    }
+  | REF_INDEX { $1 }
 
 enum
   : ID BEGIN enum_elements END { ($1, $3) }
