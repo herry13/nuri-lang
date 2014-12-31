@@ -184,14 +184,33 @@ rule token = parse
   | '\''      { STRING (read_string (Buffer.create 17) lexbuf) }
   | '"'       { ISTRING (read_interpolated_string (Buffer.create 17) lexbuf) }
   | '`'       { SHELL (read_shell (Buffer.create 17) lexbuf) }
+  | ident '[' {
+                let s = Lexing.lexeme lexbuf in
+                let id = String.sub s 0 ((String.length s) - 1) in
+                let index = read_index lexbuf in
+                if is_keyword id then
+                  raise (SyntaxError (id ^ " is a reserved identifier."))
+                else
+                  REF_INDEX ([id], index)
+              }
   | ident     {
                 let id = Lexing.lexeme lexbuf in
                 if is_keyword id then
-                  raise (SyntaxError (id ^ " is a reserved identifier"))
+                  raise (SyntaxError (id ^ " is a reserved identifier."))
                 else
                   ID id
               }
   | eof       { EOF }
+
+and read_index = parse
+  | ['0'-'9']+  {
+                  let index = Lexing.lexeme lexbuf in
+                  index :: (read_index lexbuf)
+                }
+  | "]["        { read_index lexbuf }
+  | white       { read_index lexbuf }
+  | newline     { read_index lexbuf }
+  | ']'         { [] }
 
 and read_interpolated_string buf = parse
   | '"'       { Buffer.contents buf }
