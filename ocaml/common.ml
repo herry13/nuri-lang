@@ -148,3 +148,5 @@ let reference_of_global = ["global"] ;;
 
 (** Default reference of the main object. *)
 let reference_of_main = ["main"] ;;
+
+let verbose = ref false ;;

@@ -66,3 +66,5 @@ val reference_of_echo : string list
 val reference_of_global : string list
 
 val reference_of_main : string list
+
+val verbose : bool ref
