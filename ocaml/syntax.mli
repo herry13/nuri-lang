@@ -33,10 +33,12 @@ and  block         = AssignmentBlock   of assignment * block
                    | EmptyBlock
                      (** Empty block *)
 
-and  assignment    = reference * t * value
+and  assignment    = TypeValue of reference * t * value
                      (** Variable, type, and value *)
+                   | RefIndexValue of reference * string list * value
 
 and  expression    = Basic           of basic_value (** Basic value *)
+                   | Exp_Index       of expression * string list
                    | Shell           of string
                      (** External-command-value (via shell) *)
                    | Exp_Eager       of expression
@@ -91,6 +93,7 @@ and  basic_value   = Boolean   of string
                    | Null
                    | Vector    of vector
                    | Reference of reference
+                   | RefIndex  of reference * string list
 
 and  vector        = basic_value list
 

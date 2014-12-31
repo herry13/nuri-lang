@@ -23,8 +23,10 @@ and  context       = AssignmentContext of assignment * context
 and  block         = AssignmentBlock   of assignment * block
                    | TrajectoryBlock   of trajectory * block
                    | EmptyBlock
-and  assignment    = reference * t * value
+and  assignment    = TypeValue of reference * t * value
+                   | RefIndexValue of reference * string list * value
 and  expression    = Basic           of basic_value
+                   | Exp_Index       of expression * string list
                    | Shell           of string
                    | Exp_Eager       of expression 
                    | Exp_IString     of string
@@ -58,6 +60,7 @@ and  basic_value   = Boolean   of string
                    | Null
                    | Vector    of vector
                    | Reference of reference
+                   | RefIndex  of reference * string list
 and  vector        = basic_value list
 and  reference     = string list
 
@@ -228,15 +231,32 @@ let rec string_of nuri =
       end
     | EmptyBlock -> ()
 
-  and assignment (r, t, v) =
-    reference r;
-    buf <. ':';
-    _type t;
-    value v;
-    buf <. ';'
+  and assignment = function
+    | TypeValue (r, t, v) ->
+      begin
+        reference r;
+        buf <. ':';
+        _type t;
+        value v;
+        buf <. ';'
+      end
+    | RefIndexValue (r, indexes, v) ->
+      begin
+        reference r;
+        buf <. ' ';
+        List.iter (fun index -> buf <.| '[' <<| index <. ']') indexes;
+        value v;
+        buf <. ';'
+      end
 
   and expression e = match e with
     | Basic v -> basic_value v
+    | Exp_Index (exp, indexes) ->
+      begin
+        buf <. ' ';
+        expression e;
+        List.iter (fun index -> buf <.| '[' <<| index <. ']') indexes
+      end
     | Shell s -> buf <<| " `" <<| s <. '`'
       (* TODO: use escape (\) for every backtick character *)
 
@@ -400,6 +420,12 @@ let rec string_of nuri =
       begin
         buf <. ' ';
         reference r
+      end
+    | RefIndex (ref, index) ->
+      begin
+        buf <. ' ';
+        reference ref;
+        List.iter (fun i -> buf <.| '[' <<| i <. ']') index
       end
 
   and vector vec = match vec with
