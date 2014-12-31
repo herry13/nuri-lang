@@ -44,24 +44,31 @@ and nuri_null = T_Null
 
 and nuri_reference r = r
 
-and nuri_data_reference dataRef namespace typeEnv : t =
-  let ref = nuri_reference dataRef in
-  match resolve ref namespace typeEnv with
-  | _, T_Undefined -> T_Forward (T_Ref ref)
-  | _, T_Schema _ ->
-    error ~env:typeEnv 1700 ("Cannot refer to a schema: " ^ !^ref)
+and nuri_data_reference dataRef t_explicit namespace typeEnv : t =
+  match dataRef, t_explicit with
+  | id :: [], (T_Symbol enumID) when symbol_of_enum enumID typeEnv id ->
+    t_explicit
 
-  | _, T_Action ->
-    error ~env:typeEnv 1701 ("Cannot refer to an action: " ^ !^ref)
-
-  | _, T_Constraint ->
-    error ~env:typeEnv 1702 ("Cannot refer to a constraint: " ^ !^ref)
-
-  | _, T_Enum _ ->
-    error ~env:typeEnv 1703 ("Cannot refer to an enum: " ^ !^ref)
-
-  | _, T_Object (_ as t_object) -> T_Reference t_object
-  | _, t -> t
+  | _ ->
+    begin
+      let ref = nuri_reference dataRef in
+      match resolve ref namespace typeEnv with
+      | _, T_Undefined -> T_Forward (T_Ref ref)
+      | _, T_Schema _ ->
+        error ~env:typeEnv 1700 ("Cannot refer to a schema: " ^ !^ref)
+    
+      | _, T_Action ->
+        error ~env:typeEnv 1701 ("Cannot refer to an action: " ^ !^ref)
+    
+      | _, T_Constraint ->
+        error ~env:typeEnv 1702 ("Cannot refer to a constraint: " ^ !^ref)
+    
+      | _, T_Enum _ ->
+        error ~env:typeEnv 1703 ("Cannot refer to an enum: " ^ !^ref)
+    
+      | _, T_Object (_ as t_object) -> T_Reference t_object
+      | _, t -> t
+    end
 
 and nuri_link_reference linkReference destReference namespace typeEnv =
   let ref = nuri_reference linkReference in
@@ -74,28 +81,39 @@ and nuri_link_reference linkReference destReference namespace typeEnv =
 
   | result -> result
 
-and nuri_array _array namespace typeEnv : t =
+and nuri_array _array t_explicit namespace typeEnv : t =
+  let t = match t_explicit with
+    | T_List tl -> tl
+    | _         -> t_explicit
+  in
   let rec eval = function
     | [] -> T_Undefined
+    | head :: [] -> nuri_basic_value head t namespace typeEnv
     | head :: tail ->
-      begin match nuri_basic_value head namespace typeEnv, eval tail with
+      begin match nuri_basic_value head t namespace typeEnv, eval tail with
       | T_Forward _, _ | _, T_Forward _ -> T_Undefined
       | t_head, t_tail when t_head =:= t_tail -> t_head
-      | _ -> error ~env:typeEnv 1710 "Type of array elements are different."
+      | t_head, t_tail ->
+        error ~env:typeEnv
+              1710
+              ("Type of array elements are different e.g. " ^
+                (string_of_type t_head) ^ " and " ^
+                (string_of_type t_tail) ^ ".")
       end
   in
   match eval _array with
   | T_Undefined -> T_Undefined
   | t           -> T_List t
 
-and nuri_basic_value basicValue namespace typeEnv : t = match basicValue with
+and nuri_basic_value basicValue t_explicit namespace typeEnv : t =
+  match basicValue with
   | Boolean b     -> nuri_boolean b
   | Int i         -> nuri_int i
   | Float f       -> nuri_float f
   | String s      -> nuri_string s
   | Null          -> nuri_null
-  | Vector vector -> nuri_array vector namespace typeEnv
-  | Reference ref -> nuri_data_reference ref namespace typeEnv
+  | Vector vector -> nuri_array vector t_explicit namespace typeEnv
+  | Reference ref -> nuri_data_reference ref t_explicit namespace typeEnv
 
 (* TODO: refactor (try to remove 'isFirst') *)
 and nuri_prototype ?isFirst:(isFirst=true) prototype t_explicit destRef
@@ -142,8 +160,9 @@ and nuri_global global namespace typeEnv : environment =
   bind T_Undefined T_Constraint reference_of_global typeEnv
 
 (** Ensure that the operand's type is determinate. *)
-and nuri_unary_expression namespace typeEnv operator expression callback : t =
-  match nuri_expression expression namespace typeEnv with
+and nuri_unary_expression t_explicit namespace typeEnv operator expression
+                          callback : t =
+  match nuri_expression expression t_explicit namespace typeEnv with
   | T_Forward _ ->
     error ~env:typeEnv
           1720
@@ -157,10 +176,10 @@ and nuri_unary_expression namespace typeEnv operator expression callback : t =
   | t -> callback t
 
 (** Ensure that the types of both operands are determinate. *)
-and nuri_binary_expression namespace typeEnv operator leftExpression
-                         rightExpression callback : t =
-  match nuri_expression leftExpression namespace typeEnv,
-        nuri_expression rightExpression namespace typeEnv
+and nuri_binary_expression t_explicit namespace typeEnv operator
+                           leftExpression rightExpression callback : t =
+  match nuri_expression leftExpression t_explicit namespace typeEnv,
+        nuri_expression rightExpression t_explicit namespace typeEnv
   with
   | T_Forward _, _ ->
     error ~env:typeEnv
@@ -216,11 +235,11 @@ and nuri_add_expression t_left t_right = match t_left, t_right with
         error 1740 "Types of (+) operands are not integer, float, or string."
     end
 
-and nuri_expression expression namespace typeEnv : t =
-  let unary = nuri_unary_expression namespace typeEnv in
-  let binary = nuri_binary_expression namespace typeEnv in
+and nuri_expression expression t_explicit namespace typeEnv : t =
+  let unary = nuri_unary_expression t_explicit namespace typeEnv in
+  let binary = nuri_binary_expression t_explicit namespace typeEnv in
   match expression with
-  | Basic value -> nuri_basic_value value namespace typeEnv
+  | Basic value -> nuri_basic_value value t_explicit namespace typeEnv
   | Shell _ | Exp_IString _ -> T_String
   | Exp_Eager exp -> unary "$" exp (fun t -> t)
   | Exp_Not exp -> unary "!" exp nuri_not_expression
@@ -256,9 +275,9 @@ and nuri_expression expression namespace typeEnv : t =
     binary "%" leftExp rightExp (nuri_math_expression "%")
 
   | Exp_IfThenElse (expIf, expThen, expElse) ->
-    begin match nuri_expression expIf namespace typeEnv,
-                nuri_expression expThen namespace typeEnv,
-                nuri_expression expElse namespace typeEnv
+    begin match nuri_expression expIf t_explicit namespace typeEnv,
+                nuri_expression expThen t_explicit namespace typeEnv,
+                nuri_expression expElse t_explicit namespace typeEnv
     with
     | T_Bool, T_Forward _, _ ->
       error ~env:typeEnv 1745 "Type of 'then' expression is indeterminate."
@@ -318,24 +337,13 @@ and nuri_value value t_explicit destRef namespace typeEnv : environment =
 
       | _ -> error ~env:typeEnv 1756 ("Invalid schema: " ^ schemaIdentifier)
     end
-
-  | Expression ((Basic Reference (id :: [])) as expression) ->
-    begin match t_explicit, destRef @: typeEnv with
-    | T_Undefined, ((T_Symbol enumID) as t)
-    | ((T_Symbol enumID) as t), _ when enum_symbol id enumID typeEnv ->
-      bind T_Undefined t destRef typeEnv
-
-    | _ ->
-      begin
-        let t = nuri_expression expression namespace typeEnv in
-        bind t_explicit t destRef typeEnv
-      end
-    end
-
   | Expression expression ->
     begin
-      let t = nuri_expression expression namespace typeEnv in
-      bind t_explicit t destRef typeEnv
+      let t_exp = if t_explicit = T_Undefined then destRef @: typeEnv
+                  else t_explicit
+      in
+      let t_value = nuri_expression expression t_exp namespace typeEnv in
+      bind t_explicit t_value destRef typeEnv
     end
 
 and nuri_type_explicit t typeEnv = match t with
@@ -345,6 +353,7 @@ and nuri_type_explicit t typeEnv = match t with
     | T_Enum _ -> T_Symbol id
     | _ -> error ~env:typeEnv 1757 ("Invalid type: " ^ id)
     end
+  | T_List tl -> T_List (nuri_type_explicit tl typeEnv)
   | _ -> t
 
 and nuri_assignment (destRef, t, value) namespace typeEnv =
