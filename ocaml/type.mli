@@ -47,7 +47,8 @@ val (=:=) : t -> t -> bool
 
 
 
-val bind : t -> t -> Domain.reference -> environment -> environment
+val bind : ?t_variable:t -> t -> t -> Domain.reference -> environment ->
+           environment
 
 val variables_with_prefix : ?remove_prefix:bool -> Domain.reference ->
                             environment -> environment

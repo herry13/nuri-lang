@@ -210,17 +210,21 @@ let symbol_of_enum enumID environment symbol =
  * Type assignment functions
  *******************************************************************)
 
-let rec bind t_explicit t_value variable environment =
+let rec bind ?t_variable:(t_variable = T_Undefined) t_explicit t_value
+             variable environment =
   match !-variable @: environment with
   | T_Object _ | T_Schema _ ->
-    bind_value t_explicit t_value variable environment
+    bind_type t_variable t_explicit t_value variable environment
 
   | _ -> error ~env:environment
                401
                ("The prefix of '" ^ !^variable ^ "' is not object or schema")
 
-and bind_value t_explicit t_value variable environment =
-  match (variable @: environment), t_explicit, t_value with
+and bind_type t_variable t_explicit t_value variable environment =
+  let t_var = if t_variable = T_Undefined then variable @: environment
+              else t_variable
+  in
+  match t_var, t_explicit, t_value with
   | T_Undefined, T_Undefined, T_Any ->
     error ~env:environment
           402
@@ -266,7 +270,8 @@ and bind_value t_explicit t_value variable environment =
   | _ when not (t_value <: t_explicit) ->
     error ~env:environment
           407
-          ("The value's type is not subtype of the explicit type of '" ^
+          ((string_of_type t_value) ^ " (value) is not a subtype of " ^
+            (string_of_type t_explicit) ^ " (explicit) at variable '" ^
             !^variable ^ "'.")
 
   | _ -> error ~env:environment
