@@ -1,5 +1,4 @@
-include "include2.nuri";
-
+import 'include2';
 main {
     a isa X { }
 }
