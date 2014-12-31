@@ -67,7 +67,7 @@ val main_of : Domain.reference -> environment -> environment
 val replace_forward_type : Domain.reference -> environment -> environment
 
 
-val enum_symbol : string -> string -> environment -> bool
+val symbol_of_enum : string -> environment -> string -> bool
 
 
 module MapType : Map.S with type key = t
