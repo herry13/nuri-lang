@@ -114,6 +114,11 @@ and nuri_basic_value basicValue t_explicit namespace typeEnv : t =
   | Null          -> nuri_null
   | Vector vector -> nuri_array vector t_explicit namespace typeEnv
   | Reference ref -> nuri_data_reference ref t_explicit namespace typeEnv
+  | RefIndex (ref, index) ->
+    begin
+      let t_ref = nuri_data_reference ref t_explicit namespace typeEnv in
+      nuri_array_at_index t_ref index typeEnv
+    end
 
 (* TODO: refactor (try to remove 'isFirst') *)
 and nuri_prototype ?isFirst:(isFirst=true) prototype t_explicit destRef
@@ -235,11 +240,22 @@ and nuri_add_expression t_left t_right = match t_left, t_right with
         error 1740 "Types of (+) operands are not integer, float, or string."
     end
 
+and nuri_array_at_index t_array index typeEnv = match t_array, index with
+  | T_List tl, _ :: [] -> tl
+  | T_List tl, _ :: tail -> nuri_array_at_index tl tail typeEnv
+  | _ -> error ~env:typeEnv 1741 "Invalid index of array."
+
 and nuri_expression expression t_explicit namespace typeEnv : t =
   let unary = nuri_unary_expression t_explicit namespace typeEnv in
   let binary = nuri_binary_expression t_explicit namespace typeEnv in
   match expression with
   | Basic value -> nuri_basic_value value t_explicit namespace typeEnv
+  | Exp_Index (exp, index) ->
+    begin
+      let t_exp = nuri_expression exp t_explicit namespace typeEnv in
+      nuri_array_at_index t_exp index typeEnv
+    end
+
   | Shell _ | Exp_IString _ -> T_String
   | Exp_Eager exp -> unary "$" exp (fun t -> t)
   | Exp_Not exp -> unary "!" exp nuri_not_expression
@@ -301,16 +317,20 @@ and nuri_expression expression t_explicit namespace typeEnv : t =
     | _ -> error ~env:typeEnv 1750 "Type of 'if' expression is not a boolean."
     end
 
-and nuri_value value t_explicit destRef namespace typeEnv : environment =
+and nuri_value value t_variable t_explicit destRef namespace typeEnv =
   match value with
-  | TBD | Unknown | None -> bind t_explicit T_Any destRef typeEnv
-  | Action _ -> bind t_explicit T_Action destRef typeEnv
+  | TBD | Unknown | None ->
+    bind ~t_variable:t_variable t_explicit T_Any destRef typeEnv
+
+  | Action _ ->
+    bind ~t_variable:t_variable t_explicit T_Action destRef typeEnv
+
   | Link linkRef ->
     begin
       let (srcRef, t) =
         nuri_link_reference linkRef destRef namespace typeEnv
       in
-      let env = bind t_explicit t destRef typeEnv in
+      let env = bind ~t_variable:t_variable t_explicit t destRef typeEnv in
       if t <: t_plain_object then copy srcRef destRef env
       else env
     end
@@ -330,7 +350,9 @@ and nuri_value value t_explicit destRef namespace typeEnv : environment =
       | T_Schema t_object ->
         begin
           let t = T_Object t_object in
-          let env1 = bind t_explicit t destRef typeEnv in
+          let env1 =
+            bind ~t_variable:t_variable t_explicit t destRef typeEnv
+          in
           let env2 = _inherit schemaRef destRef [] env1 in
           nuri_prototype prototype t destRef namespace env2
         end
@@ -343,7 +365,7 @@ and nuri_value value t_explicit destRef namespace typeEnv : environment =
                   else t_explicit
       in
       let t_value = nuri_expression expression t_exp namespace typeEnv in
-      bind t_explicit t_value destRef typeEnv
+      bind ~t_variable:t_variable t_explicit t_value destRef typeEnv
     end
 
 and nuri_type_explicit t typeEnv = match t with
@@ -356,7 +378,7 @@ and nuri_type_explicit t typeEnv = match t with
   | T_List tl -> T_List (nuri_type_explicit tl typeEnv)
   | _ -> t
 
-and nuri_assignment (destRef, t, value) namespace typeEnv =
+and nuri_assign_type_value destRef t value namespace typeEnv =
   if destRef = reference_of_echo then
     typeEnv
   else
@@ -368,7 +390,19 @@ and nuri_assignment (destRef, t, value) namespace typeEnv =
               1760
               ("Invalid reference: " ^ !^(namespace @+ destRef))
   
-      | Domain.Valid ref -> nuri_value value t_explicit ref namespace typeEnv
+      | Domain.Valid ref ->
+        nuri_value value T_Undefined t_explicit ref namespace typeEnv
+    end
+
+and nuri_assignment assignment namespace typeEnv = match assignment with
+  | TypeValue (ref, t, value) ->
+    nuri_assign_type_value ref t value namespace typeEnv
+
+  | RefIndexValue (ref, index, value) ->
+    begin
+      let t_ref = nuri_data_reference ref T_Undefined namespace typeEnv in
+      let t_element = nuri_array_at_index t_ref index typeEnv in
+      nuri_value value t_element t_element ref namespace typeEnv
     end
 
 and nuri_block block namespace typeEnv : environment = match block with
