@@ -22,6 +22,8 @@ open Type
 let (!-)  = Domain.(!-) ;;
 let (@<<) = Domain.(@<<) ;;
 let (@+)  = Domain.(@+) ;;
+let (@+.) = Domain.(@+.) ;;
+let (@<=) = Domain.(@<=) ;;
 
 let t_plain_object = T_Object T_Plain ;;
 
@@ -45,19 +47,32 @@ and nuri_reference r = r
 and nuri_data_reference dataRef namespace typeEnv : t =
   let ref = nuri_reference dataRef in
   match resolve ref namespace typeEnv with
-  | _, T_Undefined  -> T_Forward (T_ReferenceForward ref)
-  | _, T_Schema _   -> error 420 ("Cannot refer to a schema: " ^ !^ref)
-  | _, T_Action     -> error 421 ("Cannot refer to an action: " ^ !^ref)
-  | _, T_Constraint -> error 422 ("Cannot refer to a constraint: " ^ !^ref)
-  | _, T_Enum _     -> error 423 ("Cannot refer to an enum: " ^ !^ref)
+  | _, T_Undefined -> T_Forward (T_Ref ref)
+  | _, T_Schema _ ->
+    error ~env:typeEnv 1700 ("Cannot refer to a schema: " ^ !^ref)
+
+  | _, T_Action ->
+    error ~env:typeEnv 1701 ("Cannot refer to an action: " ^ !^ref)
+
+  | _, T_Constraint ->
+    error ~env:typeEnv 1702 ("Cannot refer to a constraint: " ^ !^ref)
+
+  | _, T_Enum _ ->
+    error ~env:typeEnv 1703 ("Cannot refer to an enum: " ^ !^ref)
+
   | _, T_Object (_ as t_object) -> T_Reference t_object
   | _, t -> t
 
 and nuri_link_reference linkReference destReference namespace typeEnv =
   let ref = nuri_reference linkReference in
   match resolve ref namespace typeEnv with
-  | _, T_Undefined -> (!-destReference, T_Forward (T_LinkForward ref))
-  | result         -> result
+  | _, T_Undefined -> (!-destReference, T_Forward (T_Link ref))
+  | srcRef, _ when srcRef @<= destReference ->
+    error ~env:typeEnv
+          1705
+          ("Inner-cyclic reference: " ^ !^srcRef ^ " <= " ^ !^destReference)
+
+  | result -> result
 
 and nuri_array _array namespace typeEnv : t =
   let rec eval = function
@@ -66,7 +81,7 @@ and nuri_array _array namespace typeEnv : t =
       begin match nuri_basic_value head namespace typeEnv, eval tail with
       | T_Forward _, _ | _, T_Forward _ -> T_Undefined
       | t_head, t_tail when t_head =:= t_tail -> t_head
-      | _ -> error 424 "Type of array elements are different."
+      | _ -> error ~env:typeEnv 1710 "Type of array elements are different."
       end
   in
   match eval _array with
@@ -107,7 +122,9 @@ and nuri_prototype ?isFirst:(isFirst=true) prototype t_explicit destRef
       let protoRef = nuri_reference reference in
       match resolve protoRef namespace typeEnv with
       | _, T_Undefined ->
-        error 425 ("Forward prototype is not supported: " ^ !^protoRef)
+        error ~env:typeEnv
+              1715
+              ("Forward prototype is not supported: " ^ !^protoRef)
 
       | _, t ->
         begin
@@ -128,10 +145,14 @@ and nuri_global global namespace typeEnv : environment =
 and nuri_unary_expression namespace typeEnv operator expression callback : t =
   match nuri_expression expression namespace typeEnv with
   | T_Forward _ ->
-    error 441 ("Type of (" ^ operator ^ ") operand is indeterminate.")
+    error ~env:typeEnv
+          1720
+          ("Type of (" ^ operator ^ ") operand is indeterminate.")
 
   | T_Undefined ->
-    error 442 ("Type of (" ^ operator ^ ") operand is undefined.")
+    error ~env:typeEnv
+          1721
+          ("Type of (" ^ operator ^ ") operand is undefined.")
 
   | t -> callback t
 
@@ -142,39 +163,47 @@ and nuri_binary_expression namespace typeEnv operator leftExpression
         nuri_expression rightExpression namespace typeEnv
   with
   | T_Forward _, _ ->
-    error 443 ("Type of left (" ^ operator ^ ") operand is indeterminate.")
+    error ~env:typeEnv
+          1722
+          ("Type of left (" ^ operator ^ ") operand is indeterminate.")
 
   | _, T_Forward _ ->
-    error 443 ("Type of right (" ^ operator ^ ") operand is indeterminate.")
+    error ~env:typeEnv
+          1723
+          ("Type of right (" ^ operator ^ ") operand is indeterminate.")
 
   | T_Undefined, _ ->
-    error 443 ("Type of left (" ^ operator ^ ") operand is undefined.")
+    error ~env:typeEnv
+          1724
+          ("Type of left (" ^ operator ^ ") operand is undefined.")
 
   | _, T_Undefined ->
-    error 444 ("Type of right (" ^ operator ^ ") operand is undefined.")
+    error ~env:typeEnv
+          1725
+          ("Type of right (" ^ operator ^ ") operand is undefined.")
 
   | t_left, t_right -> callback t_left t_right
 
 and nuri_not_expression t_operand =
   if t_operand <: T_Bool then T_Bool
-  else error 445 "Operand of '!' is not a boolean."
+  else error 1726 "Operand of '!' is not a boolean."
 
 and nuri_match_regexp_expression t_operand =
   if t_operand <: T_String then T_Bool
-  else error 446 "Left operand of '=~' is not a string."
+  else error 1727 "Left operand of '=~' is not a string."
 
 and nuri_equality_expression operator t_left t_right =
   if t_left <: t_right || t_right <: t_left then T_Bool
-  else error 447 ("Types of (" ^ operator ^ ") operands are not compatible.")
+  else error 1728 ("Types of (" ^ operator ^ ") operands are not compatible.")
 
 and nuri_logic_expression operator t_left t_right =
   if t_left <: T_Bool && t_right <: T_Bool then T_Bool
-  else error 448 ("Types of (" ^ operator ^ ") operands are not boolean.")
+  else error 1729 ("Types of (" ^ operator ^ ") operands are not boolean.")
 
 and nuri_math_expression operator t_left t_right = match t_left, t_right with
   | T_Int, T_Float | T_Float, T_Int | T_Float, T_Float -> T_Float
   | T_Int, T_Int -> T_Int
-  | _ -> error 449 ("Types of (" ^ operator ^ ") operands are not integer " ^
+  | _ -> error 1730 ("Types of (" ^ operator ^ ") operands are not integer " ^
                     "or float.")
 
 and nuri_add_expression t_left t_right = match t_left, t_right with
@@ -184,7 +213,7 @@ and nuri_add_expression t_left t_right = match t_left, t_right with
       nuri_math_expression "+" t_left t_right
     with
       Type.Error _ ->
-        error 450 "Types of (+) operands are not integer, float, or string."
+        error 1740 "Types of (+) operands are not integer, float, or string."
     end
 
 and nuri_expression expression namespace typeEnv : t =
@@ -232,23 +261,25 @@ and nuri_expression expression namespace typeEnv : t =
                 nuri_expression expElse namespace typeEnv
     with
     | T_Bool, T_Forward _, _ ->
-      error 462 "Type of 'then' expression is indeterminate."
+      error ~env:typeEnv 1745 "Type of 'then' expression is indeterminate."
 
     | T_Bool, _, T_Forward _ ->
-      error 463 "Type of 'else' expression is indeterminate."
+      error ~env:typeEnv 1746 "Type of 'else' expression is indeterminate."
 
     | T_Bool, T_Undefined, _ ->
-      error 462 "Type of 'then' expression is undefined."
+      error ~env:typeEnv 1747 "Type of 'then' expression is undefined."
 
     | T_Bool, _, T_Undefined ->
-      error 463 "Type of 'else' expression is undefined."
+      error ~env:typeEnv 1748 "Type of 'else' expression is undefined."
 
     | T_Bool, t_then, t_else when t_then =:= t_else -> t_then
 
     | T_Bool, _, _ ->
-      error 464 "Types of 'then' and 'else' clauses are different."
+      error ~env:typeEnv
+            1749
+            "Types of 'then' and 'else' clauses are different."
 
-    | _ -> error 465 "Type of 'if' expression is not a boolean."
+    | _ -> error ~env:typeEnv 1750 "Type of 'if' expression is not a boolean."
     end
 
 and nuri_value value t_explicit destRef namespace typeEnv : environment =
@@ -273,7 +304,9 @@ and nuri_value value t_explicit destRef namespace typeEnv : environment =
       let schemaRef = [schemaIdentifier] in
       match schemaRef @: typeEnv with
       | T_Undefined ->
-        error 424 ("Forward schema is not supported: " ^ schemaIdentifier)
+        error ~env:typeEnv
+              1755
+              ("Forward schema is not supported: " ^ schemaIdentifier)
 
       | T_Schema t_object ->
         begin
@@ -283,7 +316,20 @@ and nuri_value value t_explicit destRef namespace typeEnv : environment =
           nuri_prototype prototype t destRef namespace env2
         end
 
-      | _ -> error 425 ("Invalid schema: " ^ schemaIdentifier)
+      | _ -> error ~env:typeEnv 1756 ("Invalid schema: " ^ schemaIdentifier)
+    end
+
+  | Expression ((Basic Reference (id :: [])) as expression) ->
+    begin match t_explicit, destRef @: typeEnv with
+    | T_Undefined, ((T_Symbol enumID) as t)
+    | ((T_Symbol enumID) as t), _ when enum_symbol id enumID typeEnv ->
+      bind T_Undefined t destRef typeEnv
+
+    | _ ->
+      begin
+        let t = nuri_expression expression namespace typeEnv in
+        bind t_explicit t destRef typeEnv
+      end
     end
 
   | Expression expression ->
@@ -292,15 +338,28 @@ and nuri_value value t_explicit destRef namespace typeEnv : environment =
       bind t_explicit t destRef typeEnv
     end
 
-and nuri_assignment (destRef, t_explicit, value) namespace typeEnv =
+and nuri_type_explicit t typeEnv = match t with
+  | T_Object T_User (id, _) ->
+    begin match [id] @: typeEnv with
+    | T_Schema (_ as ts) -> T_Object ts
+    | T_Enum _ -> T_Symbol id
+    | _ -> error ~env:typeEnv 1757 ("Invalid type: " ^ id)
+    end
+  | _ -> t
+
+and nuri_assignment (destRef, t, value) namespace typeEnv =
   if destRef = reference_of_echo then
     typeEnv
   else
-    begin match namespace @<< destRef with
-    | Domain.Invalid ->
-      error 450 ("Invalid reference: " ^ !^(namespace @+ destRef))
-
-    | Domain.Valid ref -> nuri_value value t_explicit ref namespace typeEnv
+    begin
+      let t_explicit = nuri_type_explicit t typeEnv in
+      match namespace @<< destRef with
+      | Domain.Invalid ->
+        error ~env:typeEnv
+              1760
+              ("Invalid reference: " ^ !^(namespace @+ destRef))
+  
+      | Domain.Valid ref -> nuri_value value t_explicit ref namespace typeEnv
     end
 
 and nuri_block block namespace typeEnv : environment = match block with
@@ -319,7 +378,9 @@ and nuri_schema_parent parent typeEnv = match parent with
       let parentRef = [parentIdentifier] in
       match parentRef @: typeEnv with
       | T_Schema t -> (parentRef, t)
-      | _ -> error 440 ("Invalid parent schema: " ^ parentIdentifier)
+      | _ -> error ~env:typeEnv
+                   1765
+                   ("Invalid parent schema: " ^ parentIdentifier)
     end
 
 and nuri_schema (name, parent, block) typeEnv =
@@ -327,20 +388,26 @@ and nuri_schema (name, parent, block) typeEnv =
   let schemaRef = [name] in
   let env1 = match schemaRef @: typeEnv with
     | T_Undefined ->
-      bind T_Undefined (T_Schema (T_User (name, t_parent))) [] typeEnv
+      bind T_Undefined (T_Schema (T_User (name, t_parent))) schemaRef typeEnv
 
-    | _ -> error 441 ("'" ^ name ^ "' is bound multiple times.")
+    | _ -> error ~env:typeEnv 1766 ("'" ^ name ^ "' is bound multiple times.")
   in
   let env2 = if parentRef = [] then env1
              else _inherit parentRef schemaRef [] env1
   in
   nuri_block block schemaRef env2
 
-and nuri_enum (name, symbols) typeEnv =
+and nuri_enum (name, symbols) typeEnv : environment =
   let enumRef = [name] in
   match enumRef @: typeEnv with
-  | T_Undefined -> bind T_Undefined (T_Enum (name, symbols)) [] typeEnv
-  | _ -> error 442 ("'" ^ name ^ "' is bound multiple times.")
+  | T_Undefined ->
+    begin
+      let env = (enumRef, T_Enum (name, symbols)) :: typeEnv in
+      List.fold_left (fun env symbol ->
+        ([name; symbol], (T_Symbol name)) :: env
+      ) env symbols
+    end
+  | _ -> error ~env:typeEnv 1770 ("'" ^ name ^ "' is bound multiple times.")
 
 and nuri_context context typeEnv = match context with
   | AssignmentContext (assignment, nextContext) ->
@@ -364,12 +431,16 @@ and nuri_specification ?main:(mainReference=["main"]) nuri =
   (* second-pass *)
   let env2 = match mainReference @: env1 with
     | T_Undefined ->
-      error 490 ("Main variable (" ^ !^mainReference ^ ") is not exist.")
+      error ~env:env1
+            1775
+            ("Main variable (" ^ !^mainReference ^ ") is not exist.")
 
     | t when t <: t_plain_object -> replace_forward_type mainReference env1
 
     | _ ->
-      error 491 ("Main variable (" ^ !^mainReference ^ ") is not an object.")
+      error ~env:env1
+            1780
+            ("Main variable (" ^ !^mainReference ^ ") is not an object.")
   in
 
   (* third-pass *)
@@ -377,9 +448,11 @@ and nuri_specification ?main:(mainReference=["main"]) nuri =
              else main_of mainReference env2
   in
 
+  if not (well_formed (map_of env2) (map_of env3)) then ();
+
   (* forth-pass *)
   let env4 = bind T_Undefined T_Constraint reference_of_global env3 in
-  List.fold_left (fun acc (var, t) -> MapRef.add var t acc) MapRef.empty env4
+  map_of env4
 ;;
 
-let check_type_of = nuri_specification ;;
+let eval = nuri_specification ;;

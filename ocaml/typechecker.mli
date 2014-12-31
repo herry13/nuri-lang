@@ -13,4 +13,4 @@
 open Syntax
 open Type
 
-val check_type_of : ?main:string list -> nuri -> map
+val eval : ?main:string list -> nuri -> map
