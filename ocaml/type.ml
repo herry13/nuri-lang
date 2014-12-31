@@ -32,9 +32,30 @@ and variable_type = Domain.reference * t
 and map = t MapRef.t
 
 
-(*******************************************************************
- * Exception & helper functions
- *******************************************************************)         
+(** Generate a string of a map of variable-type.
+    @param map the map of variable-type
+    @return a string
+*)
+let string_of_map map =
+  let buf = Buffer.create 42 in
+  MapRef.iter (fun var t ->
+    buf <<| !^var <<| " : " <<| (string_of_type t) <. '\n'
+  ) map;
+  Buffer.contents buf
+;;
+
+(** Generate a string of a type-environment.
+    @param env the type-environment
+    @return a string
+*)
+let string_of_environment environment =
+  let buf = Buffer.create 42 in
+  List.iter (fun (variable, t) ->
+    buf <<| !^variable <<| " : " <<| (string_of_type t) <. '\n'
+  ) environment;
+  Buffer.contents buf
+;;
+
 
 (** Raised when there is a type-error *)
 exception Error of int * string
@@ -44,7 +65,13 @@ exception Error of int * string
     @param message the error's message
     @raise Error
 *)
-let error code message =
+let error ?env:(env = []) ?map:(map = MapRef.empty) code message =
+  if !verbose then begin
+    print_endline "---- Type Environment ----";
+    print_endline (string_of_environment env);
+    print_endline "\n---- Type Map ----";
+    print_endline (string_of_map map)
+  end;
   let msg = if message = "" then message
             else (" " ^ message)
   in
@@ -62,21 +89,6 @@ let (@<<) = Domain.(@<<) ;;
 let (!<<) = Domain.(!<<) ;;
 
 
-(*******************************************************************
- * Type map functions
- *******************************************************************)
-
-(** Generate a string of a map of variable-type.
-    @param map the map of variable-type
-    @return a string
-*)
-let string_of_map ?buffer:(buf = Buffer.create 42) map =
-  MapRef.iter (fun var t ->
-    buf <<| !^var <<| " : " <<| (string_of_type t) <. '\n'
-  ) map;
-  buf
-;;
-
 (** Return the type of a variable within given map. If the variable is not
     exist then it returns T_Undefined.
 *)
@@ -86,19 +98,11 @@ let type_of variable map =
 ;;
 
 
-(** Generate a string of a type-environment.
-    @param env the type-environment
-    @return a string
-*)
-let string_of_environment ?buffer:(buf = Buffer.create 42) environment =
-  List.iter (fun (variable, t) ->
-    buf <<| !^variable <<| " : " <<| (string_of_type t) <. '\n'
-  ) environment;
-  buf
-;;
-
 let initial_environment = [] ;;
 
+let map_of =
+  List.fold_left (fun acc (var, t) -> MapRef.add var t acc) MapRef.empty
+;;
 
 (*******************************************************************
  * Typing judgement functions
@@ -162,7 +166,11 @@ let rec has t map = match t with
   | T_Symbol id -> has (T_Enum (id, [])) map
 
   | T_Enum (id, _) ->
-    if MapRef.mem [id] map then (MapRef.find [id] map) = t
+    if MapRef.mem [id] map then
+      begin match MapRef.find [id] map with
+      | T_Enum (idx, _) -> id = idx
+      | _ -> false
+      end
     else false
 
   | T_List t_list -> has t_list map
@@ -178,8 +186,24 @@ let rec has t map = match t with
   | T_Object t_object | T_Reference t_object -> has (T_Schema t_object) map
 ;;
 
-let well_formed map = MapRef.for_all (fun _ t -> has t map) map ;;
+let well_formed completeTypeMap =
+  MapRef.for_all (fun var t -> match has t completeTypeMap with
+    | true -> true
+    | false ->
+      error ~map:completeTypeMap
+            490
+            ("Not well-formed: type " ^ (string_of_type t) ^ " (" ^ !^var ^
+              ") is undefined.")
+  )
+(* MapRef.for_all (fun _ t -> has t map) map *)
+;;
 
+
+let enum_symbol symbol enumID environment = match [enumID] @: environment with
+  | T_Enum (name, symbols) when enumID = name ->
+    List.exists (fun sym -> sym = symbol) symbols
+  | _ -> false
+;;
 
 (*******************************************************************
  * Type assignment functions
@@ -190,14 +214,16 @@ let rec bind t_explicit t_value variable environment =
   | T_Object _ | T_Schema _ ->
     bind_value t_explicit t_value variable environment
 
-  | _ -> error 491 ("The prefix of '" ^ !^variable ^ "' is not object, " ^
-                    "schema or enum.")
+  | _ -> error ~env:environment
+               401
+               ("The prefix of '" ^ !^variable ^ "' is not object or schema")
 
 and bind_value t_explicit t_value variable environment =
   match (variable @: environment), t_explicit, t_value with
   | T_Undefined, T_Undefined, T_Any ->
-    error 490 ("You need to explicitly define the type of '" ^
-               !^variable ^ "'.")
+    error ~env:environment
+          402
+          ("You need to explicitly define the type of '" ^ !^variable ^ "'.")
 
   | T_Undefined, T_Undefined, _ -> (variable, t_value) :: environment
 
@@ -210,30 +236,42 @@ and bind_value t_explicit t_value variable environment =
     (variable, t_explicit) :: (variable, t_value) :: environment
 
   | T_Undefined, _, _ ->
-    error 406 ("The value's type is not subtype of the explicit type" ^
-               " of '" ^ !^variable ^ "'.")
+    error ~env:environment
+          403
+          ("The value's type is not subtype of the explicit type of '" ^
+            !^variable ^ "'.")
 
-  | T_Schema _, _, _ -> error 407 "Re-defining a schema is not allowed."
+  | T_Schema _, _, _ -> error ~env:environment
+                              404
+                              "Re-defining a schema is not allowed."
 
-  | T_Enum _, _, _ -> error 407 "Re-defining an enum is not allowed."
+  | T_Enum _, _, _ -> error ~env:environment
+                            405
+                            "Re-defining an enum is not allowed."
 
   | t_variable, T_Undefined, _ when t_value <: t_variable -> environment
 
   | t_variable, T_Undefined, T_Forward _ -> (variable, t_value) :: environment
 
   | _, T_Undefined, _ ->
-    error 407 ("The value's type is not subtype of the variable's " ^
-               "type: " ^ !^variable ^ ".")
+    error ~env:environment
+         406
+         ("The value's type is not subtype of the variable's " ^ "type: " ^
+           !^variable ^ "." ^ (string_of_environment environment))
 
   | t_variable, _, _ when (t_value <: t_explicit) &&
     (t_explicit <: t_variable) -> environment
 
   | _ when not (t_value <: t_explicit) ->
-    error 408 ("The value's type is not subtype of the explicit " ^
-               "type of '" ^ !^variable ^ "'.")
+    error ~env:environment
+          407
+          ("The value's type is not subtype of the explicit type of '" ^
+            !^variable ^ "'.")
 
-  | _ -> error 409 ("The explicit type is not subtype of the variable's " ^
-                    "type: " ^ !^variable ^ ".")
+  | _ -> error ~env:environment
+               408
+               ("The explicit type is not subtype of the variable's type: " ^
+                 !^variable ^ ".")
 ;;
 
 let variables_with_prefix ?remove_prefix:(noPrefix = true) prefix environment =
@@ -274,14 +312,20 @@ let rec resolve reference namespace environment =
 ;;
 
 let _inherit srcPrefix destPrefix namespace environment =
-  let validPrefix = match resolve srcPrefix namespace environment with
+  let validSrcPrefix = match resolve srcPrefix namespace environment with
     | _, T_Undefined ->
-      error 410 ("Prototype '" ^ !^srcPrefix ^ "' is not found.")
+      error ~env:environment
+            411
+            ("Prototype '" ^ !^srcPrefix ^ "' is not found.")
 
-    | ref, t when t <: T_Object T_Plain -> ref
-    | _, t -> error 411 ("Prototype '" ^ !^srcPrefix ^ "' is not an object.")
+    | ref, T_Object _ | ref, T_Schema _ -> ref
+
+    | _, t ->
+      error ~env:environment
+            412
+            ("Prototype '" ^ !^srcPrefix ^ "' is not an object.")
   in
-  copy validPrefix destPrefix environment
+  copy validSrcPrefix destPrefix environment
 ;;
 
 
@@ -297,7 +341,9 @@ let rec resolve_forward_type ?visited:(accumulator = SetRef.empty) var
         namespace environment =
   match namespace, namespace @<< var with
   | [], Domain.Invalid ->
-    error 433 ("Undefined forward type of '" ^ !^var ^ "'")
+    error ~env:environment
+          421
+          ("Undefined forward type of '" ^ !^var ^ "'")
 
   | _, Domain.Invalid ->
     resolve_forward_type ~visited:accumulator var !-namespace environment
@@ -305,18 +351,24 @@ let rec resolve_forward_type ?visited:(accumulator = SetRef.empty) var
   | _, Domain.Valid r ->
     begin
       if SetRef.exists (fun rx -> rx = r) accumulator then
-        error 434 ("Cyclic reference is detected: " ^ !^r)
+        begin
+          error ~env:environment
+                422
+                ("Cyclic reference is detected: " ^ !^r)
+        end
       else
         begin match namespace, r @: environment with
-        | [], T_Undefined -> error 435 ("'" ^ !^r ^ "' is not found.")
+        | [], T_Undefined -> error ~env:environment
+                                   423
+                                   ("'" ^ !^r ^ "' is not found.")
 
         | _, T_Undefined -> resolve_forward_type ~visited:accumulator
                                                  var
                                                  !-namespace
                                                  environment
 
-        | ns, T_Forward T_ReferenceForward ref
-        | ns, T_Forward T_LinkForward ref ->
+        | ns, T_Forward T_Ref ref
+        | ns, T_Forward T_Link ref ->
           resolve_forward_type ~visited:(SetRef.add r accumulator)
                                ref
                                ns
@@ -342,8 +394,8 @@ let replace_forward_type prefix environment =
       | _, t          -> (variable, t) :: environment
     in
     match t_forward with
-    | T_LinkForward r      -> replace_link_forward r
-    | T_ReferenceForward r -> replace_reference_forward r
+    | T_Link r      -> replace_link_forward r
+    | T_Ref r -> replace_reference_forward r
   in
   List.fold_left (fun acc (var, t) ->
     if prefix @< var then
@@ -403,7 +455,9 @@ let make_type_values initTypeMap initFlatStore goalTypeMap goalFlatStore =
   let add_from_store typeMap = MapRef.fold (fun var value map ->
       begin match type_of var typeMap with
       | T_Undefined | T_Forward _ ->
-        error 432 ("Invalid type of '" ^ !^var ^ "'")
+        error ~map:typeMap
+              431
+              ("Invalid type of '" ^ !^var ^ "'")
 
       | T_Object t_object ->
         add_object_value t_object
@@ -422,7 +476,9 @@ let make_type_values initTypeMap initFlatStore goalTypeMap goalFlatStore =
     let add_from_effects = List.fold_left (fun map (reference, value) ->
         begin match type_of reference typeMap with
         | T_Undefined | T_Schema _ | T_Forward _ | T_Action | T_Constraint ->
-          error 432 ("Invalid type of '" ^ !^reference ^ "'")
+          error ~map:typeMap
+                432
+                ("Invalid type of '" ^ !^reference ^ "'")
 
         | T_Object t_object ->
           add (T_Reference t_object) (Domain.Basic value) map

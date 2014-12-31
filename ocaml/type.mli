@@ -19,18 +19,19 @@ and map = t MapRef.t
 
 exception Error of int * string
 
-val error : int -> string -> 'a
+val error : ?env:environment -> ?map:map -> int -> string -> 'a
 
 
-val string_of_map : ?buffer:Buffer.t -> map -> Buffer.t
+val string_of_map : map -> string
 
 val type_of : Domain.reference -> map -> t
 
-val well_formed : map -> bool
+val map_of : environment -> map
+
+val well_formed : map -> map -> bool
 
 
-
-val string_of_environment : ?buffer:Buffer.t -> environment -> Buffer.t
+val string_of_environment : environment -> string
 
 val initial_environment : environment
 
@@ -65,6 +66,8 @@ val main_of : Domain.reference -> environment -> environment
 
 val replace_forward_type : Domain.reference -> environment -> environment
 
+
+val enum_symbol : string -> string -> environment -> bool
 
 
 module MapType : Map.S with type key = t
