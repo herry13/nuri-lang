@@ -334,6 +334,22 @@ let _inherit srcPrefix destPrefix namespace environment =
   copy validSrcPrefix destPrefix environment
 ;;
 
+let rec at ?env:(env = []) indexes t_array = match indexes, t_array with
+  | _, T_Forward T_Link ref | _, T_Forward T_Ref ref
+    -> T_Forward (T_RefIndex (ref, indexes))
+
+  | _, T_Forward T_RefIndex (ref, ids)
+    -> T_Forward (T_RefIndex (ref, List.append ids indexes))
+
+  | _ :: [], T_List tl -> tl
+  | _ :: tail, T_List tl -> at tail tl
+  | _, T_List _ -> error ~env:env 413 "Invalid index of array."
+  | _ -> error ~env:env
+               414
+               ("Accessing an index of a non-array value: " ^
+                 (string_of_type t_array) ^ ".")
+;;
+
 
 (*******************************************************************
  * Second-pass type evaluation functions
@@ -357,11 +373,7 @@ let rec resolve_forward_type ?visited:(accumulator = SetRef.empty) var
   | _, Domain.Valid r ->
     begin
       if SetRef.exists (fun rx -> rx = r) accumulator then
-        begin
-          error ~env:environment
-                422
-                ("Cyclic reference is detected: " ^ !^r)
-        end
+        error ~env:environment 422 ("Cyclic reference: " ^ !^r)
       else
         begin match namespace, r @: environment with
         | [], T_Undefined -> error ~env:environment
@@ -386,32 +398,41 @@ let rec resolve_forward_type ?visited:(accumulator = SetRef.empty) var
 ;;
 
 let replace_forward_type prefix environment =
-  let replace t_forward variable environment =
-    let replace_link_forward link =
-      match resolve_forward_type link variable environment with
-      | prototype, t when t <: T_Object T_Plain ->
-        copy prototype variable ((variable, t) :: environment)
-
-      | _, t -> (variable, t) :: environment
-    in
-    let replace_reference_forward reference =
-      match resolve_forward_type reference variable environment with
-      | _, T_Object t -> (variable, T_Reference t) :: environment
-      | _, t          -> (variable, t) :: environment
-    in
-    match t_forward with
-    | T_Link r      -> replace_link_forward r
-    | T_Ref r -> replace_reference_forward r
-  in
-  List.fold_left (fun acc (var, t) ->
-    if prefix @< var then
-      begin match t with
-      | T_Forward tf -> replace tf var acc
-      | _            -> (var, t) :: acc
+  let rec eval_t_forward env var = function
+    | T_Link ref -> resolve_forward_type ref var env
+    | T_Ref ref ->
+      begin match resolve_forward_type ref var env with
+      | srcRef, T_Object t_obj -> (srcRef, T_Reference t_obj)
+      | result -> result
       end
-    else
-      acc
-  ) environment environment
+    | T_RefIndex (ref, indexes) ->
+      begin
+        let (srcRef, tl) = resolve_forward_type ref var env in
+        match at ~env:env indexes tl with
+        | T_Forward tf -> eval_t_forward env var tf
+        | t -> (srcRef, t)
+      end
+  in
+  let rec eval_t_list env var = function
+    | T_Forward tf ->
+      begin
+        let (_, tl) = eval_t_forward env var tf in
+        tl
+      end
+    | T_List tl -> T_List (eval_t_list env var tl)
+    | tl -> tl
+  in
+  let replace env var t_forward = match eval_t_forward env var t_forward with
+    | prototype, ((T_Object _) as t) -> copy prototype var ((var, t) :: env)
+    | _, t -> (var, t) :: env
+  in
+  let foreach_variable_type env = function
+    | var, _ when not (prefix @< var) -> env
+    | var, T_Forward tf -> replace env var tf
+    | var, T_List tl -> (var, T_List (eval_t_list env var tl)) :: env
+    | varType -> varType :: env
+  in
+  List.fold_left foreach_variable_type environment environment
 ;;
 
 

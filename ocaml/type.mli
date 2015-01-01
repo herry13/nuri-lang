@@ -61,6 +61,7 @@ val resolve : Domain.reference -> Domain.reference -> environment ->
 val _inherit : Domain.reference -> Domain.reference -> Domain.reference ->
                environment -> environment
 
+val at : ?env:environment -> string list -> t -> t
 
 
 val main_of : Domain.reference -> environment -> environment
