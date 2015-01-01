@@ -195,7 +195,6 @@ let well_formed completeTypeMap =
             ("Not well-formed: type " ^ (string_of_type t) ^ " (" ^ !^var ^
               ") is undefined.")
   )
-(* MapRef.for_all (fun _ t -> has t map) map *)
 ;;
 
 
@@ -206,10 +205,7 @@ let symbol_of_enum enumID environment symbol =
   | _ -> false
 ;;
 
-(*******************************************************************
- * Type assignment functions
- *******************************************************************)
-
+(** Type assignment functions *)
 let rec bind ?t_variable:(t_variable = T_Undefined) t_explicit t_value
              variable environment =
   match !-variable @: environment with
@@ -349,11 +345,6 @@ let rec at ?env:(env = []) indexes t_array = match indexes, t_array with
                ("Accessing an index of a non-array value: " ^
                  (string_of_type t_array) ^ ".")
 ;;
-
-
-(*******************************************************************
- * Second-pass type evaluation functions
- *******************************************************************)
 
 let main_of mainReference environment =
   variables_with_prefix mainReference environment
