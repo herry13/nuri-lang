@@ -130,6 +130,7 @@ and t_object = T_Plain                      (** Plain built-in object *)
 
 and t_forward = T_Link      of reference (** Forward link-reference *)
               | T_Ref       of reference (** Forward (data) reference *)
+              | T_RefIndex of reference * string list
 
 (* state-trajectory syntax *)
 and trajectory = Global of _constraint

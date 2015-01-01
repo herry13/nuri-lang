@@ -95,6 +95,7 @@ and t_object = T_Plain
     
 and t_forward = T_Link      of reference
               | T_Ref of reference
+              | T_RefIndex of reference * string list
 
 (** state-trajectory syntax **)
 and trajectory = Global of _constraint
@@ -173,6 +174,12 @@ let string_of_type t =
       end
     | T_Forward T_Link r -> buf <<| "forward(" <<| !^r <. ')'
     | T_Forward T_Ref r -> buf <<| "forward*(" <<| !^r <. ')'
+    | T_Forward T_RefIndex (r, indexes) ->
+      begin
+        buf <<| "forward*(" << !^r;
+        List.iter (fun i -> buf <.| '[' <<| i <. ']') indexes;
+        buf <. ')'
+      end
 
   and type_object t = match t with
     | T_Plain            -> buf << "object"
@@ -464,11 +471,11 @@ let rec string_of nuri =
         buf <. '*';
         type_object t
       end
-    | T_Forward T_Link r ->
-      error 301 "T_Link is not allowed."
+    | T_Forward T_Link _ -> error 301 "T_Link is not allowed."
 
-    | T_Forward T_Ref r ->
-      error 302 "T_Ref is not allowed."
+    | T_Forward T_Ref _ -> error 302 "T_Ref is not allowed."
+
+    | T_Forward T_RefIndex _ -> error 303 "T_RefIndex is not allowed."
 
   and type_object t = match t with
     | T_Plain        -> buf << "object"
