@@ -6,6 +6,8 @@ herry4.nuri
 herry5.nuri
 # array
 array1.nuri
+array2.nuri
+array3.nuri
 # file inclusion
 main-include1.nuri
 main-include2.nuri
