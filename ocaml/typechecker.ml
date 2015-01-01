@@ -114,10 +114,10 @@ and nuri_basic_value basicValue t_explicit namespace typeEnv : t =
   | Null          -> nuri_null
   | Vector vector -> nuri_array vector t_explicit namespace typeEnv
   | Reference ref -> nuri_data_reference ref t_explicit namespace typeEnv
-  | RefIndex (ref, index) ->
+  | RefIndex (ref, indexes) ->
     begin
       let t_ref = nuri_data_reference ref t_explicit namespace typeEnv in
-      nuri_array_at_index t_ref index typeEnv
+      at ~env:typeEnv indexes t_ref
     end
 
 (* TODO: refactor (try to remove 'isFirst') *)
@@ -240,20 +240,15 @@ and nuri_add_expression t_left t_right = match t_left, t_right with
         error 1740 "Types of (+) operands are not integer, float, or string."
     end
 
-and nuri_array_at_index t_array index typeEnv = match t_array, index with
-  | T_List tl, _ :: [] -> tl
-  | T_List tl, _ :: tail -> nuri_array_at_index tl tail typeEnv
-  | _ -> error ~env:typeEnv 1741 "Invalid index of array."
-
 and nuri_expression expression t_explicit namespace typeEnv : t =
   let unary = nuri_unary_expression t_explicit namespace typeEnv in
   let binary = nuri_binary_expression t_explicit namespace typeEnv in
   match expression with
   | Basic value -> nuri_basic_value value t_explicit namespace typeEnv
-  | Exp_Index (exp, index) ->
+  | Exp_Index (exp, indexes) ->
     begin
       let t_exp = nuri_expression exp t_explicit namespace typeEnv in
-      nuri_array_at_index t_exp index typeEnv
+      at ~env:typeEnv indexes t_exp
     end
 
   | Shell _ | Exp_IString _ -> T_String
@@ -398,10 +393,10 @@ and nuri_assignment assignment namespace typeEnv = match assignment with
   | TypeValue (ref, t, value) ->
     nuri_assign_type_value ref t value namespace typeEnv
 
-  | RefIndexValue (ref, index, value) ->
+  | RefIndexValue (ref, indexes, value) ->
     begin
       let t_ref = nuri_data_reference ref T_Undefined namespace typeEnv in
-      let t_element = nuri_array_at_index t_ref index typeEnv in
+      let t_element = at ~env:typeEnv indexes t_ref in
       nuri_value value t_element t_element ref namespace typeEnv
     end
 
