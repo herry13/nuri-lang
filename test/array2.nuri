@@ -1,0 +1,8 @@
+main {
+    // function with reference-index
+    c1 [0, 1];
+    c2 (c1[0] + 1);
+
+    d1 [[0]];
+    d2 (d1[0][0] + 1);
+}
