@@ -159,10 +159,44 @@ and nuri_prototype ?isFirst:(isFirst=true) prototype t_explicit destRef
     end
 
 and nuri_constraints constraints namespace typeEnv = match constraints with
-  | Global global -> nuri_global global namespace typeEnv
+  | Global global ->
+    if (nuri_constraint typeEnv namespace global) <: T_Bool then typeEnv
+    else error 490 ""
 
-and nuri_global global namespace typeEnv : environment =
-  bind typeEnv reference_of_global T_Undefined T_Constraint
+(* TODO: this must be implemented after generating the main map *)
+and nuri_constraint typeEnv namespace constraint_ : t = T_Bool
+(*  let eval = nuri_constraint typeEnv namespace in
+  match constraint_ with
+  | C_Equal (ref, bv) | C_NotEqual (ref, bv) ->
+    begin match (resolve ref namespace typeEnv),
+                (nuri_basic_value bv T_Undefined namespace typeEnv)
+    with
+    | (_, t_left), t_right
+      when (t_left <: t_right) || (t_right <: t_left) -> T_Bool
+
+    | (_, t_left), t_right
+     -> error 10 ((string_of_type t_left) ^ " " ^ (string_of_type t_right))
+    end
+  | C_Greater (ref, bv) | C_GreaterEqual (ref, bv)
+  | C_Less (ref, bv)    | C_LessEqual (ref, bv) ->
+    begin match (resolve ref namespace typeEnv),
+                (nuri_basic_value bv T_Undefined namespace typeEnv)
+    with
+    | (_, T_Int), T_Int   | (_, T_Float), T_Float
+    | (_, T_Int), T_Float | (_, T_Float), T_Int -> T_Bool
+    | _ -> error 11 ""
+    end
+  (*| C_Not c ->
+  | C_Imply (c1, c2) ->
+  | C_In (ref, vec) -> *)
+  | C_And [] | C_Or [] -> T_Bool
+  | C_And cs | C_Or cs ->
+    begin
+      if List.for_all (fun c -> (eval c) <: T_Bool) cs then T_Bool
+      else error 490 ""
+    end
+  | _ -> T_Bool
+*)
 
 (** Ensure that the operand's type is determinate. *)
 and nuri_unary_expression t_explicit namespace typeEnv operator expression
@@ -464,7 +498,9 @@ and nuri_context context (typeEnv : environment) = match context with
 
 and nuri_specification ?main:(mainReference=["main"]) nuri =
   (* first-pass *)
-  let env1 = nuri_context nuri empty in
+  let env1 =
+    nuri_context nuri (bind empty reference_of_global T_Undefined T_Constraint)
+  in
 
   (* second-pass *)
   let env2 = match mainReference @: env1 with
