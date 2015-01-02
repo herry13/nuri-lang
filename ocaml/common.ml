@@ -118,6 +118,20 @@ let join buffer separator to_string =
   iter
 ;;
 
+(** Concat a list of strings with given separator and string buffer. *)
+let join_ buffer separator to_string =
+  let rec iter = function
+    | [] -> buffer
+    | head :: [] -> buffer <<| (to_string head)
+    | head :: tail ->
+      begin
+        buffer <<| (to_string head) << separator;
+        iter tail
+      end
+  in
+  iter
+;;
+
 (** Visit every list's element, and add the separator to the buffer inbetween
     two visits. *)
 let dash buffer separator callback =

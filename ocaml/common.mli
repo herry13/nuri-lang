@@ -51,6 +51,8 @@ val (<.$) : Buffer.t -> char -> string
 (** Concat a list of strings with given separator and string buffer. *)
 val join : Buffer.t -> string -> ('a -> string) -> 'a list -> unit
 
+val join_ : Buffer.t -> string -> ('a -> string) -> 'a list -> Buffer.t
+
 (** Visit every list's element, and add the separator to the buffer inbetween
     two visits. *)
 val dash : Buffer.t -> string -> (Buffer.t -> 'a -> unit) -> 'a list -> unit
