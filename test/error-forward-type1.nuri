@@ -1,0 +1,10 @@
+main {
+    a x;
+    a b;
+    a c;
+    b 1;
+    b c;
+    c 2;
+
+    x true;
+}
