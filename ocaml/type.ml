@@ -426,25 +426,28 @@ let rec replace_forward_type prefix environment =
 let rec merge_types prefix environment : map =
   let rec iter types t var =
     let test tx ts =
-        if tx <: t then iter ts t var
-        else error ~env:environment 430 ("Merge types failed: " ^ !^var ^ ".")
+      if tx <: t then iter ts t var
+      else error ~env:environment 430 ("Merge types failed: " ^ !^var ^ ".")
     in
     match types with
     | (T_Forward tf) :: ts ->
-      let (_, tx) = sub_forward_type tf var environment in test tx ts
+      begin
+        let (_, tx) = sub_forward_type tf var environment in
+        test tx ts
+      end
 
     | (T_List tl) :: ts ->
       test (T_List (sub_type_list tl var environment)) ts
 
     | _ -> t
   in
-  MapRef.fold (fun var ts map ->
-    match ts with
+  let foreach_variable_type var ts map = match ts with
     | [] -> error ~env:environment 432 ("Invalid type of '" ^ !^var ^ "'.")
     | _ when not (prefix @< var) -> map
     | t :: [] -> MapRef.add (var @- prefix) t map
     | t :: tail -> MapRef.add (var @- prefix) (iter tail t var) map
-  ) environment MapRef.empty
+  in
+  MapRef.fold foreach_variable_type environment MapRef.empty
 ;;
 
 (*******************************************************************
