@@ -11,11 +11,13 @@
 open Common
 open Syntax
 
-type environment = variable_type list
+
+type environment = t list MapRef.t
 
 and variable_type = Domain.reference * t
 
 and map = t MapRef.t
+
 
 exception Error of int * string
 
@@ -28,12 +30,12 @@ val type_of : Domain.reference -> map -> t
 
 val map_of : environment -> map
 
-val well_formed : map -> map -> bool
+val well_formed : map -> map -> map
 
 
 val string_of_environment : environment -> string
 
-val initial_environment : environment
+val empty : environment
 
 val find : Domain.reference -> environment -> t
 
@@ -45,20 +47,15 @@ val (<:) : t -> t -> bool
 
 val (=:=) : t -> t -> bool
 
-
-
-val bind : ?t_variable:t -> t -> t -> Domain.reference -> environment ->
+val bind : environment -> Domain.reference -> ?t_variable:t -> t -> t ->
            environment
-
-val variables_with_prefix : ?remove_prefix:bool -> Domain.reference ->
-                            environment -> environment
 
 val copy : Domain.reference -> Domain.reference -> environment -> environment
 
 val resolve : Domain.reference -> Domain.reference -> environment ->
               (Domain.reference * t)
 
-val _inherit : Domain.reference -> Domain.reference -> Domain.reference ->
+val inherit_ : Domain.reference -> Domain.reference -> Domain.reference ->
                environment -> environment
 
 val at : ?env:environment -> string list -> t -> t
@@ -68,8 +65,9 @@ val main_of : Domain.reference -> environment -> environment
 
 val replace_forward_type : Domain.reference -> environment -> environment
 
+val merge_types : Domain.reference -> environment -> map
 
-val symbol_of_enum : string -> environment -> string -> bool
+val symbol_of_enum : string -> string -> environment -> bool
 
 
 module MapType : Map.S with type key = t

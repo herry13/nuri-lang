@@ -21,16 +21,11 @@ open Syntax
  * Type environment & map
  *******************************************************************)
 
-type system = { types : types ; environment : environment }
-
-and types = t list
-
-and environment = variable_type list
+type environment = t list MapRef.t
 
 and variable_type = Domain.reference * t
 
 and map = t MapRef.t
-
 
 (** Generate a string of a map of variable-type.
     @param map the map of variable-type
@@ -49,13 +44,19 @@ let string_of_map map =
     @return a string
 *)
 let string_of_environment environment =
-  let buf = Buffer.create 42 in
-  List.iter (fun (variable, t) ->
-    buf <<| !^variable <<| " : " <<| (string_of_type t) <. '\n'
+  let buffer = Buffer.create 40 in
+  MapRef.iter (fun var ts ->
+    buffer <<| !^var << " : ";
+    (join_ buffer " | " string_of_type ts) <. '\n'
   ) environment;
-  Buffer.contents buf
+  Buffer.contents buffer
 ;;
 
+let empty = MapRef.empty ;;
+
+let map_of env =
+  MapRef.fold (fun var ts -> MapRef.add var (List.hd ts)) env MapRef.empty
+;;
 
 (** Raised when there is a type-error *)
 exception Error of int * string
@@ -65,7 +66,7 @@ exception Error of int * string
     @param message the error's message
     @raise Error
 *)
-let error ?env:(env = []) ?map:(map = MapRef.empty) code message =
+let error ?env:(env = empty) ?map:(map = MapRef.empty) code message =
   if !verbose then begin
     print_endline "---- Type Environment ----";
     print_endline (string_of_environment env);
@@ -97,13 +98,6 @@ let type_of variable map =
   else T_Undefined
 ;;
 
-
-let initial_environment = [] ;;
-
-let map_of =
-  List.fold_left (fun acc (var, t) -> MapRef.add var t acc) MapRef.empty
-;;
-
 (*******************************************************************
  * Typing judgement functions
  *******************************************************************)
@@ -114,15 +108,12 @@ let map_of =
     @param env the type-environment
     @return the type of variable
 *)
-let rec find variable environment =
-  let rec iter environment = match environment with
-    | []                                -> T_Undefined
-    | (var, t) :: _ when var = variable -> t
-    | _ :: tail                         -> iter tail
-  in
-  match variable with
+let rec find variable environment = match variable with
   | [] -> T_Object T_Plain
-  | _  -> iter environment
+  | _ when MapRef.mem variable environment ->
+    List.hd (MapRef.find variable environment)
+
+  | _ -> T_Undefined
 ;;
 
 let (@:) = find ;;
@@ -186,55 +177,52 @@ let rec has t map = match t with
   | T_Object t_object | T_Reference t_object -> has (T_Schema t_object) map
 ;;
 
-let well_formed completeTypeMap =
-  MapRef.for_all (fun var t -> match has t completeTypeMap with
-    | true -> true
-    | false ->
-      error ~map:completeTypeMap
-            490
-            ("Not well-formed: type " ^ (string_of_type t) ^ " (" ^ !^var ^
-              ") is undefined.")
-  )
+let well_formed completeTypeMap mainMap =
+  let _ =
+    MapRef.for_all (fun var t -> match has t completeTypeMap with
+      | true -> true
+      | false ->
+        error ~map:completeTypeMap
+              490
+              ("Not well-formed: type " ^ (string_of_type t) ^ " (" ^ !^var ^
+                ") is not resolved.")
+    ) mainMap
+  in
+  mainMap
 ;;
 
-
-let symbol_of_enum enumID environment symbol =
-  match [enumID] @: environment with
-  | T_Enum (name, symbols) when enumID = name ->
-    List.exists (fun sym -> sym = symbol) symbols
+let symbol_of_enum symbol enumID environment =
+  match find [enumID] environment with
+  | T_Enum (id, symbols) when enumID = id -> List.exists ((=) symbol) symbols
   | _ -> false
 ;;
 
-(** Type assignment functions *)
-let rec bind ?t_variable:(t_variable = T_Undefined) t_explicit t_value
-             variable environment =
-  match !-variable @: environment with
-  | T_Object _ | T_Schema _ ->
-    bind_type t_variable t_explicit t_value variable environment
-
-  | _ -> error ~env:environment
-               401
-               ("The prefix of '" ^ !^variable ^ "' is not object or schema")
-
-and bind_type t_variable t_explicit t_value variable environment =
-  let t_var = if t_variable = T_Undefined then variable @: environment
-              else t_variable
-  in
+let bind_type environment variable t_var t_explicit t_value =
   match t_var, t_explicit, t_value with
   | T_Undefined, T_Undefined, T_Any ->
     error ~env:environment
           402
           ("You need to explicitly define the type of '" ^ !^variable ^ "'.")
 
-  | T_Undefined, T_Undefined, _ -> (variable, t_value) :: environment
+  | T_Undefined, T_Undefined, _ -> MapRef.add variable [t_value] environment
 
   | T_Undefined, _, _ when t_value <: t_explicit ->
-    (variable, t_explicit) :: environment
+    MapRef.add variable [t_explicit] environment
 
-  | T_Forward _, T_Undefined, _ -> (variable, t_value) :: environment
+  | T_Forward _, T_Undefined, _ ->
+    MapRef.add variable
+               (t_value :: (MapRef.find variable environment))
+               environment
+
+  | T_Forward _, T_Forward _, _ ->
+    MapRef.add variable
+               (t_value :: t_explicit :: (MapRef.find variable environment))
+               environment
 
   | T_Forward _, _, _ | T_Undefined, _, T_Forward _ ->
-    (variable, t_explicit) :: (variable, t_value) :: environment
+    MapRef.add variable
+               (t_explicit :: t_value :: (MapRef.find variable environment))
+               environment
 
   | T_Undefined, _, _ ->
     error ~env:environment
@@ -242,26 +230,27 @@ and bind_type t_variable t_explicit t_value variable environment =
           ((string_of_type t_value) ^ " (value) is not a subtype of " ^
             (string_of_type t_explicit) ^ " (explicit) -- " ^ !^variable ^ ".")
 
-  | T_Schema _, _, _ -> error ~env:environment
-                              404
-                              "Re-defining a schema is not allowed."
+  | T_Schema _, _, _ ->
+    error ~env:environment 404 "Re-defining a schema is not allowed."
 
-  | T_Enum _, _, _ -> error ~env:environment
-                            405
-                            "Re-defining an enum is not allowed."
+  | T_Enum _, _, _ ->
+    error ~env:environment 405 "Re-defining an enum is not allowed."
 
   | t_variable, T_Undefined, _ when t_value <: t_variable -> environment
 
-  | t_variable, T_Undefined, T_Forward _ -> (variable, t_value) :: environment
+  | t_variable, T_Undefined, T_Forward _ ->
+    MapRef.add variable
+               (List.append (MapRef.find variable environment) [t_value])
+               environment
 
   | _, T_Undefined, _ ->
     error ~env:environment
-         406
-         ("The value's type is not subtype of the variable's " ^ "type: " ^
-           !^variable ^ "." ^ (string_of_environment environment))
+          406
+          ("The value's type is not subtype of the variable's " ^ "type: " ^
+            !^variable ^ ".")
 
-  | t_variable, _, _ when (t_value <: t_explicit) &&
-    (t_explicit <: t_variable) -> environment
+  | t_variable, _, _
+    when (t_value <: t_explicit) && (t_explicit <: t_variable) -> environment
 
   | _ when not (t_value <: t_explicit) ->
     error ~env:environment
@@ -276,70 +265,70 @@ and bind_type t_variable t_explicit t_value variable environment =
                  !^variable ^ ".")
 ;;
 
-let variables_with_prefix ?remove_prefix:(noPrefix = true) prefix environment =
-  if prefix = [] then
-    environment
-  else if environment = [] then
-    []
-  else
-    List.fold_left (fun env (var, t) ->
-      if prefix @< var then
-        begin
-          let variable = if noPrefix then var @- prefix
-                         else var
-          in
-          (variable, t) :: env
-        end
-      else
-        env
-    ) [] environment
+(** Type assignment functions *)
+let bind environment variable ?t_variable:(t_variable = T_Undefined) =
+  match (find !-variable environment), t_variable with
+  | T_Object _, T_Undefined | T_Schema _, T_Undefined ->
+    bind_type environment variable (find variable environment)
+
+  | T_Object _, _ | T_Schema _, _ ->
+    bind_type environment variable t_variable
+
+  | _ ->
+    error 401 ("Prefix of " ^ !^variable ^ " is not an object or schema.")
 ;;
 
 let copy srcPrefix destPrefix environment =
-  List.fold_left (fun env (var, t) ->
-    (destPrefix @+ var, t) :: env
-  ) environment (variables_with_prefix srcPrefix environment)
+  MapRef.fold (fun variable ts accu ->
+    if srcPrefix @< variable then
+      begin
+        let destVar = destPrefix @+ (variable @- srcPrefix) in
+        if MapRef.mem destVar accu then
+          MapRef.add destVar (List.append ts (MapRef.find destVar accu)) accu
+        else
+          MapRef.add destVar ts accu
+      end
+    else
+      accu
+  ) environment environment
 ;;
 
 let rec resolve reference namespace environment =
   match namespace, namespace @<< reference with
   | [], Domain.Invalid   -> ([], T_Undefined)
   | _ , Domain.Invalid   -> resolve reference !-namespace environment
-  | [], Domain.Valid ref -> (ref, ref @: environment)
+  | [], Domain.Valid ref -> (ref, find ref environment)
   | _ , Domain.Valid ref ->
-    begin match ref @: environment with
+    begin match find ref environment with
     | T_Undefined -> resolve reference !-namespace environment
     | t           -> (ref, t)
     end
 ;;
 
-let _inherit srcPrefix destPrefix namespace environment =
+let inherit_ srcPrefix destPrefix namespace environment =
   let validSrcPrefix = match resolve srcPrefix namespace environment with
     | _, T_Undefined ->
-      error ~env:environment
-            411
-            ("Prototype '" ^ !^srcPrefix ^ "' is not found.")
+      error 411 ("Prototype " ^ !^srcPrefix ^ " is not found.")
 
     | ref, T_Object _ | ref, T_Schema _ -> ref
 
-    | _, t ->
-      error ~env:environment
-            412
-            ("Prototype '" ^ !^srcPrefix ^ "' is not an object.")
+    | _ ->
+      error 412 ("Prototype " ^ !^srcPrefix ^ " is not an object or schema")
   in
   copy validSrcPrefix destPrefix environment
 ;;
 
-let rec at ?env:(env = []) indexes t_array = match indexes, t_array with
-  | _, T_Forward T_Link ref | _, T_Forward T_Ref ref
-    -> T_Forward (T_RefIndex (ref, indexes))
+let rec at ?env:(env = empty) indexes t_array =
+  match indexes, t_array with
+  | _, T_Forward T_Link ref | _, T_Forward T_Ref ref ->
+    T_Forward (T_RefIndex (ref, indexes))
 
-  | _, T_Forward T_RefIndex (ref, ids)
-    -> T_Forward (T_RefIndex (ref, List.append ids indexes))
+  | _, T_Forward T_RefIndex (ref, ids) ->
+    T_Forward (T_RefIndex (ref, List.append ids indexes))
 
   | _ :: [], T_List tl -> tl
   | _ :: tail, T_List tl -> at tail tl
-  | _, T_List _ -> error ~env:env 413 "Invalid index of array."
+  | _, T_List _ -> error 413 "Invalid index of array."
   | _ -> error ~env:env
                414
                ("Accessing an index of a non-array value: " ^
@@ -347,85 +336,113 @@ let rec at ?env:(env = []) indexes t_array = match indexes, t_array with
 ;;
 
 let main_of mainReference environment =
-  variables_with_prefix mainReference environment
+  MapRef.fold (fun var ts accu ->
+    if mainReference @< var then
+      MapRef.add (var @- mainReference) ts accu
+    else
+      accu
+  ) environment empty
 ;;
 
-let rec resolve_forward_type ?visited:(accumulator = SetRef.empty) var
-        namespace environment =
-  match namespace, namespace @<< var with
+let rec resolve_forward_type ?visited:(visited = SetRef.empty) variable
+                             namespace environment =
+  match namespace, namespace @<< variable with
   | [], Domain.Invalid ->
-    error ~env:environment
-          421
-          ("Undefined forward type of '" ^ !^var ^ "'")
+    error 421 ("Undefined forward type: " ^ !^variable ^ ".")
 
   | _, Domain.Invalid ->
-    resolve_forward_type ~visited:accumulator var !-namespace environment
+    resolve_forward_type ~visited:visited variable !-namespace environment
 
-  | _, Domain.Valid r ->
+  | _, Domain.Valid ref ->
     begin
-      if SetRef.exists (fun rx -> rx = r) accumulator then
-        error ~env:environment 422 ("Cyclic reference: " ^ !^r)
+      if SetRef.exists (fun r -> r = ref) visited then
+        error 422 ("Cyclic reference: " ^ !^ref ^ ".")
       else
-        begin match namespace, r @: environment with
-        | [], T_Undefined -> error ~env:environment
-                                   423
-                                   ("'" ^ !^r ^ "' is not found.")
+        begin match namespace, find ref environment with
+        | [], T_Undefined ->
+          error 423 ("Undefined forward type: " ^ !^ref ^ ".")
 
-        | _, T_Undefined -> resolve_forward_type ~visited:accumulator
-                                                 var
+        | _, T_Undefined -> resolve_forward_type ~visited:visited
+                                                 variable
                                                  !-namespace
                                                  environment
 
-        | ns, T_Forward T_Ref ref
-        | ns, T_Forward T_Link ref ->
-          resolve_forward_type ~visited:(SetRef.add r accumulator)
-                               ref
-                               ns
-                               environment
+        | srcRef, T_Forward T_Ref r | srcRef, T_Forward T_Link r ->
+          resolve_forward_type ~visited:visited r srcRef environment
 
-        | _, t -> (r, t)
+        | _, t -> (ref, t)
         end
     end
 ;;
 
-let replace_forward_type prefix environment =
-  let rec eval_t_forward env var = function
-    | T_Link ref -> resolve_forward_type ref var env
-    | T_Ref ref ->
-      begin match resolve_forward_type ref var env with
-      | srcRef, T_Object t_obj -> (srcRef, T_Reference t_obj)
-      | result -> result
-      end
-    | T_RefIndex (ref, indexes) ->
-      begin
-        let (srcRef, tl) = resolve_forward_type ref var env in
-        match at ~env:env indexes tl with
-        | T_Forward tf -> eval_t_forward env var tf
-        | t -> (srcRef, t)
-      end
-  in
-  let rec eval_t_list env var = function
-    | T_Forward tf ->
-      begin
-        let (_, tl) = eval_t_forward env var tf in
-        tl
-      end
-    | T_List tl -> T_List (eval_t_list env var tl)
-    | tl -> tl
-  in
-  let replace env var t_forward = match eval_t_forward env var t_forward with
-    | prototype, ((T_Object _) as t) -> copy prototype var ((var, t) :: env)
-    | _, t -> (var, t) :: env
-  in
-  let foreach_variable_type env = function
-    | var, _ when not (prefix @< var) -> env
-    | var, T_Forward tf -> replace env var tf
-    | var, T_List tl -> (var, T_List (eval_t_list env var tl)) :: env
-    | varType -> varType :: env
-  in
-  List.fold_left foreach_variable_type environment environment
+let rec sub_forward_type t_forward var env = match t_forward with
+  | T_Link ref -> resolve_forward_type ref var env
+  | T_Ref ref ->
+    begin match resolve_forward_type ref var env with
+    | srcRef, T_Object t_obj -> (srcRef, T_Reference t_obj)
+    | result -> result
+    end
+  | T_RefIndex (ref, indexes) ->
+    begin
+      let (srcRef, tl) = resolve_forward_type ref var env in
+      match at ~env:env indexes tl with
+      | T_Forward tf -> sub_forward_type tf var env
+      | t -> (srcRef, t)
+    end
 ;;
 
+let rec sub_type_list t_list var env = match t_list with
+  | T_Forward tf -> let (_, tl) = sub_forward_type tf var env in tl
+  | T_List t -> T_List (sub_type_list t var env)
+  | t -> t
+;;
+
+let rec replace_forward_type prefix environment =
+  let replace var ts env = function
+    | prototype, ((T_Object _) as t) ->
+      begin
+        let env1 = copy prototype var (MapRef.add var (t :: ts) env) in
+        replace_forward_type var env1
+      end
+    | _, t -> MapRef.add var (t :: ts) env
+  in
+  MapRef.fold (fun var ts env ->
+    match ts with
+    | _ when not (prefix @< var) -> env
+
+    | (T_Forward tf) :: tail ->
+      replace var tail env (sub_forward_type tf var env)
+
+    | (T_List tl) :: tail ->
+      replace var tail env ([], T_List (sub_type_list tl var env))
+
+    | _ -> env
+  ) environment environment
+;;
+
+let rec merge_types prefix environment : map =
+  let rec iter types t var =
+    let test tx ts =
+        if tx <: t then iter ts t var
+        else error ~env:environment 430 ("Merge types failed: " ^ !^var ^ ".")
+    in
+    match types with
+    | (T_Forward tf) :: ts ->
+      let (_, tx) = sub_forward_type tf var environment in test tx ts
+
+    | (T_List tl) :: ts ->
+      test (T_List (sub_type_list tl var environment)) ts
+
+    | _ -> t
+  in
+  MapRef.fold (fun var ts map ->
+    match ts with
+    | [] -> error ~env:environment 432 ("Invalid type of '" ^ !^var ^ "'.")
+    | _ when not (prefix @< var) -> map
+    | t :: [] -> MapRef.add (var @- prefix) t map
+    | t :: tail -> MapRef.add (var @- prefix) (iter tail t var) map
+  ) environment MapRef.empty
+;;
 
 (*******************************************************************
  * a map from type to set of values

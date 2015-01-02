@@ -46,7 +46,7 @@ and nuri_reference r = r
 
 and nuri_data_reference dataRef t_explicit namespace typeEnv : t =
   match dataRef, t_explicit with
-  | id :: [], (T_Symbol enumID) when symbol_of_enum enumID typeEnv id ->
+  | id :: [], (T_Symbol enumID) when symbol_of_enum id enumID typeEnv ->
     t_explicit
 
   | _ ->
@@ -125,7 +125,7 @@ and nuri_prototype ?isFirst:(isFirst=true) prototype t_explicit destRef
                   namespace typeEnv : environment =
   match prototype with
   | EmptyPrototype when isFirst ->
-    bind t_explicit t_plain_object destRef typeEnv
+    bind typeEnv destRef t_explicit t_plain_object
 
   | EmptyPrototype -> typeEnv
 
@@ -135,7 +135,7 @@ and nuri_prototype ?isFirst:(isFirst=true) prototype t_explicit destRef
         | true, T_Undefined -> t_plain_object
         | _ -> t_explicit
       in
-      let env1 = bind t_explicit t_block destRef typeEnv in
+      let env1 = bind typeEnv destRef t_explicit t_block in
       let env2 = nuri_block block destRef env1 in
       nuri_prototype ~isFirst:false nextProto t_block destRef namespace env2
     end
@@ -151,8 +151,8 @@ and nuri_prototype ?isFirst:(isFirst=true) prototype t_explicit destRef
 
       | _, t ->
         begin
-          let env1 = bind t_explicit t destRef typeEnv in
-          let env2 = _inherit protoRef destRef namespace env1 in
+          let env1 = bind typeEnv destRef t_explicit t in
+          let env2 = inherit_ protoRef destRef namespace env1 in
           let tx = if t_explicit = T_Undefined then t else t_explicit in
           nuri_prototype ~isFirst:false nextProto tx destRef namespace env2
         end
@@ -162,7 +162,7 @@ and nuri_constraints constraints namespace typeEnv = match constraints with
   | Global global -> nuri_global global namespace typeEnv
 
 and nuri_global global namespace typeEnv : environment =
-  bind T_Undefined T_Constraint reference_of_global typeEnv
+  bind typeEnv reference_of_global T_Undefined T_Constraint
 
 (** Ensure that the operand's type is determinate. *)
 and nuri_unary_expression t_explicit namespace typeEnv operator expression
@@ -315,17 +315,17 @@ and nuri_expression expression t_explicit namespace typeEnv : t =
 and nuri_value value t_variable t_explicit destRef namespace typeEnv =
   match value with
   | TBD | Unknown | None ->
-    bind ~t_variable:t_variable t_explicit T_Any destRef typeEnv
+    bind typeEnv destRef ~t_variable:t_variable t_explicit T_Any
 
   | Action _ ->
-    bind ~t_variable:t_variable t_explicit T_Action destRef typeEnv
+    bind typeEnv destRef ~t_variable:t_variable t_explicit T_Action
 
   | Link linkRef ->
     begin
       let (srcRef, t) =
         nuri_link_reference linkRef destRef namespace typeEnv
       in
-      let env = bind ~t_variable:t_variable t_explicit t destRef typeEnv in
+      let env = bind typeEnv destRef ~t_variable:t_variable t_explicit t in
       if t <: t_plain_object then copy srcRef destRef env
       else env
     end
@@ -346,9 +346,9 @@ and nuri_value value t_variable t_explicit destRef namespace typeEnv =
         begin
           let t = T_Object t_object in
           let env1 =
-            bind ~t_variable:t_variable t_explicit t destRef typeEnv
+            bind typeEnv destRef ~t_variable:t_variable t_explicit t
           in
-          let env2 = _inherit schemaRef destRef [] env1 in
+          let env2 = inherit_ schemaRef destRef [] env1 in
           nuri_prototype prototype t destRef namespace env2
         end
 
@@ -360,7 +360,7 @@ and nuri_value value t_variable t_explicit destRef namespace typeEnv =
                   else t_explicit
       in
       let t_value = nuri_expression expression t_exp namespace typeEnv in
-      bind ~t_variable:t_variable t_explicit t_value destRef typeEnv
+      bind typeEnv destRef ~t_variable:t_variable t_explicit t_value
     end
 
 and nuri_type_explicit t typeEnv = match t with
@@ -426,12 +426,12 @@ and nuri_schema (name, parent, block) typeEnv =
   let schemaRef = [name] in
   let env1 = match schemaRef @: typeEnv with
     | T_Undefined ->
-      bind T_Undefined (T_Schema (T_User (name, t_parent))) schemaRef typeEnv
+      bind typeEnv schemaRef T_Undefined (T_Schema (T_User (name, t_parent)))
 
     | _ -> error ~env:typeEnv 1766 ("'" ^ name ^ "' is bound multiple times.")
   in
   let env2 = if parentRef = [] then env1
-             else _inherit parentRef schemaRef [] env1
+             else inherit_ parentRef schemaRef [] env1
   in
   nuri_block block schemaRef env2
 
@@ -440,14 +440,14 @@ and nuri_enum (name, symbols) typeEnv : environment =
   match enumRef @: typeEnv with
   | T_Undefined ->
     begin
-      let env = (enumRef, T_Enum (name, symbols)) :: typeEnv in
-      List.fold_left (fun env symbol ->
-        ([name; symbol], (T_Symbol name)) :: env
+      let env = MapRef.add enumRef [T_Enum (name, symbols)] typeEnv in
+      List.fold_left (fun accu symbol ->
+        MapRef.add [name; symbol] [T_Symbol name] accu
       ) env symbols
     end
   | _ -> error ~env:typeEnv 1770 ("'" ^ name ^ "' is bound multiple times.")
 
-and nuri_context context typeEnv = match context with
+and nuri_context context (typeEnv : environment) = match context with
   | AssignmentContext (assignment, nextContext) ->
     nuri_context nextContext (nuri_assignment assignment [] typeEnv)
 
@@ -464,7 +464,7 @@ and nuri_context context typeEnv = match context with
 
 and nuri_specification ?main:(mainReference=["main"]) nuri =
   (* first-pass *)
-  let env1 = nuri_context nuri initial_environment in
+  let env1 = nuri_context nuri empty in
 
   (* second-pass *)
   let env2 = match mainReference @: env1 with
@@ -473,24 +473,19 @@ and nuri_specification ?main:(mainReference=["main"]) nuri =
             1775
             ("Main variable (" ^ !^mainReference ^ ") is not exist.")
 
-    | t when t <: t_plain_object -> replace_forward_type mainReference env1
+    | T_Object _ -> replace_forward_type mainReference env1
 
     | _ ->
       error ~env:env1
             1780
             ("Main variable (" ^ !^mainReference ^ ") is not an object.")
   in
-
-  (* third-pass *)
-  let env3 = if mainReference = [] then env2
-             else main_of mainReference env2
+  let mainEnv = if mainReference = [] then map_of env2
+                else merge_types mainReference env2
   in
 
-  if not (well_formed (map_of env2) (map_of env3)) then ();
-
-  (* forth-pass *)
-  let env4 = bind T_Undefined T_Constraint reference_of_global env3 in
-  map_of env4
+  (* third-pass *)
+  well_formed (map_of env2) mainEnv
 ;;
 
 let eval = nuri_specification ;;
