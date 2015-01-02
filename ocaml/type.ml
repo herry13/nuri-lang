@@ -125,6 +125,7 @@ let (@:) = find ;;
     @return bool
 *)
 let rec (<:) type1 type2 = match type1, type2 with
+  | T_Undefined, _ | _, T_Undefined           -> false
   | _, _ when type1 = type2                   -> true
   | T_Any, _ when type2 <> T_Undefined        -> true
   | T_Int, T_Float                            -> true
@@ -294,13 +295,27 @@ let copy srcPrefix destPrefix environment =
 ;;
 
 let rec resolve reference namespace environment =
+  let rec prevail_of = function
+    | [] -> ([], [])
+    | ref ->
+      begin match find ref environment with
+      | T_Undefined -> prevail_of !-ref
+      | T_Reference T_User (id, _) -> ([id], ref)
+      | _ -> ([], [])
+      end
+  in
   match namespace, namespace @<< reference with
   | [], Domain.Invalid   -> ([], T_Undefined)
   | _ , Domain.Invalid   -> resolve reference !-namespace environment
   | [], Domain.Valid ref -> (ref, find ref environment)
   | _ , Domain.Valid ref ->
     begin match find ref environment with
-    | T_Undefined -> resolve reference !-namespace environment
+    | T_Undefined ->
+      begin match prevail_of ref with
+      | [], _ -> resolve reference !-namespace environment
+      | (schemaRef, srcRef) ->
+        resolve (schemaRef @+ (ref @- srcRef)) [] environment
+      end
     | t           -> (ref, t)
     end
 ;;
@@ -344,34 +359,22 @@ let main_of mainReference environment =
   ) environment empty
 ;;
 
-let rec resolve_forward_type ?visited:(visited = SetRef.empty) variable
+let rec resolve_forward_type ?visited:(visited = SetRef.empty) reference
                              namespace environment =
-  match namespace, namespace @<< variable with
-  | [], Domain.Invalid ->
-    error 421 ("Undefined forward type: " ^ !^variable ^ ".")
+  if SetRef.exists (fun r -> r = reference) visited then
+    error ~env:environment 422 ("Cyclic reference: " ^ !^reference ^ ".")
+  else
+    begin match resolve reference namespace environment with
+    | _, T_Undefined ->
+      error ~env:environment 423 ("Indeterminate forward-type: " ^ !^reference)
 
-  | _, Domain.Invalid ->
-    resolve_forward_type ~visited:visited variable !-namespace environment
+    | srcRef, T_Forward T_Ref r | srcRef, T_Forward T_Link r ->
+      resolve_forward_type ~visited:(SetRef.add reference visited)
+                           r
+                           srcRef
+                           environment
 
-  | _, Domain.Valid ref ->
-    begin
-      if SetRef.exists (fun r -> r = ref) visited then
-        error 422 ("Cyclic reference: " ^ !^ref ^ ".")
-      else
-        begin match namespace, find ref environment with
-        | [], T_Undefined ->
-          error 423 ("Undefined forward type: " ^ !^ref ^ ".")
-
-        | _, T_Undefined -> resolve_forward_type ~visited:visited
-                                                 variable
-                                                 !-namespace
-                                                 environment
-
-        | srcRef, T_Forward T_Ref r | srcRef, T_Forward T_Link r ->
-          resolve_forward_type ~visited:visited r srcRef environment
-
-        | _, t -> (ref, t)
-        end
+    | result -> result
     end
 ;;
 
