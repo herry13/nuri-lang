@@ -133,27 +133,27 @@ and t_forward = T_Link      of reference (** Forward link-reference *)
               | T_RefIndex of reference * string list
 
 (* state-trajectory syntax *)
-and trajectory = Global of _constraint
+and trajectory = Global of constraint_
 
 (* constraint syntax *)
-and _constraint = C_Equal        of reference * basic_value
-                | C_NotEqual     of reference * basic_value
-				| C_Greater      of reference * basic_value
-				| C_GreaterEqual of reference * basic_value
-				| C_Less         of reference * basic_value
-				| C_LessEqual    of reference * basic_value
-                | C_Not          of _constraint
-                | C_Imply        of _constraint * _constraint
-                | C_And          of _constraint list
-                | C_Or           of _constraint list
-                | C_In           of reference * vector
+and constraint_ = C_Equal        of basic_value * basic_value
+                | C_NotEqual     of basic_value * basic_value
+                | C_Greater      of basic_value * basic_value
+                | C_GreaterEqual of basic_value * basic_value
+                | C_Less         of basic_value * basic_value
+                | C_LessEqual    of basic_value * basic_value
+                | C_In           of basic_value * basic_value
+                | C_Not          of constraint_
+                | C_Imply        of constraint_ * constraint_
+                | C_And          of constraint_ list
+                | C_Or           of constraint_ list
 
 (* action syntax *)
 and action     = parameter list * cost * conditions * effect list
 and parameter  = string * t
 and cost       = Cost of string
                | EmptyCost
-and conditions = Condition of _constraint
+and conditions = Condition of constraint_
                | EmptyCondition
 and effect     = reference * basic_value
 

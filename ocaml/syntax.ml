@@ -98,27 +98,27 @@ and t_forward = T_Link      of reference
               | T_RefIndex of reference * string list
 
 (** state-trajectory syntax **)
-and trajectory = Global of _constraint
+and trajectory = Global of constraint_
 
 (** constraint syntax **)
-and _constraint = C_Equal        of reference * basic_value
-                | C_NotEqual     of reference * basic_value
-				| C_Greater      of reference * basic_value
-				| C_GreaterEqual of reference * basic_value
-				| C_Less         of reference * basic_value
-				| C_LessEqual    of reference * basic_value
-                | C_Not          of _constraint
-                | C_Imply        of _constraint * _constraint
-                | C_And          of _constraint list
-                | C_Or           of _constraint list
-                | C_In           of reference * vector
+and constraint_ = C_Equal        of basic_value * basic_value
+                | C_NotEqual     of basic_value * basic_value
+                | C_Greater      of basic_value * basic_value
+                | C_GreaterEqual of basic_value * basic_value
+                | C_Less         of basic_value * basic_value
+                | C_LessEqual    of basic_value * basic_value
+                | C_In           of basic_value * basic_value
+                | C_Not          of constraint_
+                | C_Imply        of constraint_ * constraint_
+                | C_And          of constraint_ list
+                | C_Or           of constraint_ list
 
 (** action syntax **)
 and action     = parameter list * cost * conditions * effect list
 and parameter  = string * t
 and cost       = Cost of string
                | EmptyCost
-and conditions = Condition of _constraint
+and conditions = Condition of constraint_
                | EmptyCondition
 and effect     = reference * basic_value
 
@@ -144,18 +144,18 @@ let error code message =
 (** convert a type into a string **)
 let string_of_type t =
   let buf = Buffer.create 5 in
-  let rec _type t = match t with
-    | T_Bool         -> buf << "bool"
-    | T_Int          -> buf << "int"
-    | T_Float        -> buf << "float"
-    | T_String       -> buf << "string"
-    | T_Null         -> buf << "null"
-    | T_Undefined    -> buf << "undefined"
-    | T_Any          -> buf << "any"
-    | T_Action       -> buf << "action"
-    | T_Constraint   -> buf << "global"
-    | T_Enum (id, _) -> buf <<| "enum(" <<| id <. ')'
-    | T_Symbol id    -> buf <<| "enum:" << id
+  let rec _type t : Buffer.t = match t with
+    | T_Bool         -> buf <<| "bool"
+    | T_Int          -> buf <<| "int"
+    | T_Float        -> buf <<| "float"
+    | T_String       -> buf <<| "string"
+    | T_Null         -> buf <<| "null"
+    | T_Undefined    -> buf <<| "undefined"
+    | T_Any          -> buf <<| "any"
+    | T_Action       -> buf <<| "action"
+    | T_Constraint   -> buf <<| "global"
+    | T_Enum (id, _) -> buf <<| "enum(" <<| id <.| ')'
+    | T_Symbol id    -> buf <<| "enum:" <<| id
     | T_List t ->
       begin
         buf << "[]";
@@ -172,26 +172,26 @@ let string_of_type t =
         buf <. '*';
         type_object t
       end
-    | T_Forward T_Link r -> buf <<| "forward(" <<| !^r <. ')'
-    | T_Forward T_Ref r -> buf <<| "forward*(" <<| !^r <. ')'
+    | T_Forward T_Link r -> buf <<| "forward(" <<| !^r <.| ')'
+    | T_Forward T_Ref r -> buf <<| "forward*(" <<| !^r <.| ')'
     | T_Forward T_RefIndex (r, indexes) ->
       begin
         buf <<| "forward*(" << !^r;
         List.iter (fun i -> buf <.| '[' <<| i <. ']') indexes;
-        buf <. ')'
+        buf <.| ')'
       end
 
-  and type_object t = match t with
-    | T_Plain            -> buf << "object"
+  and type_object t : Buffer.t = match t with
+    | T_Plain            -> buf <<| "object"
     | T_User (id, super) ->
       begin
         buf <<| id <. '<';
         type_object super
       end
   in
-  _type t;
-  Buffer.contents buf
+  Buffer.contents (_type t);
 ;;
+
 
 (** convert an abstract syntax tree into a string **)
 let rec string_of nuri =
@@ -503,34 +503,38 @@ let rec string_of nuri =
   and global g =
     buf << "global ";
     constraints g;
-    buf <. '\n'
+    buf << ";\n"
 
   and constraints c = match c with
-    | C_Equal (r, bv) ->
+    | C_Equal (left, right) ->
       begin
-        reference r;
+        buf <. '(';
+        basic_value left;
         buf << " = ";
-        basic_value bv;
-        buf <. ';'
+        basic_value right;
+        buf << ") "
       end
-    | C_NotEqual (r, bv) ->
+    | C_NotEqual (left, right) ->
       begin
-        reference r;
+        buf <. '(';
+        basic_value left;
         buf << " != ";
-        basic_value bv;
-        buf <. ';'
+        basic_value right;
+        buf << ") "
       end
     | C_Not c ->
       begin
-        buf << "not ";
-        constraints c
+        buf << "not (";
+        constraints c;
+        buf << ") "
       end
     | C_Imply (c1, c2) ->
       begin
-        buf << "if ";
+        buf << "(if ";
         constraints c1;
         buf << " then ";
-        constraints c2
+        constraints c2;
+        buf << ") "
       end
     | C_And cs ->
       begin
@@ -550,40 +554,45 @@ let rec string_of nuri =
         ) cs;
         buf <. ')'
       end
-    | C_In (r, vec) ->
+    | C_In (left, right) ->
       begin
-        reference r;
+        buf << "(";
+        basic_value left;
         buf << " in ";
-        vector vec;
-        buf <. ';'
+        basic_value right;
+        buf << ") "
       end
-    | C_Greater (r, v) ->
+    | C_Greater (left, right) ->
       begin
-        reference r;
+        buf << "(";
+        basic_value left;
         buf << " > ";
-        basic_value v;
-        buf <. ';'
+        basic_value right;
+        buf << ") "
       end
-    | C_GreaterEqual (r, v) ->
+    | C_GreaterEqual (left, right) ->
       begin
-        reference r;
+        buf << "(";
+        basic_value left;
         buf << " >= ";
-        basic_value v;
-        buf <. ';'
+        basic_value right;
+        buf << ") "
       end
-    | C_Less (r, v) ->
+    | C_Less (left, right) ->
       begin
-        reference r;
+        buf << "(";
+        basic_value left;
         buf << " < ";
-        basic_value v;
-        buf <. ';'
+        basic_value right;
+        buf << ") "
       end
-    | C_LessEqual (r, v) ->
+    | C_LessEqual (left, right) ->
       begin
-        reference r;
+        buf << "(";
+        basic_value left;
         buf << " <= ";
-        basic_value v;
-        buf <. ';'
+        basic_value right;
+        buf << ") "
       end
 
   and effect (r, v) =
