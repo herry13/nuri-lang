@@ -23,12 +23,17 @@ action2.nuri
 reference1.nuri
 clouddeploy-init.nuri
 clouddeploy-goal.nuri
+### forward reference (type)
+forward-reference1.nuri
+forward-reference2.nuri
+### global constraints
 global1.nuri
 global2.nuri
 global3.nuri
 global4.nuri
 global5.nuri
 global6.nuri
+### numeric
 numeric1.nuri
 numeric2-init.nuri
 numeric2-goal.nuri
@@ -66,4 +71,7 @@ expression8.nuri
 expression12.nuri
 #expression13.nuri
 expression14.nuri
-
+# test cases from Patrick
+patrick1.nuri
+patrick2.nuri
+patrick3.nuri
