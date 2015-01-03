@@ -249,25 +249,25 @@ nuri_constraint
   | less_equal                            { $1 }
 
 equal
-  : reference EQUAL basic EOS { C_Equal ($1, $3) }
+  : basic EQUAL basic EOS { C_Equal ($1, $3) }
 
 equal_true
-  : reference EOS { C_Equal ($1, Boolean "true") }
+  : basic EOS { C_Equal ($1, Boolean "true") }
 
 not_equal
-  : reference NOT_EQUAL basic EOS { C_NotEqual ($1, $3) }
+  : basic NOT_EQUAL basic EOS { C_NotEqual ($1, $3) }
 
 greater_than
-  : reference TOK_GREATER basic EOS { C_Greater ($1, $3) }
+  : basic TOK_GREATER basic EOS { C_Greater ($1, $3) }
 
 greater_equal
-  : reference TOK_GREATER_EQUAL basic EOS { C_GreaterEqual ($1, $3) }
+  : basic TOK_GREATER_EQUAL basic EOS { C_GreaterEqual ($1, $3) }
 
 less_than
-  : reference TOK_LESS basic EOS { C_Less ($1, $3) }
+  : basic TOK_LESS basic EOS { C_Less ($1, $3) }
 
 less_equal
-  : reference TOK_LESS_EQUAL basic EOS { C_LessEqual ($1, $3) }
+  : basic TOK_LESS_EQUAL basic EOS { C_LessEqual ($1, $3) }
 
 implication
   : IF nuri_constraint THEN nuri_constraint { C_Imply ($2, $4) }
@@ -276,7 +276,7 @@ negation
   : NOT nuri_constraint { C_Not $2 }
 
 membership
-  : reference IN vector EOS { C_In ($1, $3) }
+  : basic IN basic EOS { C_In ($1, $3) }
 
 action
   : parameters BEGIN cost conditions EFFECTS BEGIN effects END END
