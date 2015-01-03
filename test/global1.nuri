@@ -7,9 +7,9 @@ main {
 }
 
 global {
-    b = a;
-    a > d;
-    a < e;
+    main.b = main.a;
+    main.a > main.d;
+    main.a < main.e;
 }
 
-global a != 2;
+global main.a != 2;

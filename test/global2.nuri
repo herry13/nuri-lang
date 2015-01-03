@@ -4,6 +4,6 @@ main {
 	global x = 1;
 }
 
-global y = 2;
+global main.y = 2;
 
-#always y != 3;
+#always main.y != 3;

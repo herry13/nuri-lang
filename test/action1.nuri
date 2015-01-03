@@ -12,5 +12,5 @@ main {
 }
 
 global {
-	a != 2;
+	main.a != 2;
 }
