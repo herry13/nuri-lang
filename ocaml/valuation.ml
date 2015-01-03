@@ -3,40 +3,36 @@
 open Common
 open Syntax
 
-let referenceGlobal = ["global"] ;;
+let rec nuri_boolean b = Domain.Boolean (b = "true")
 
-let sfBoolean b =
-    if b = "true" then Domain.Boolean true
-    else Domain.Boolean false
-;;
+and nuri_int i = Domain.Int (int_of_string i)
 
-let sfInt i = Domain.Int (int_of_string i) ;;
+and nuri_float f = Domain.Float (float_of_string f)
 
-let sfFloat f = Domain.Float (float_of_string f) ;;
+and nuri_string s = Domain.String s
 
-let sfString s = Domain.String s ;;
+and nuri_null = Domain.Null
 
-let sfNull = Domain.Null ;;
+and nuri_data_reference dataRef = Domain.Reference dataRef
 
-let sfReference r = r ;;
+(* No need to check inner-cyclic reference because it has been checked by
+   type-system *)
+and nuri_link_reference linkRef = Domain.Link linkRef
 
-let sfDataReference dataRef = Domain.Reference (sfReference dataRef) ;;
+and nuri_array vector = 
+  Domain.Vector (List.map (fun value -> nuri_basic_value value) vector)
 
-let sfLinkReference link =
-    let linkRef = sfReference link in
-    fun r ->
-        if Domain.(@<=) linkRef r then Domain.error 1101 ""
-        else Domain.Link linkRef
-;;
+and nuri_basic_value = function
+  | Boolean b -> nuri_boolean b
+  | Int i -> nuri_int i
+  | Float f -> nuri_float f
+  | String s -> nuri_string s
+  | Null -> nuri_null
+  | Vector vector -> nuri_array vector
+  | Reference ref -> nuri_data_reference ref
+  | RefIndex (ref, index) -> nuri_data_reference ref (*TODO*)
 
-let rec sfVector vector =
-    let rec iter vec =
-        match vec with
-        | []           -> []
-        | head :: tail -> (sfBasicValue head) :: (iter tail)
-    in
-    Domain.Vector (iter vector)
-
+(*
 and sfBasicValue value =
     match value with
     | Boolean b   -> sfBoolean b
@@ -219,7 +215,7 @@ and sfAssignment (reference, _, value) ns s =
             | Domain.Val v -> v
             | _ -> Domain.Unknown
         in
-        print_endline (Json.of_value ~ignore_lazy:false v1);
+        print_endline (Nuri_json.of_value ~ignore_lazy:false v1);
         s
     ) else (
         sfValue value ns (Domain.(@+) ns reference) s
@@ -356,3 +352,7 @@ and nuriAction (parameters, cost, conditions, effects) =
             (r, get_parameters, get_cost, get_conditions, get_effects)
         in
         Domain.bind s r (Domain.Action action)
+*)
+
+let eval store mainRef nuri = store
+;;

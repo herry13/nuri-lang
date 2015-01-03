@@ -60,7 +60,7 @@ for file in $(cat $filelist); do
         test $file $OPT_TYPE "typing   "
 
         # all steps
-        test $file "complete "
+        #test $file "complete "
 
         # generate JSON and convert JSON to Nuri
 #       test_json2nuri $file "json2nuri"

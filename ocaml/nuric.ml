@@ -42,7 +42,7 @@ let set_library_paths =
 ;;
 
 let evaluate_global_constraints store =
-    match Domain.find store ["global"] with
+    match Domain.find ["global"] store with
     | Domain.Undefined -> true
     | Domain.Val (Domain.Global g) -> Constraint.apply store g
     | _ -> false
@@ -54,8 +54,8 @@ let generate_json ast =
         else ["main"]
     in
     (* let ast = Parser_helper.ast_of_file file in *)
-    let types = Type.nuriSpecification ~main:mainReference ast in
-    let store = Valuation.nuriSpecification ~main:mainReference ast in
+    let types = (*Type.nuriSpecification*) Typechecker.eval ~main:mainReference ast in
+    let store = Valuation.eval [] [] ast in
     if not !opt_not_eval_global_constraints &&
        not (evaluate_global_constraints store) then (
         prerr_endline "[err700] The specification violates the global constraints.";
@@ -65,7 +65,7 @@ let generate_json ast =
         if !opt_state then Domain.to_state store
         else store
     in
-    print_endline (Json.of_store types store)
+    print_endline (Nuri_json.of_store types store)
 ;;
 
 let check_type ast =
@@ -73,7 +73,7 @@ let check_type ast =
         if !opt_no_main then []
         else ["main"]
     in
-    print_endline (Type.string_of_map (Type.nuriSpecification
+    print_endline (Type.string_of_map (Typechecker.eval
         ~main:mainReference ast))
 ;;
 
@@ -136,6 +136,8 @@ let main =
             "   Simple plan (a list of actions).");
         ("-o", Arg.Set_string opt_out_file,
             "    Output file.");
+        ("-v", Arg.Set verbose,
+            "    Verbose mode.");
     ]
     in
     Arg.parse options (fun f -> files := f :: !files) usage_msg_with_options;
@@ -184,11 +186,11 @@ let main =
             exit 1501
         )
     | Domain.Error (code, msg)
-    | Type.TypeError (code, msg) -> (
+    (*| Type.Error (code, msg) -> (
             prerr_endline msg;
             exit code
-        )
-    | Json.JsonError (code, msg) -> (
+        )*)
+    | Nuri_json.Nuri_jsonError (code, msg) -> (
             prerr_endline msg;
             exit code
         )

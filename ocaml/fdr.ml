@@ -42,7 +42,7 @@ let of_variables buffer variables =
             Buffer.add_string buffer "Atom (";
             Buffer.add_string buffer !^(Variable.name var);
             Buffer.add_char buffer ' ';
-            Buffer.add_string buffer (Json.of_value v);
+            Buffer.add_string buffer (Nuri_json.of_value v);
             Buffer.add_string buffer ")\n";
         ) var;
         Buffer.add_string buffer "end_variable"
@@ -205,12 +205,12 @@ let of_axioms buffer = Buffer.add_string buffer "\n0";;
 (** translate Nuri task to FDR task **)
 let of_nuri astInit astGoal =
     (* step 0: parse the specification and generate a store *)
-    let typeEnvInit = Type.nuriSpecification astInit in
+    let typeEnvInit = (*Type.nuriSpecification*) Typechecker.eval astInit in
     (* perform all-passes *)
-    let storeInit = Valuation.nuriSpecification astInit in
-    let typeEnvGoal = Type.nuriSpecification astGoal in
+    let storeInit = (*Valuation.nuriSpecification*) Valuation.eval [] [] astInit in
+    let typeEnvGoal = (*Type.nuriSpecification*) Typechecker.eval astGoal in
     (* perform first & second passes: allow TBD value *)
-    let storeGoal = Valuation.nuriSpecificationSecondPass astGoal in
+    let storeGoal = (*Valuation.nuriSpecificationSecondPass*) Valuation.eval [] [] astGoal in
     (* step 1: generate flat-stores of current and desired specifications *)
     let flatStoreInit = normalise storeInit in
     let flatStoreGoal = normalise storeGoal in
@@ -273,7 +273,7 @@ let convert_fdr_to_nuri_plan fdr_plan data removeDummy =
                 else MapRef.add r v pre
             ) pre1 pre2
         in
-        MapRef.remove Variable.r_dummy pre
+        MapRef.remove Variable.reference_of_dummy pre
     in
     let actions = A.to_array data.actions in
     let dummy = A.make [] MapStr.empty 0 MapRef.empty MapRef.empty in
@@ -328,7 +328,7 @@ let convert_fdr_to_nuri_plan fdr_plan data removeDummy =
                             let a = actions.(index) in
                             let pre = A.preconditions a in
                             let eff =
-                                MapRef.remove Variable.r_dummy (A.effects a)
+                                MapRef.remove Variable.reference_of_dummy (A.effects a)
                             in
                             let a1 = A.make (A.name a) (A.parameters a)
                                 (A.cost a) (merge pre_dummy pre) eff
