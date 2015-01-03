@@ -1,0 +1,8 @@
+schema X {
+    b 1;
+}
+main {
+    a isa X { }
+    c a;
+    d c.b;
+}
