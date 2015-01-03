@@ -28,9 +28,21 @@ let (@<=) = Domain.(@<=) ;;
 let t_plain_object = T_Object T_Plain ;;
 
 
-let global_constraints : (environment -> t) list ref = ref [] ;;
+type eval = environment -> t
+and  data = {
+              env         : environment;
+              constraints : eval list;
+              actions     : eval list
+            }
 
-let add_global c = global_constraints := c :: !global_constraints ;;
+(** A short-hand function to set 'env' of a data. *)
+let set env data =
+  {
+    env         = env;
+    constraints = data.constraints;
+    actions     = data.actions
+  }
+;;
 
 (*******************************************************************
  * Type evaluation functions
@@ -126,13 +138,14 @@ and nuri_basic_value basicValue t_explicit namespace typeEnv : t =
 
 (* TODO: refactor (try to remove 'isFirst') *)
 and nuri_prototype ?isFirst:(isFirst=true) prototype t_explicit destRef
-                  namespace typeEnv : environment =
+                  namespace data : data =
   match prototype with
   | EmptyPrototype when isFirst ->
-    let env = bind typeEnv destRef t_explicit t_plain_object in
-    bind env (destRef @+. "name") T_Undefined T_String
+    let env = bind data.env destRef t_explicit t_plain_object in
+    set (bind env (destRef @+. "name") T_Undefined T_String) data
 
-  | EmptyPrototype -> bind typeEnv (destRef @+. "name") T_Undefined T_String
+  | EmptyPrototype ->
+    set (bind data.env (destRef @+. "name") T_Undefined T_String) data
 
   | BlockPrototype (block, nextProto) ->
     begin
@@ -140,32 +153,39 @@ and nuri_prototype ?isFirst:(isFirst=true) prototype t_explicit destRef
         | true, T_Undefined -> t_plain_object
         | _ -> t_explicit
       in
-      let env1 = bind typeEnv destRef t_explicit t_block in
-      let env2 = nuri_block block destRef env1 in
-      nuri_prototype ~isFirst:false nextProto t_block destRef namespace env2
+      let data1 = set (bind data.env destRef t_explicit t_block) data in
+      let data2 = nuri_block block destRef data1 in
+      nuri_prototype ~isFirst:false nextProto t_block destRef namespace data2
     end
 
   | ReferencePrototype (reference, nextProto) ->
     begin
       let protoRef = nuri_reference reference in
-      match resolve protoRef namespace typeEnv with
+      match resolve protoRef namespace data.env with
       | _, T_Undefined ->
-        error ~env:typeEnv
+        error ~env:data.env
               1715
               ("Forward prototype is not supported: " ^ !^protoRef)
 
       | _, t ->
         begin
-          let env1 = bind typeEnv destRef t_explicit t in
-          let env2 = inherit_ protoRef destRef namespace env1 in
-          let tx = if t_explicit = T_Undefined then t else t_explicit in
-          nuri_prototype ~isFirst:false nextProto tx destRef namespace env2
+          let env = bind data.env destRef t_explicit t in
+          let data1 = set (inherit_ protoRef destRef namespace env) data in
+          let tx = if t_explicit = T_Undefined then t
+                   else t_explicit
+          in
+          nuri_prototype ~isFirst:false nextProto tx destRef namespace data1
         end
     end
 
-and nuri_trajectory constraints namespace typeEnv = match constraints with
+and nuri_trajectory constraints namespace data : data =
+  match constraints with
   | Global global ->
-    add_global (nuri_constraint global namespace); typeEnv
+    {
+      env         = data.env;
+      constraints = (nuri_constraint global namespace) :: data.constraints;
+      actions     = data.actions
+    }
 
 (* TODO: this must be implemented after generating the main map *)
 and nuri_constraint constraint_ namespace : environment -> t =
@@ -379,33 +399,41 @@ and nuri_expression expression t_explicit namespace typeEnv : t =
     | _ -> error ~env:typeEnv 1750 "Type of 'if' expression is not a boolean."
     end
 
-and nuri_value value t_variable t_explicit destRef namespace typeEnv =
+and nuri_action name (_, _, _, _) =
+  (* TODO: implement type-checker for action. *)
+  fun env -> T_Action
+
+and nuri_value value t_variable t_explicit destRef namespace data : data =
   match value with
   | TBD | Unknown | None ->
-    bind typeEnv destRef ~t_variable:t_variable t_explicit T_Any
+    set (bind data.env destRef ~t_variable:t_variable t_explicit T_Any) data
 
-  | Action _ ->
-    bind typeEnv destRef ~t_variable:t_variable t_explicit T_Action
+  | Action a ->
+    {
+      env = bind data.env destRef ~t_variable:t_variable t_explicit T_Action;
+      constraints = data.constraints;
+      actions = (nuri_action destRef a) :: data.actions
+    }
 
-  | Link linkRef ->
+  | Link ref ->
     begin
-      let (srcRef, t) =
-        nuri_link_reference linkRef destRef namespace typeEnv
+      let (srcRef, t) = nuri_link_reference ref destRef namespace data.env in
+      let env1 = bind data.env destRef ~t_variable:t_variable t_explicit t in
+      let env2 = if t <: t_plain_object then copy srcRef destRef env1
+                 else env1
       in
-      let env = bind typeEnv destRef ~t_variable:t_variable t_explicit t in
-      if t <: t_plain_object then copy srcRef destRef env
-      else env
+      set env2 data
     end
 
   | Prototype (EmptySchema, prototype) ->
-    nuri_prototype prototype T_Undefined destRef namespace typeEnv
+    nuri_prototype prototype T_Undefined destRef namespace data
 
   | Prototype (SID schemaIdentifier, prototype) ->
     begin
       let schemaRef = [schemaIdentifier] in
-      match schemaRef @: typeEnv with
+      match schemaRef @: data.env with
       | T_Undefined ->
-        error ~env:typeEnv
+        error ~env:data.env
               1755
               ("Forward schema is not supported: " ^ schemaIdentifier)
 
@@ -413,21 +441,23 @@ and nuri_value value t_variable t_explicit destRef namespace typeEnv =
         begin
           let t = T_Object t_object in
           let env1 =
-            bind typeEnv destRef ~t_variable:t_variable t_explicit t
+            bind data.env destRef ~t_variable:t_variable t_explicit t
           in
-          let env2 = inherit_ schemaRef destRef [] env1 in
-          nuri_prototype prototype t destRef namespace env2
+          let data1 = set (inherit_ schemaRef destRef [] env1) data in
+          nuri_prototype prototype t destRef namespace data1
         end
 
-      | _ -> error ~env:typeEnv 1756 ("Invalid schema: " ^ schemaIdentifier)
+      | _ -> error ~env:data.env 1756 ("Invalid schema: " ^ schemaIdentifier)
     end
+
   | Expression expression ->
     begin
-      let t_exp = if t_explicit = T_Undefined then destRef @: typeEnv
+      let t_exp = if t_explicit = T_Undefined then destRef @: data.env
                   else t_explicit
       in
-      let t_value = nuri_expression expression t_exp namespace typeEnv in
-      bind typeEnv destRef ~t_variable:t_variable t_explicit t_value
+      let t_value = nuri_expression expression t_exp namespace data.env in
+      set (bind data.env destRef ~t_variable:t_variable t_explicit t_value)
+          data
     end
 
 and nuri_type_explicit t typeEnv = match t with
@@ -440,41 +470,42 @@ and nuri_type_explicit t typeEnv = match t with
   | T_List tl -> T_List (nuri_type_explicit tl typeEnv)
   | _ -> t
 
-and nuri_assign_type_value destRef t value namespace typeEnv =
+and nuri_assign_type_value destRef t value namespace data : data =
   if destRef = reference_of_echo then
-    typeEnv
+    data
   else
     begin
-      let t_explicit = nuri_type_explicit t typeEnv in
+      let t_explicit = nuri_type_explicit t data.env in
       match namespace @<< destRef with
       | Domain.Invalid ->
-        error ~env:typeEnv
+        error ~env:data.env
               1760
               ("Invalid reference: " ^ !^(namespace @+ destRef))
   
       | Domain.Valid ref ->
-        nuri_value value T_Undefined t_explicit ref namespace typeEnv
+        nuri_value value T_Undefined t_explicit ref namespace data
     end
 
-and nuri_assignment assignment namespace typeEnv = match assignment with
+and nuri_assignment assignment namespace data : data =
+  match assignment with
   | TypeValue (ref, t, value) ->
-    nuri_assign_type_value ref t value namespace typeEnv
+    nuri_assign_type_value ref t value namespace data
 
   | RefIndexValue (ref, indexes, value) ->
     begin
-      let t_ref = nuri_data_reference ref T_Undefined namespace typeEnv in
-      let t_element = at ~env:typeEnv indexes t_ref in
-      nuri_value value t_element t_element ref namespace typeEnv
+      let t_ref = nuri_data_reference ref T_Undefined namespace data.env in
+      let t_element = at ~env:data.env indexes t_ref in
+      nuri_value value t_element t_element ref namespace data
     end
 
-and nuri_block block namespace typeEnv : environment = match block with
+and nuri_block block namespace data : data = match block with
   | AssignmentBlock (assignment, block) ->
-    nuri_block block namespace (nuri_assignment assignment namespace typeEnv)
+    nuri_block block namespace (nuri_assignment assignment namespace data)
 
   | TrajectoryBlock (trajectory, block) ->
-    nuri_block block namespace (nuri_trajectory trajectory namespace typeEnv)
+    nuri_block block namespace (nuri_trajectory trajectory namespace data)
 
-  | EmptyBlock -> typeEnv
+  | EmptyBlock -> data
 
 and nuri_schema_parent parent typeEnv = match parent with
   | EmptySchema -> ([], T_Plain)
@@ -488,75 +519,81 @@ and nuri_schema_parent parent typeEnv = match parent with
                    ("Invalid parent schema: " ^ parentIdentifier)
     end
 
-and nuri_schema (name, parent, block) typeEnv =
-  let (parentRef, t_parent) = nuri_schema_parent parent typeEnv in
+and nuri_schema (name, parent, block) data : data =
+  let (parentRef, t_parent) = nuri_schema_parent parent data.env in
   let schemaRef = [name] in
-  let env1 = match schemaRef @: typeEnv with
+  let env1 = match schemaRef @: data.env with
     | T_Undefined ->
-      bind typeEnv schemaRef T_Undefined (T_Schema (T_User (name, t_parent)))
+      bind data.env schemaRef T_Undefined (T_Schema (T_User (name, t_parent)))
 
-    | _ -> error ~env:typeEnv 1766 ("'" ^ name ^ "' is bound multiple times.")
+    | _ -> error ~env:data.env 1766 ("'" ^ name ^ "' is bound multiple times.")
   in
   let env2 = if parentRef = [] then env1
              else inherit_ parentRef schemaRef [] env1
   in
-  nuri_block block schemaRef env2
+  nuri_block block schemaRef (set env2 data)
 
-and nuri_enum (name, symbols) typeEnv : environment =
+and nuri_enum (name, symbols) typeEnv =
   let enumRef = [name] in
   match enumRef @: typeEnv with
   | T_Undefined ->
     begin
-      let env = MapRef.add enumRef [T_Enum (name, symbols)] typeEnv in
+      let env1 = MapRef.add enumRef [T_Enum (name, symbols)] typeEnv in
       List.fold_left (fun accu symbol ->
-        MapRef.add [name; symbol] [T_Symbol name] accu
-      ) env symbols
+          MapRef.add [name; symbol] [T_Symbol name] accu
+      ) env1 symbols
     end
   | _ -> error ~env:typeEnv 1770 ("'" ^ name ^ "' is bound multiple times.")
 
-and nuri_context context (typeEnv : environment) = match context with
+and nuri_context context data : data = match context with
   | AssignmentContext (assignment, nextContext) ->
-    nuri_context nextContext (nuri_assignment assignment [] typeEnv)
+    nuri_context nextContext (nuri_assignment assignment [] data)
 
   | SchemaContext (schema, nextContext) ->
-    nuri_context nextContext (nuri_schema schema typeEnv)
+    nuri_context nextContext (nuri_schema schema data)
 
   | EnumContext (enum, nextContext) ->
-    nuri_context nextContext (nuri_enum enum typeEnv)
+    nuri_context nextContext (set (nuri_enum enum data.env) data)
 
   | TrajectoryContext (trajectory, nextContext) ->
-    nuri_context nextContext (nuri_trajectory trajectory [] typeEnv)
+    nuri_context nextContext (nuri_trajectory trajectory [] data)
 
-  | EmptyContext -> typeEnv
+  | EmptyContext -> data
 
-and nuri_specification ?main:(mainReference=["main"]) nuri =
+and nuri_specification ?main:(mainReference = ["main"]) nuri =
   let initEnv = bind empty reference_of_global T_Undefined T_Constraint in
 
-  (* first-pass *)
-  let env1 = nuri_context nuri initEnv in
+  (* first-pass : evaluate every elements (except global constraints and
+                  actions
+  *)
+  let data = nuri_context nuri
+                          { env = initEnv; constraints = []; actions = [] }
+  in
 
-  (* second-pass *)
-  let env2 = match mainReference @: env1 with
+  (* second-pass : extract merge types and extract main object *)
+  let env2 = match mainReference @: data.env with
     | T_Undefined ->
-      error ~env:env1
+      error ~env:data.env
             1775
             ("Main variable (" ^ !^mainReference ^ ") is not exist.")
 
-    | T_Object _ -> replace_forward_type mainReference env1
+    | T_Object _ -> replace_forward_type mainReference data.env
 
     | _ ->
-      error ~env:env1
+      error ~env:data.env
             1780
             ("Main variable (" ^ !^mainReference ^ ") is not an object.")
   in
-  let mainEnv = if mainReference = [] then map_of env2
-                else merge_types mainReference env2
-  in
+  let mainEnv = merge_types mainReference env2 in
 
-  if List.for_all (fun c -> (c env2) <: T_Bool) !global_constraints then ()
+  (* third-pass : evaluate global-constraints and actions *)
+  if List.for_all (fun c -> (c env2) <: T_Bool) data.constraints then ()
   else error 1781 "The type of global constraint(s) is not boolean.";
 
-  (* third-pass *)
+  if List.for_all (fun a -> (a env2) <: T_Action) data.actions then ()
+  else error 1782 "Invalid action(s).";
+
+  (* forth-pass : check well-formed typing *)
   well_formed (map_of env2) mainEnv
 ;;
 
