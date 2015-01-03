@@ -129,9 +129,10 @@ and nuri_prototype ?isFirst:(isFirst=true) prototype t_explicit destRef
                   namespace typeEnv : environment =
   match prototype with
   | EmptyPrototype when isFirst ->
-    bind typeEnv destRef t_explicit t_plain_object
+    let env = bind typeEnv destRef t_explicit t_plain_object in
+    bind env (destRef @+. "name") T_Undefined T_String
 
-  | EmptyPrototype -> typeEnv
+  | EmptyPrototype -> bind typeEnv (destRef @+. "name") T_Undefined T_String
 
   | BlockPrototype (block, nextProto) ->
     begin
