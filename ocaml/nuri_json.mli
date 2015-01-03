@@ -1,4 +1,4 @@
-(** Module Json contains the functions to serialise/deserialise any type or
+(** Module Nuri_json contains the functions to serialise/deserialise any type or
     value to/from JSON format.
 
     Module dependencies
@@ -10,7 +10,7 @@
     @since 2014
 *)
 
-exception JsonError of int * string
+exception Nuri_jsonError of int * string
 
 val of_store : Type.map -> Domain.store -> string
 

@@ -70,7 +70,7 @@ let json_of_parameters buffer parameters =
     if id <> "this" && id <> "parent" then
       begin
         if !first = 0 then buffer <. ',';
-        buffer <.| '"' <<| id <<| "\":" << (Json.of_value (Basic value));
+        buffer <.| '"' <<| id <<| "\":" << (Nuri_json.of_value (Basic value));
         first := 0
       end
   in
@@ -83,7 +83,7 @@ let json_of_preconditions buffer preconditions =
   let first = ref 1 in
   let each_precondition reference value =
     if !first = 0 then buffer <. ',';
-    buffer <.| '"' <<| !^reference <<| "\":" << (Json.of_value (Basic value));
+    buffer <.| '"' <<| !^reference <<| "\":" << (Nuri_json.of_value (Basic value));
     first := 0
   in
   MapRef.iter each_precondition preconditions;

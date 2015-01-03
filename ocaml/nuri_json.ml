@@ -1,4 +1,4 @@
-(** Module Json contains the functions to serialise/deserialise any type or
+(** Module Nuri_json contains the functions to serialise/deserialise any type or
     value to/from JSON format.
 
     Module dependencies
@@ -18,15 +18,15 @@ open Domain
  * Exception and its helper function
  *******************************************************************)
 
-(** A JsonError exception is thrown whenever there is an error during
+(** A Nuri_jsonError exception is thrown whenever there is an error during
     the serialisation/deserialisation process.
     @param int the error code
     @param string the error message
 *)
-exception JsonError of int * string
+exception Nuri_jsonError of int * string
 
 let error code msg =
-    raise (JsonError (code, "[err" ^ (string_of_int code) ^ "] " ^ msg))
+    raise (Nuri_jsonError (code, "[err" ^ (string_of_int code) ^ "] " ^ msg))
 ;;
 
 

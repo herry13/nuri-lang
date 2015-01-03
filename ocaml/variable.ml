@@ -44,9 +44,9 @@ let iteri_values func variable = Array.iteri func variable.values ;;
 let string_of_variable variable =
   let buf = Buffer.create 40 in
   buf <<| !^(variable.name) <.| '|' <<| (string_of_int variable.index) <. '|';
-  Array.iter (fun v -> buf <<| (Json.of_value v) <. ';') variable.values;
-  buf <.| '|' <<| (Json.of_value variable.init) <.| '|'
-      <<$ (Json.of_value variable.goal);
+  Array.iter (fun v -> buf <<| (Nuri_json.of_value v) <. ';') variable.values;
+  buf <.| '|' <<| (Nuri_json.of_value variable.init) <.| '|'
+      <<$ (Nuri_json.of_value variable.goal);
 ;;
 
 let reference_of_dummy = ["!global"] ;;
