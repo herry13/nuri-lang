@@ -39,8 +39,8 @@ and value = Basic  of basic
           | Lazy of func
 
 (** Lifted-value domain *)
-and _value = Val of value
-           | Undefined
+and value_lifted = Val of value
+                 | Undefined
 
 (** Cell domain *)
 and cell = ident * value
@@ -185,7 +185,7 @@ let rec find reference store =
     not be exist in the store (this can be guaranteed by the type-system).
     If there is a cyclical, then this function will never end. !!!
 *)
-let find_follow store reference : _value =
+let find_follow store reference : value_lifted =
     let rec search s r = match s, r with
         | _, []                                    -> Val (Store s)
         | [], _                                    -> Undefined
@@ -313,7 +313,7 @@ and resolve_follow ?visited:(accumulator=SetRef.empty) reference
 
 (*
 (** get_link : reference -> SetRef.t -> store -> reference -> reference ->
-               value_
+               value_lifted
 *)
 and get_link reference accumulator store namespace destReference =
     if SetRef.exists (fun r -> r = reference) accumulator then
@@ -339,7 +339,6 @@ and get_link reference accumulator store namespace destReference =
                 (ref, value)
             end
 
-(** resolve_link : value -> (store -> reference -> reference -> value_) *)
 and resolve_link = function
     | Link ref -> get_link ref SetRef.empty
     | _        -> error 505 "Invalid link-reference."

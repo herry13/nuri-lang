@@ -39,8 +39,8 @@ and value = Basic  of basic
           | Lazy of func
 
 (** Lifted-Value domain *)
-and _value = Val of value
-           | Undefined
+and value_lifted = Val of value
+                 | Undefined
 
 (** Cell domain *)
 and cell = ident * value
@@ -133,16 +133,16 @@ val (!<<) : reference -> reference_
  *******************************************************************)
 
 (** Find a reference in a store and then return its value. *)
-val find : reference -> store -> _value
+val find : reference -> store -> value_lifted
 
 (** Resolve a reference in a store within a namespace. If the value is not
     found, it returns a pair of a root's namespace and an Undefined value i.e.
     ([], Undefined). Otherwise, it returns a pair of the namespace where the
     value is found (in respect to the reference) and the value. *)
-val resolve : reference -> reference -> store -> (reference * _value)
+val resolve : reference -> reference -> store -> (reference * value_lifted)
 
 val resolve_follow : ?visited:SetRef.t -> reference -> reference ->
-                     reference -> store -> (reference * _value)
+                     reference -> store -> (reference * value_lifted)
 
 (** Add a pair identifier-value into a store if the identifier is
     exist, then the old-value will be replaced note that in the
