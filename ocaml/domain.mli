@@ -30,7 +30,7 @@ and vector = basic list
 (** Value domain *)
 and value = Basic  of basic
           | Store  of store
-          | Global of _constraint
+          | Global of constraint_
           | Link   of reference
           | Action of action
           | TBD
@@ -51,7 +51,7 @@ and store = cell list
 (** Reference domain *)
 and reference = ident list
 
-and _reference = Valid of reference
+and reference_ = Valid of reference
                | Invalid
 
 (** Identifier domain *)
@@ -61,22 +61,22 @@ and ident = string
 and func = store -> reference -> value
 
 (** constraint domain *)
-and _constraint = Equal        of reference * basic
+and constraint_ = Equal        of reference * basic
                 | NotEqual     of reference * basic
 				| Greater      of reference * basic
 				| GreaterEqual of reference * basic
 				| Less         of reference * basic
 				| LessEqual    of reference * basic
-                | Not          of _constraint
-                | Imply        of _constraint * _constraint
-                | And          of _constraint list
-                | Or           of _constraint list
+                | Not          of constraint_
+                | Imply        of constraint_ * constraint_
+                | And          of constraint_ list
+                | Or           of constraint_ list
                 | In           of reference * vector
                 | True
                 | False
 
 (** action domain *)
-and action         = reference * parameter_type list * cost * _constraint *
+and action         = reference * parameter_type list * cost * constraint_ *
                      effect list
 and parameter_type = ident * Syntax.t
 and cost           = int
@@ -99,33 +99,33 @@ val error : int -> string -> 'a
  *******************************************************************)
 
 (** Return a prefix of a reference. *)
-val (!-) : reference -> reference
+val (!-) : 'a list -> 'a list
 
 (** Concat the second reference to the last position of the first
     reference. *)
-val (@+) : reference -> reference -> reference
+val (@+) : 'a list -> 'a list -> 'a list
 
 (** Add an identifier to the last position of the reference. *)
-val (@+.) : reference -> string -> reference
+val (@+.) : 'a list -> 'a -> 'a list
 
 (** Remove a common (of both references) prefix from the first
     reference. *)
-val (@-) : reference -> reference -> reference
+val (@-) : 'a list -> 'a list -> 'a list
 
-(** 'true' if the second reference is equal or the prefix of the
-    first one, otherwise 'false'. *)
-val (@<=) : reference -> reference -> bool
+(** 'true' if the first reference is equal or the prefix of the
+    second one, otherwise 'false'. *)
+val (@<=) : 'a list -> 'a list -> bool
 
-(** 'true' if the second reference is not equal and the prefix of
-    the first one, otherwise 'false'. *)
-val (@<) : reference -> reference -> bool
+(** 'true' if the first reference is not equal and the prefix of
+    the second one, otherwise 'false'. *)
+val (@<) : 'a list -> 'a list -> bool
 
 (** Given a namespace (first), remove keyword 'root', 'parent',
     and 'this' from a reference (second). *)
-val (@<<) : reference -> reference -> _reference
+val (@<<) : reference -> reference -> reference_
 
-(** Similar with '@<<' but the namespace is root. *)
-val (!<<) : reference -> _reference
+(** Similar with '@<<' but the namespace is root ([]). *)
+val (!<<) : reference -> reference_
 
 
 (*******************************************************************

@@ -13,13 +13,13 @@ open Common
 open Domain
 
 (** evaluate the constraints based a given store **)
-val apply : store -> _constraint -> bool
+val apply : store -> constraint_ -> bool
 
 (** convert the constraints into DNF formula **)
-val dnf_of : _constraint -> Variable.ts -> Type.map -> _constraint
+val dnf_of : constraint_ -> Variable.ts -> Type.map -> constraint_
 
 (** substitute free variables of given constraints **)
-val substitute_free_variables_of : _constraint -> basic MapStr.t -> _constraint
+val substitute_free_variables_of : constraint_ -> basic MapStr.t -> constraint_
 
 val global_of : Type.map -> Domain.flatstore -> Variable.ts ->
-	            (_constraint * _constraint list * Variable.ts)
+	            (constraint_ * constraint_ list * Variable.ts)

@@ -14,7 +14,7 @@ exception Nuri_jsonError of int * string
 
 val of_store : Type.map -> Domain.store -> string
 
-val of_constraint : Domain._constraint -> string
+val of_constraint : Domain.constraint_ -> string
 
 val of_value : ?no_lazy:bool -> Domain.value -> string
 

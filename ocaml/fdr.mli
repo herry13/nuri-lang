@@ -3,7 +3,7 @@
 type t = {
 	variables : Variable.ts;
 	actions   : Action.ts;
-	global    : Domain._constraint
+	global    : Domain.constraint_
 }
 
 val of_nuri : Syntax.nuri -> Syntax.nuri -> t

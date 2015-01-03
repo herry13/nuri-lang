@@ -30,7 +30,7 @@ and vector = basic list
 (** Value domain *)
 and value = Basic  of basic
           | Store  of store
-          | Global of _constraint
+          | Global of constraint_
           | Link   of reference
           | Action of action
           | TBD
@@ -52,7 +52,7 @@ and store = cell list
 and reference = ident list
 
 (** Lifted-reference domain *)
-and _reference = Valid of reference
+and reference_ = Valid of reference
                | Invalid
 
 (** Identifier domain *)
@@ -62,22 +62,22 @@ and ident = string
 and func = store -> reference -> value
 
 (** Constraint domain *)
-and _constraint = Equal        of reference * basic
+and constraint_ = Equal        of reference * basic
                 | NotEqual     of reference * basic
 				| Greater      of reference * basic
 				| GreaterEqual of reference * basic
 				| Less         of reference * basic
 				| LessEqual    of reference * basic
-                | Not          of _constraint
-                | Imply        of _constraint * _constraint
-                | And          of _constraint list
-                | Or           of _constraint list
+                | Not          of constraint_
+                | Imply        of constraint_ * constraint_
+                | And          of constraint_ list
+                | Or           of constraint_ list
                 | In           of reference * vector
                 | True
                 | False
 
 (** Action domain *)
-and action         = reference * parameter_type list * cost * _constraint *
+and action         = reference * parameter_type list * cost * constraint_ *
                      effect list
 and parameter_type = ident * Syntax.t
 and cost           = int

@@ -8,7 +8,7 @@ module A = Action
 type t = {
     variables : Variable.ts;
     actions   : Action.ts;
-    global    : Domain._constraint
+    global    : Domain.constraint_
 }
 
 (*******************************************************************

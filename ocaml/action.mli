@@ -49,7 +49,7 @@ val json_of_actions : t list -> string
 
 (** ground a collection of actions **)
 val ground_actions : Type.map -> Variable.ts -> Type.type_values ->
-                     _constraint -> _constraint list -> ts
+                     constraint_ -> constraint_ list -> ts
 
 (** iterates a collection of actions **)
 val iter : (t -> unit) -> ts -> unit

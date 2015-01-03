@@ -227,8 +227,8 @@ let ground_parameters parameters name typeValues =
 ;;
 
 (** convert a conjunction of atoms to a map **)
-let map_of_atoms = fun map _constraint ->
-  match _constraint with
+let map_of_atoms = fun map constraint_ ->
+  match constraint_ with
   | Equal (r, v) -> MapRef.add r v map
   | _            -> error 805 ""
 ;;

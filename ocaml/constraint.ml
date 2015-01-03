@@ -13,7 +13,7 @@ open Common
 open Domain
 
 
-let rec apply store _constraint =
+let rec apply store constraint_ =
   let eval_ref reference = match resolve_follow reference [] [] store with
     | _, value -> value
   in
@@ -41,7 +41,7 @@ let rec apply store _constraint =
     | Undefined -> false
     | Val v     -> compare_values comparator v value
   in
-  match _constraint with
+  match constraint_ with
   | Equal (ref, value)        -> compare (=) ref value
   | NotEqual (ref, value)     -> compare (<>) ref value
   | Greater (ref, value)      -> compare (>) ref value
@@ -192,8 +192,8 @@ and cross_product_ands_ors andClauses orClauses =
   dnf_of (Or (iter orClauses))
 
 (** convert a constraint formula to a DNF formula **)
-and dnf_of _constraint variables typeEnvironment =
-  match _constraint with
+and dnf_of constraint_ variables typeEnvironment =
+  match constraint_ with
   | True -> True
   | False -> False
   | Equal (r, v)    -> dnf_of_equal r v variables typeEnvironment
@@ -326,8 +326,8 @@ and dnf_of_not_equal reference value variables typeEnvironment =
     end
 
 (** convert negation to DNF **)
-and dnf_of_negation _constraint variables typeEnvironment =
-  match _constraint with
+and dnf_of_negation constraint_ variables typeEnvironment =
+  match constraint_ with
   | True -> False
   | False -> True
   | Equal (r, v) -> dnf_of (NotEqual (r, v)) variables typeEnvironment
@@ -463,10 +463,10 @@ and dnf_of_disjunction clauses variables typeEnvironment =
 
 (** Substitute each parameter with a value as specified in the map of
     parameters *)
-let rec substitute_free_variables_of _constraint parameters =
+let rec substitute_free_variables_of constraint_ parameters =
   let sub_ref ref = substitute_parameter_of_reference ref parameters in
   let sub_val value = substitute_parameter_of_basic_value value parameters in
-  match _constraint with
+  match constraint_ with
   | Equal (r, v) -> Equal (sub_ref r, sub_val v)
   | NotEqual (r, v) -> NotEqual (sub_ref r, sub_val v)
   | Greater (r, v) -> Greater (sub_ref r, sub_val v)
@@ -498,8 +498,8 @@ let rec substitute_free_variables_of _constraint parameters =
  ************************************************************************)
 
 type data = {
-  complex   : _constraint list;
-  simple    : _constraint list;
+  complex   : constraint_ list;
+  simple    : constraint_ list;
   variables : Variable.ts
 }
 
@@ -580,7 +580,7 @@ let compile_equality isNegation reference value data =
       match v with
       | Basic (Reference r) ->
         let r1 = r @+ rs in
-        let _constraint =
+        let constraint_ =
           if isNegation then
             Imply (Equal (prevail, Reference r),
             NotEqual (r1, value))
@@ -591,12 +591,12 @@ let compile_equality isNegation reference value data =
           if not isNegation && (Variable.mem r1 acc.variables)
             then {
               complex = acc.complex;
-              simple = _constraint :: acc.simple;
+              simple = constraint_ :: acc.simple;
               variables = acc.variables
             }
           else
             {
-              complex = _constraint :: acc.complex;
+              complex = constraint_ :: acc.complex;
               simple = acc.simple;
               variables = acc.variables
             }
@@ -630,7 +630,7 @@ let compile_simple_constraints globalConstraints variables =
           }
         | Imply (Equal (r, v), And clauses) -> (
           let eq = Equal (r, v) in
-            List.fold_left (fun (acc: data) (c: _constraint) ->
+            List.fold_left (fun (acc: data) (c: constraint_) ->
               match c with
               | Equal (_, _) ->
                 {
