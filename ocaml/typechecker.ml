@@ -24,15 +24,15 @@ let (@<<) = Domain.(@<<) ;;
 let (@+)  = Domain.(@+) ;;
 let (@+.) = Domain.(@+.) ;;
 let (@<=) = Domain.(@<=) ;;
+let (@<)  = Domain.(@<) ;;
 
 let t_plain_object = T_Object T_Plain ;;
 
 
-type eval = environment -> t
-and  data = {
+type data = {
               env         : environment;
-              constraints : eval list;
-              actions     : eval list
+              constraints : (environment -> t) list;
+              actions     : (Domain.reference * (map -> t)) list
             }
 
 (** A short-hand function to set 'env' of a data. *)
@@ -401,7 +401,7 @@ and nuri_expression expression t_explicit namespace typeEnv : t =
 
 and nuri_action name (_, _, _, _) =
   (* TODO: implement type-checker for action. *)
-  fun env -> T_Action
+  fun map -> T_Action
 
 and nuri_value value t_variable t_explicit destRef namespace data : data =
   match value with
@@ -412,7 +412,7 @@ and nuri_value value t_variable t_explicit destRef namespace data : data =
     {
       env = bind data.env destRef ~t_variable:t_variable t_explicit T_Action;
       constraints = data.constraints;
-      actions = (nuri_action destRef a) :: data.actions
+      actions = (destRef, (nuri_action destRef a)) :: data.actions
     }
 
   | Link ref ->
@@ -590,7 +590,12 @@ and nuri_specification ?main:(mainReference = ["main"]) nuri =
   if List.for_all (fun c -> (c env2) <: T_Bool) data.constraints then ()
   else error 1781 "The type of global constraint(s) is not boolean.";
 
-  if List.for_all (fun a -> (a env2) <: T_Action) data.actions then ()
+  if List.for_all (fun (name, a) ->
+       (* only evaluating actions inside main object *)
+       if mainReference @< name then (a mainEnv) <: T_Action
+       else true
+     ) data.actions
+  then ()
   else error 1782 "Invalid action(s).";
 
   (* forth-pass : check well-formed typing *)
