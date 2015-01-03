@@ -28,6 +28,10 @@ let (@<=) = Domain.(@<=) ;;
 let t_plain_object = T_Object T_Plain ;;
 
 
+let global_constraints : (environment -> t) list ref = ref [] ;;
+
+let add_global c = global_constraints := c :: !global_constraints ;;
+
 (*******************************************************************
  * Type evaluation functions
  *******************************************************************)
@@ -158,45 +162,67 @@ and nuri_prototype ?isFirst:(isFirst=true) prototype t_explicit destRef
         end
     end
 
-and nuri_constraints constraints namespace typeEnv = match constraints with
+and nuri_trajectory constraints namespace typeEnv = match constraints with
   | Global global ->
-    if (nuri_constraint typeEnv namespace global) <: T_Bool then typeEnv
-    else error 490 ""
+    add_global (nuri_constraint global namespace); typeEnv
 
 (* TODO: this must be implemented after generating the main map *)
-and nuri_constraint typeEnv namespace constraint_ : t = T_Bool
-(*  let eval = nuri_constraint typeEnv namespace in
+and nuri_constraint constraint_ namespace : environment -> t =
   match constraint_ with
-  | C_Equal (ref, bv) | C_NotEqual (ref, bv) ->
-    begin match (resolve ref namespace typeEnv),
-                (nuri_basic_value bv T_Undefined namespace typeEnv)
-    with
-    | (_, t_left), t_right
-      when (t_left <: t_right) || (t_right <: t_left) -> T_Bool
+  | C_Equal (left, right) ->
+    eval_c_binary (nuri_compare "eq") left right namespace
 
-    | (_, t_left), t_right
-     -> error 10 ((string_of_type t_left) ^ " " ^ (string_of_type t_right))
-    end
-  | C_Greater (ref, bv) | C_GreaterEqual (ref, bv)
-  | C_Less (ref, bv)    | C_LessEqual (ref, bv) ->
-    begin match (resolve ref namespace typeEnv),
-                (nuri_basic_value bv T_Undefined namespace typeEnv)
-    with
-    | (_, T_Int), T_Int   | (_, T_Float), T_Float
-    | (_, T_Int), T_Float | (_, T_Float), T_Int -> T_Bool
-    | _ -> error 11 ""
-    end
-  (*| C_Not c ->
-  | C_Imply (c1, c2) ->
-  | C_In (ref, vec) -> *)
-  | C_And [] | C_Or [] -> T_Bool
-  | C_And cs | C_Or cs ->
-    begin
-      if List.for_all (fun c -> (eval c) <: T_Bool) cs then T_Bool
-      else error 490 ""
-    end
-  | _ -> T_Bool
-*)
+  | C_NotEqual (left, right) ->
+    eval_c_binary (nuri_compare "ne") left right namespace
+
+  | C_Greater (left, right) ->
+    eval_c_binary (nuri_num_compare "gt") left right namespace
+
+  | C_GreaterEqual (left, right) ->
+    eval_c_binary (nuri_num_compare "ge") left right namespace
+
+  | C_Less (left, right) ->
+    eval_c_binary (nuri_num_compare "lt") left right namespace
+
+  | C_LessEqual (left, right) ->
+    eval_c_binary (nuri_num_compare "le") left right namespace
+
+  | C_In (left, right) ->
+    let comparator t_left = function
+      | T_List t when t_left <: t -> T_Bool
+      | T_List t ->
+        error 1717 "Right operand (in) is not subtype of left operand."
+
+      | _ -> error 1718 "Right operand (in) is not an array."
+    in
+    eval_c_binary comparator left right namespace
+
+  | C_Not c ->
+    fun env -> eval_c_clauses "not" [c] namespace env
+
+  | C_Imply (premise, conclusion) ->
+    fun env -> eval_c_clauses "imply" [premise; conclusion] namespace env
+
+  | C_And [] | C_Or [] -> fun _ -> T_Bool
+
+  | C_And clauses ->
+    fun env -> eval_c_clauses "and" clauses namespace env
+
+  | C_Or clauses ->
+    fun env -> eval_c_clauses "or" clauses namespace env
+
+and eval_c_binary comparator left right namespace typeEnv =
+  let t_left : t = nuri_basic_value left T_Undefined namespace typeEnv in
+  let t_right : t = nuri_basic_value right T_Undefined namespace typeEnv in
+  comparator t_left t_right
+
+and eval_c_clauses operator clauses namespace typeEnv =
+  if List.for_all (fun c -> (nuri_constraint c namespace typeEnv) <: T_Bool)
+                  clauses
+  then
+    T_Bool
+  else
+    error 1719 ("Clause(s) of '" ^ operator ^ "' is not boolean.")
 
 (** Ensure that the operand's type is determinate. *)
 and nuri_unary_expression t_explicit namespace typeEnv operator expression
@@ -242,33 +268,39 @@ and nuri_binary_expression t_explicit namespace typeEnv operator
 
   | t_left, t_right -> callback t_left t_right
 
-and nuri_not_expression t_operand =
+and nuri_negation t_operand =
   if t_operand <: T_Bool then T_Bool
   else error 1726 "Operand of '!' is not a boolean."
 
-and nuri_match_regexp_expression t_operand =
+and nuri_pattern_matching t_operand =
   if t_operand <: T_String then T_Bool
   else error 1727 "Left operand of '=~' is not a string."
 
-and nuri_equality_expression operator t_left t_right =
+and nuri_compare operator (t_left : t) (t_right : t) : t =
   if t_left <: t_right || t_right <: t_left then T_Bool
   else error 1728 ("Types of (" ^ operator ^ ") operands are not compatible.")
 
-and nuri_logic_expression operator t_left t_right =
+and nuri_logic operator t_left t_right =
   if t_left <: T_Bool && t_right <: T_Bool then T_Bool
   else error 1729 ("Types of (" ^ operator ^ ") operands are not boolean.")
 
-and nuri_math_expression operator t_left t_right = match t_left, t_right with
+and nuri_math operator t_left t_right = match t_left, t_right with
   | T_Int, T_Float | T_Float, T_Int | T_Float, T_Float -> T_Float
   | T_Int, T_Int -> T_Int
   | _ -> error 1730 ("Types of (" ^ operator ^ ") operands are not integer " ^
+                    "or float.")
+
+and nuri_num_compare operator t_left t_right = match t_left, t_right with
+  | T_Int, T_Float   | T_Float, T_Int
+  | T_Float, T_Float | T_Int, T_Int -> T_Bool
+  | _ -> error 1731 ("Types of (" ^ operator ^ ") operands are not integer " ^
                     "or float.")
 
 and nuri_add_expression t_left t_right = match t_left, t_right with
   | T_String, _ | _, T_String -> T_String
   | _ ->
     begin try
-      nuri_math_expression "+" t_left t_right
+      nuri_math "+" t_left t_right
     with
       Type.Error _ ->
         error 1740 "Types of (+) operands are not integer, float, or string."
@@ -287,37 +319,37 @@ and nuri_expression expression t_explicit namespace typeEnv : t =
 
   | Shell _ | Exp_IString _ -> T_String
   | Exp_Eager exp -> unary "$" exp (fun t -> t)
-  | Exp_Not exp -> unary "!" exp nuri_not_expression
-  | Exp_MatchRegexp (exp, _) -> unary "=~" exp nuri_match_regexp_expression
+  | Exp_Not exp -> unary "!" exp nuri_negation
+  | Exp_MatchRegexp (exp, _) -> unary "=~" exp nuri_pattern_matching
   | Exp_Equal (leftExp, rightExp) ->
-    binary "==" leftExp rightExp (nuri_equality_expression "==")
+    binary "==" leftExp rightExp (nuri_compare "==")
 
   | Exp_NotEqual (leftExp, rightExp) ->
-    binary "!=" leftExp rightExp (nuri_equality_expression "!=")
+    binary "!=" leftExp rightExp (nuri_compare "!=")
 
   | Exp_And (leftExp, rightExp) ->
-    binary "&&" leftExp rightExp (nuri_logic_expression "&&")
+    binary "&&" leftExp rightExp (nuri_logic "&&")
 
   | Exp_Or (leftExp, rightExp) ->
-    binary "||" leftExp rightExp (nuri_logic_expression "||")
+    binary "||" leftExp rightExp (nuri_logic "||")
 
   | Exp_Imply (leftExp, rightExp) ->
-    binary "=>" leftExp rightExp (nuri_logic_expression "=>")
+    binary "=>" leftExp rightExp (nuri_logic "=>")
 
   | Exp_Add (leftExp, rightExp) ->
     binary "+" leftExp rightExp nuri_add_expression
 
   | Exp_Subtract (leftExp, rightExp) ->
-    binary "-" leftExp rightExp (nuri_math_expression "-")
+    binary "-" leftExp rightExp (nuri_math "-")
 
   | Exp_Multiply (leftExp, rightExp) ->
-    binary "*" leftExp rightExp (nuri_math_expression "*")
+    binary "*" leftExp rightExp (nuri_math "*")
 
   | Exp_Divide (leftExp, rightExp) ->
-    binary "/" leftExp rightExp (nuri_math_expression "/")
+    binary "/" leftExp rightExp (nuri_math "/")
 
   | Exp_Modulo (leftExp, rightExp) ->
-    binary "%" leftExp rightExp (nuri_math_expression "%")
+    binary "%" leftExp rightExp (nuri_math "%")
 
   | Exp_IfThenElse (expIf, expThen, expElse) ->
     begin match nuri_expression expIf t_explicit namespace typeEnv,
@@ -438,8 +470,8 @@ and nuri_block block namespace typeEnv : environment = match block with
   | AssignmentBlock (assignment, block) ->
     nuri_block block namespace (nuri_assignment assignment namespace typeEnv)
 
-  | TrajectoryBlock (constraints, block) ->
-    nuri_block block namespace (nuri_constraints constraints namespace typeEnv)
+  | TrajectoryBlock (trajectory, block) ->
+    nuri_block block namespace (nuri_trajectory trajectory namespace typeEnv)
 
   | EmptyBlock -> typeEnv
 
@@ -491,16 +523,16 @@ and nuri_context context (typeEnv : environment) = match context with
   | EnumContext (enum, nextContext) ->
     nuri_context nextContext (nuri_enum enum typeEnv)
 
-  | TrajectoryContext (constraints, nextContext) ->
-    nuri_context nextContext (nuri_constraints constraints [] typeEnv)
+  | TrajectoryContext (trajectory, nextContext) ->
+    nuri_context nextContext (nuri_trajectory trajectory [] typeEnv)
 
   | EmptyContext -> typeEnv
 
 and nuri_specification ?main:(mainReference=["main"]) nuri =
+  let initEnv = bind empty reference_of_global T_Undefined T_Constraint in
+
   (* first-pass *)
-  let env1 =
-    nuri_context nuri (bind empty reference_of_global T_Undefined T_Constraint)
-  in
+  let env1 = nuri_context nuri initEnv in
 
   (* second-pass *)
   let env2 = match mainReference @: env1 with
@@ -519,6 +551,9 @@ and nuri_specification ?main:(mainReference=["main"]) nuri =
   let mainEnv = if mainReference = [] then map_of env2
                 else merge_types mainReference env2
   in
+
+  if List.for_all (fun c -> (c env2) <: T_Bool) !global_constraints then ()
+  else error 1781 "The type of global constraint(s) is not boolean.";
 
   (* third-pass *)
   well_formed (map_of env2) mainEnv
