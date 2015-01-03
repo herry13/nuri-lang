@@ -2,85 +2,69 @@
 
 # 0 = OCaml bytecode
 # 1 = native
-NATIVE=0
+NATIVE = 0
 
 # binary name
-NAME=nuric
+BIN = nuric
 
 # 0 = stack trace disabled, 1 = stack trace enabled
 # Don't forget to set environment variable OCAMLRUNPARAM=b
-STACK_TRACE=1
+STACK_TRACE = 0
 
-PACKAGES=#-package yojson
-OCAMLFIND=#ocamlfind -linkpkg $(PACKAGES)
+# !!! NO TRAILING WHITESPACE
+PACKAGES = str unix
 
-ifeq ($(NATIVE),1)
-# native compiler
-#COMPILER=ocamlfind ocamlopt -S -linkpkg $(PACKAGES)
-COMPILER=$(OCAMLFIND) ocamlopt -S
+# List modules (order is important!)
+MODULES = \
+    common \
+    syntax \
+    lexer \
+    parser \
+    parser_helper \
+    domain \
+    type \
+    typechecker \
+    nuri_json \
+    variable \
+    constraint \
+    action \
+    valuation \
+    plan \
+    fdr \
+    nuric \
+
+ifeq ($(PACKAGES), )
+OCAMLFIND =
+OCAMLOPTS =
 else
-# byte code compiler
-ifeq ($(STACK_TRACE),1)
-#COMPILER=ocamlfind ocamlc -linkpkg -g $(PACKAGES)
-COMPILER=$(OCAMLFIND) ocamlc -g
+OCAMLFIND = ocamlfind
+OCAMLOPTS = -linkpkg \
+            -package $(shell echo "$(PACKAGES)"|sed 's/ / -package /g')
+endif
+
+ifeq ($(NATIVE), 1) # native compiler
+COMPILER=$(OCAMLFIND) ocamlopt -S $(OCAMLOPTS)
+LIB = $(shell echo "$(MODULES)"|sed 's/ /.cmx /g')
 else
-#COMPILER=ocamlfind ocamlc -linkpkg $(PACKAGES)
-COMPILER=$(OCAMLFIND) ocamlc
+LIB = $(shell echo "$(MODULES)"|sed 's/ /.cmo /g')
+ifeq ($(STACK_TRACE), 1) # bytecode compiler with stack trace
+COMPILER=$(OCAMLFIND) ocamlc -g $(OCAMLOPTS)
+else # bytecode compiler without stack trace
+COMPILER=$(OCAMLFIND) ocamlc $(OCAMLOPTS)
 endif
 endif
-
-# byte code libraries
-BYTECODELIB= \
-	str.cma \
-	unix.cma \
-	common.cmo \
-	syntax.cmo \
-	lexer.cmo \
-	parser.cmo \
-	parser_helper.cmo \
-	domain.cmo \
-	type.cmo \
-	typechecker.cmo \
-	json.cmo \
-	variable.cmo \
-	constraint.cmo \
-	action.cmo \
-	valuation.cmo \
-	plan.cmo \
-	fdr.cmo \
-	nuric.cmo
-
-# native code libraries
-NATIVELIB= \
-	str.cmxa \
-	unix.cmxa \
-	common.cmx \
-	syntax.cmx \
-	lexer.cmx \
-	parser.cmx \
-	parser_helper.cmx \
-	domain.cmx \
-	type.cmx \
-	typechecker.cmx \
-	json.cmx \
-	variable.cmx \
-	constraint.cmx \
-	action.cmx \
-	valuation.cmx \
-	plan.cmx \
-	fdr.cmx \
-	nuric.cmx
 
 # default
 build: nuric
 
 nuric: nuric.ml action parser_helper typechecker valuation fdr plan
 	$(COMPILER) -c nuric.ml
-ifeq ($(NATIVE),1)
-	$(COMPILER) -o $(NAME) $(NATIVELIB)
-else
-	$(COMPILER) -o $(NAME) $(BYTECODELIB)
-endif
+	$(COMPILER) -o $(BIN) $(LIB)
+
+js: nuric.ml action parser_helper typechecker valuation fdr plan
+	$(COMPILER) -c nuric.ml
+	$(COMPILER) -o $(BIN) $(LIB) -package js_of_ocaml -syntax camlp4o -package js_of_ocaml.syntax
+	js_of_ocaml $(BIN) --disable genprim
 
 syntax: common syntax.mli syntax.ml
 	$(COMPILER) -c syntax.mli
@@ -98,9 +82,9 @@ lexer: lexer.mll parser
 parser_helper: parser_helper.ml parser lexer
 	$(COMPILER) -c parser_helper.ml
 
-json: domain type json.mli json.ml
-	$(COMPILER) -c json.mli
-	$(COMPILER) -c json.ml
+nuri_json: domain type nuri_json.mli nuri_json.ml
+	$(COMPILER) -c nuri_json.mli
+	$(COMPILER) -c nuri_json.ml
 
 domain: common syntax domain.mli domain.ml
 	$(COMPILER) -c domain.mli
@@ -122,7 +106,7 @@ common: common.mli common.ml
 	$(COMPILER) -c common.mli
 	$(COMPILER) -c common.ml
 
-variable: variable.mli variable.ml common domain type json
+variable: variable.mli variable.ml common domain type nuri_json
 	$(COMPILER) -c variable.mli
 	$(COMPILER) -c variable.ml
 
@@ -134,7 +118,7 @@ action: common domain type variable constraint action.mli action.ml
 	$(COMPILER) -c action.mli
 	$(COMPILER) -c action.ml
 
-fdr: common domain type json variable constraint action plan fdr.mli fdr.ml
+fdr: common domain type nuri_json variable constraint action plan fdr.mli fdr.ml
 	$(COMPILER) -c fdr.mli
 	$(COMPILER) -c fdr.ml
 
@@ -146,7 +130,7 @@ clean:
 	@rm -f *.s *.cmo parser.mli lexer.mli *.cmi *.o *.cmx parser.ml lexer.ml parser.output ocamlprof.dump
 
 clean-all: clean
-	@rm -f $(NAME)
+	@rm -f $(BIN)
 
 dist: build clean
 
