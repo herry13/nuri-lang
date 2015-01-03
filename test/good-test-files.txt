@@ -26,6 +26,8 @@ clouddeploy-goal.nuri
 ### forward reference (type)
 forward-reference1.nuri
 forward-reference2.nuri
+### nested reference
+nested-reference1.nuri
 ### global constraints
 global1.nuri
 global2.nuri
