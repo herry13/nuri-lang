@@ -1,0 +1,15 @@
+/**
+ * An example of an invalid nested reference.
+ * The type-checker should produce an error.
+ */
+main {
+    a {
+        b 1;
+    }
+    c a;
+    d c.b; // This nested reference is invalid because the type
+           // of 'c' is a plain object which does not guarantee that
+           // it has attribute 'b'.
+           // Note: A plain object (:object) is an object without
+           //       any attribute.
+}
