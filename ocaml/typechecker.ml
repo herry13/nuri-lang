@@ -31,7 +31,7 @@ let t_plain_object = T_Object T_Plain ;;
 
 type data = {
               env         : environment;
-              constraints : (environment -> t) list;
+              constraints : (Domain.reference * (environment -> t)) list;
               actions     : (Domain.reference * (environment -> t)) list
             }
 
@@ -183,7 +183,8 @@ and nuri_trajectory constraints namespace data : data =
   | Global global ->
     {
       env         = data.env;
-      constraints = (nuri_constraint global namespace) :: data.constraints;
+      constraints = (namespace, (nuri_constraint global namespace)) ::
+                      data.constraints;
       actions     = data.actions
     }
 
@@ -586,17 +587,20 @@ print_endline (string_of_environment data.env);
   in
   let mainEnv = merge_types mainReference env2 in
 
-  (* third-pass : evaluate global-constraints and actions *)
-  if List.for_all (fun c -> (c env2) <: T_Bool) data.constraints then ()
-  else error 1781 "The type of global constraint(s) is not boolean.";
+  (* third-pass : type-checking over global-constraints and actions *)
+  if not (List.for_all (fun (ns, c) ->
+       (* only evaluating global constraints inside the main object *)
+      if mainReference @< ns then (c env2) <: T_Bool
+      else true
+    ) data.constraints)
+  then error 1781 "Some type of global constraints are not boolean.";
 
-  if List.for_all (fun (name, a) ->
-       (* only evaluating actions inside main object *)
+  if not (List.for_all (fun (name, a) ->
+       (* only evaluating actions inside the main object *)
        if mainReference @< name then (a mainEnv) <: T_Action
        else true
-     ) data.actions
-  then ()
-  else error 1782 "Invalid action(s).";
+     ) data.actions)
+  then error 1782 "Invalid action(s).";
 
   (* forth-pass : check well-formed typing *)
   well_formed env2 mainEnv
