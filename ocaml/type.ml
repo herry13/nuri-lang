@@ -1,5 +1,5 @@
-(** Module Type contains the type environment (list and map)
-    as well as its algebra functions.
+(** Module Type contains the type environment as well as its
+    algebra functions.
 
     Module dependencies:
     - Common
@@ -18,25 +18,10 @@ open Syntax
 
 
 (*******************************************************************
- * Type environment & map
+ * Type environment
  *******************************************************************)
 
 type environment = t list MapRef.t
-
-and variable_type = Domain.reference * t
-
-and map = t MapRef.t
-
-(** Generate a string of a map of variable-type.
-    @param map the map of variable-type
-    @return a string
-*)
-let string_of_map map =
-  let foreach_pair var t buffer =
-    buffer <<| !^var <<| " : " <<| (string_of_type t) <.| '\n'
-  in
-  Buffer.contents (MapRef.fold foreach_pair map (Buffer.create 42))
-;;
 
 (** Generate a string of a type-environment.
     @param env the type-environment
@@ -51,10 +36,6 @@ let string_of_environment environment =
 
 let empty = MapRef.empty ;;
 
-let map_of env =
-  MapRef.fold (fun var ts -> MapRef.add var (List.hd ts)) env MapRef.empty
-;;
-
 (** Raised when there is a type-error *)
 exception Error of int * string
 
@@ -63,12 +44,11 @@ exception Error of int * string
     @param message the error's message
     @raise Error
 *)
-let error ?env:(env = empty) ?map:(map = MapRef.empty) code message =
+let error ?env:(env = empty) code message =
   if !verbose then begin
     print_endline "---- Type Environment ----";
     print_endline (string_of_environment env);
-    print_endline "\n---- Type Map ----";
-    print_endline (string_of_map map)
+    print_endline "---- Enf of Type Environment ----";
   end;
   let msg = if message = "" then message else (" " ^ message) in
   raise (Error (code, "[typeErr" ^ (string_of_int code) ^ "]" ^ msg))
@@ -84,14 +64,6 @@ let (@<)  = Domain.(@<) ;;
 let (@<<) = Domain.(@<<) ;;
 let (!<<) = Domain.(!<<) ;;
 
-
-(** Return the type of a variable within given map. If the variable is not
-    exist then it returns T_Undefined.
-*)
-let type_of variable map =
-  if MapRef.mem variable map then MapRef.find variable map
-  else T_Undefined
-;;
 
 (*******************************************************************
  * Typing judgement functions
@@ -144,47 +116,41 @@ let subtype = (<:) ;;
 
 let (=:=) t1 t2 = t1 <: t2 && t2 <: t1 ;;
 
-let rec has t map = match t with
+let rec has t environment = match t with
   | T_Undefined | T_Forward _ -> false
 
   | T_Bool | T_Int | T_Float | T_String
   | T_Null | T_Any | T_Action | T_Constraint -> true
 
-  | T_Symbol id -> has (T_Enum (id, [])) map
+  | T_Symbol id -> has (T_Enum (id, [])) environment
 
   | T_Enum (id, _) ->
-    if MapRef.mem [id] map then
-      begin match MapRef.find [id] map with
-      | T_Enum (idx, _) -> id = idx
-      | _ -> false
-      end
-    else false
+    begin match find [id] environment with
+    | T_Enum (idx, _) -> id = idx
+    | _ -> false
+    end
 
-  | T_List t_list -> has t_list map
+  | T_List t_list -> has t_list environment
 
   | T_Schema T_Plain | T_Object T_Plain | T_Reference T_Plain -> true
 
-  | T_Schema T_User (id, _) ->
-    if MapRef.mem [id] map then
-      (MapRef.find [id] map) <: (T_Schema T_Plain)
-    else
-      false
+  | T_Schema T_User (id, _) -> (find [id] environment) <: (T_Schema T_Plain)
 
-  | T_Object t_object | T_Reference t_object -> has (T_Schema t_object) map
+  | T_Object t_object | T_Reference t_object ->
+    has (T_Schema t_object) environment
 ;;
 
-let well_formed completeTypeMap mainMap =
-  let _ =
-    MapRef.for_all (fun var t -> match has t completeTypeMap with
-      | true -> true
-      | false ->
-        error ~map:completeTypeMap
-              490
-              ("Not well-formed: type " ^ (string_of_type t) ^ " (" ^ !^var ^
-                ") is not resolved.")
-    ) mainMap
+let well_formed completeEnv mainEnv =
+  let each_var_type var = function
+    | [] -> error ~env:completeEnv 490 ("Type of " ^ !^var ^ " is undefined.")
+    | t :: _ when has t completeEnv -> ()
+    | t :: _ -> error ~env:completeEnv
+                      490
+                      ("Type '" ^ (string_of_type t) ^ "' (" ^ !^var ^
+                        ") is not exists.")
   in
-  mainMap
+  MapRef.iter each_var_type mainEnv;
+  mainEnv
 ;;
 
 let symbol_of_enum symbol enumID environment =
@@ -418,7 +384,7 @@ let rec replace_forward_type prefix environment =
   ) environment environment
 ;;
 
-let rec merge_types prefix environment : map =
+let rec merge_types prefix environment =
   let rec iter types t var =
     let test tx ts =
       if tx <: t then iter ts t var
@@ -436,13 +402,13 @@ let rec merge_types prefix environment : map =
 
     | _ -> t
   in
-  let foreach_variable_type var ts map = match ts with
-    | [] -> error ~env:environment 432 ("Invalid type of '" ^ !^var ^ "'.")
-    | _ when not (prefix @< var) -> map
-    | t :: [] -> MapRef.add (var @- prefix) t map
-    | t :: tail -> MapRef.add (var @- prefix) (iter tail t var) map
+  let foreach_variable_type var ts env = match ts with
+    | [] -> error ~env:environment 432 ("Type of " ^ !^var ^ " is undefined.")
+    | _ when not (prefix @< var) -> env
+    | (_ :: []) as t -> MapRef.add (var @- prefix) t env
+    | t :: tail -> MapRef.add (var @- prefix) [iter tail t var] env
   in
-  MapRef.fold foreach_variable_type environment MapRef.empty
+  MapRef.fold foreach_variable_type environment empty
 ;;
 
 (*******************************************************************
@@ -464,7 +430,7 @@ let values_of t typeValues =
   else Domain.SetValue.empty
 ;;
 
-let make_type_values initTypeMap initFlatStore goalTypeMap goalFlatStore =
+let make_type_values initTypeEnv initFlatStore goalTypeEnv goalFlatStore =
   let add t value typeValues =
     MapType.add t
                 (Domain.SetValue.add value (values_of t typeValues))
@@ -488,10 +454,10 @@ let make_type_values initTypeMap initFlatStore goalTypeMap goalFlatStore =
         add t (Domain.Basic (Domain.Symbol symbol)) acc
       ) map symbols
   in*)
-  let add_from_store typeMap = MapRef.fold (fun var value map ->
-      begin match type_of var typeMap with
+  let add_from_store typeEnv = MapRef.fold (fun var value map ->
+      begin match find var typeEnv with
       | T_Undefined | T_Forward _ ->
-        error ~map:typeMap
+        error ~env:typeEnv
               431
               ("Invalid type of '" ^ !^var ^ "'")
 
@@ -508,11 +474,11 @@ let make_type_values initTypeMap initFlatStore goalTypeMap goalFlatStore =
       end
     )
   in
-  let add_from_actions typeMap =
+  let add_from_actions typeEnv =
     let add_from_effects = List.fold_left (fun map (reference, value) ->
-        begin match type_of reference typeMap with
+        begin match find reference typeEnv with
         | T_Undefined | T_Schema _ | T_Forward _ | T_Action | T_Constraint ->
-          error ~map:typeMap
+          error ~env:typeEnv
                 432
                 ("Invalid type of '" ^ !^reference ^ "'")
 
@@ -530,13 +496,13 @@ let make_type_values initTypeMap initFlatStore goalTypeMap goalFlatStore =
       end
     )
   in
-  let mapInit1 = add_from_store initTypeMap initFlatStore MapType.empty in
-  let mapInit2 = add_from_actions initTypeMap
+  let mapInit1 = add_from_store initTypeEnv initFlatStore MapType.empty in
+  let mapInit2 = add_from_actions initTypeEnv
                                   (values_of T_Action mapInit1)
                                   mapInit1
   in
-  let mapGoal1 = add_from_store goalTypeMap goalFlatStore mapInit2 in
-  let mapGoal2 = add_from_actions goalTypeMap
+  let mapGoal1 = add_from_store goalTypeEnv goalFlatStore mapInit2 in
+  let mapGoal2 = add_from_actions goalTypeEnv
                                   (values_of T_Action mapGoal1)
                                   mapGoal1
   in

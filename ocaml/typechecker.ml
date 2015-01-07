@@ -32,7 +32,7 @@ let t_plain_object = T_Object T_Plain ;;
 type data = {
               env         : environment;
               constraints : (environment -> t) list;
-              actions     : (Domain.reference * (map -> t)) list
+              actions     : (Domain.reference * (environment -> t)) list
             }
 
 (** A short-hand function to set 'env' of a data. *)
@@ -187,7 +187,6 @@ and nuri_trajectory constraints namespace data : data =
       actions     = data.actions
     }
 
-(* TODO: this must be implemented after generating the main map *)
 and nuri_constraint constraint_ namespace : environment -> t =
   match constraint_ with
   | C_Equal (left, right) ->
@@ -401,7 +400,7 @@ and nuri_expression expression t_explicit namespace typeEnv : t =
 
 and nuri_action name (_, _, _, _) =
   (* TODO: implement type-checker for action. *)
-  fun map -> T_Action
+  fun typeEnv -> T_Action
 
 and nuri_value value t_variable t_explicit destRef namespace data : data =
   match value with
@@ -569,6 +568,7 @@ and nuri_specification ?main:(mainReference = ["main"]) nuri =
   let data = nuri_context nuri
                           { env = initEnv; constraints = []; actions = [] }
   in
+print_endline (string_of_environment data.env);
 
   (* second-pass : extract merge types and extract main object *)
   let env2 = match mainReference @: data.env with
@@ -599,7 +599,7 @@ and nuri_specification ?main:(mainReference = ["main"]) nuri =
   else error 1782 "Invalid action(s).";
 
   (* forth-pass : check well-formed typing *)
-  well_formed (map_of env2) mainEnv
+  well_formed env2 mainEnv
 ;;
 
 let eval = nuri_specification ;;

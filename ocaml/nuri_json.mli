@@ -12,7 +12,7 @@
 
 exception Nuri_jsonError of int * string
 
-val of_store : Type.map -> Domain.store -> string
+val of_store : Type.environment -> Domain.store -> string
 
 val of_constraint : Domain.constraint_ -> string
 
@@ -23,4 +23,4 @@ val of_flatstore : Domain.flatstore -> string
 val of_type : Syntax.t -> string
 
 
-val to_store : string -> Type.map * Domain.store
+val to_store : string -> Type.environment * Domain.store

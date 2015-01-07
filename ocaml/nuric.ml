@@ -73,7 +73,7 @@ let check_type ast =
         if !opt_no_main then []
         else ["main"]
     in
-    print_endline (Type.string_of_map (Typechecker.eval
+    print_endline (Type.string_of_environment (Typechecker.eval
         ~main:mainReference ast))
 ;;
 

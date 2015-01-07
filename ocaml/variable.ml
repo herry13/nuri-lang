@@ -249,8 +249,8 @@ let static_object_domain = [| static_object |] ;;
     flat-store of initial and goal states *)
 let make_ts typeEnvInit flatStoreInit typeEnvGoal flatStoreGoal typeValues =
   let type_of_variable varName =
-    match (Type.type_of varName typeEnvInit),
-          (Type.type_of varName typeEnvGoal)
+    match (Type.find varName typeEnvInit),
+          (Type.find varName typeEnvGoal)
     with
     | t, Syntax.T_Undefined -> t
 

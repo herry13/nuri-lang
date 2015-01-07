@@ -14,24 +14,11 @@ open Syntax
 
 type environment = t list MapRef.t
 
-and variable_type = Domain.reference * t
-
-and map = t MapRef.t
-
-
 exception Error of int * string
 
-val error : ?env:environment -> ?map:map -> int -> string -> 'a
+val error : ?env:environment -> int -> string -> 'a
 
-
-val string_of_map : map -> string
-
-val type_of : Domain.reference -> map -> t
-
-val map_of : environment -> map
-
-val well_formed : map -> map -> map
-
+val well_formed : environment -> environment -> environment
 
 val string_of_environment : environment -> string
 
@@ -65,9 +52,10 @@ val main_of : Domain.reference -> environment -> environment
 
 val replace_forward_type : Domain.reference -> environment -> environment
 
-val merge_types : Domain.reference -> environment -> map
+val merge_types : Domain.reference -> environment -> environment
 
 val symbol_of_enum : string -> string -> environment -> bool
+
 
 
 module MapType : Map.S with type key = t
@@ -78,5 +66,5 @@ val values_of : t -> type_values -> Domain.SetValue.t
 
 (*val add_value : t -> Domain.value -> type_values -> type_values*)
 
-val make_type_values : map -> Domain.flatstore -> map -> Domain.flatstore ->
-                       type_values
+val make_type_values : environment -> Domain.flatstore -> environment ->
+                       Domain.flatstore -> type_values

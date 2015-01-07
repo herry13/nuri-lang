@@ -292,13 +292,13 @@ let of_store typeEnv store =
     let buf = Buffer.create 42 in
     let json_variable_type ns id =
         let r = (@+.) ns id in
-        match MapRef.find r typeEnv with
+        match Type.find r typeEnv with
         | Syntax.T_Undefined -> error 1303 ("type of " ^ !^r ^ " is undefined")
         | t -> of_type t
     in
     let set_json_object_type ns id =
         let r = (@+.) ns id in
-        match MapRef.find r typeEnv with
+        match Type.find r typeEnv with
         | Syntax.T_Undefined -> error 1304 ("type of " ^ !^r ^ " is undefined")
         | Syntax.T_Schema t ->
             begin

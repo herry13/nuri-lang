@@ -72,8 +72,8 @@ val intersect : value list -> t -> t
  * Collection of variables operation functions
  *****************************************************************)
 
-val make_ts : Type.map -> flatstore -> Type.map -> flatstore ->
-              Type.type_values -> ts
+val make_ts : Type.environment -> flatstore -> Type.environment ->
+              flatstore -> Type.type_values -> ts
 
 val mem : reference -> ts -> bool
 
