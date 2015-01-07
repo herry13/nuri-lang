@@ -32,11 +32,10 @@ and map = t MapRef.t
     @return a string
 *)
 let string_of_map map =
-  let buf = Buffer.create 42 in
-  MapRef.iter (fun var t ->
-    buf <<| !^var <<| " : " <<| (string_of_type t) <. '\n'
-  ) map;
-  Buffer.contents buf
+  let foreach_pair var t buffer =
+    buffer <<| !^var <<| " : " <<| (string_of_type t) <.| '\n'
+  in
+  Buffer.contents (MapRef.fold foreach_pair map (Buffer.create 42))
 ;;
 
 (** Generate a string of a type-environment.
@@ -44,12 +43,10 @@ let string_of_map map =
     @return a string
 *)
 let string_of_environment environment =
-  let buffer = Buffer.create 40 in
-  MapRef.iter (fun var ts ->
-    buffer <<| !^var << " : ";
-    (join_ buffer " | " string_of_type ts) <. '\n'
-  ) environment;
-  Buffer.contents buffer
+  let foreach_pair var ts buffer =
+    (join " | " string_of_type ts (buffer <<| !^var <<| " : ")) <.| '\n'
+  in
+  Buffer.contents (MapRef.fold foreach_pair environment (Buffer.create 42))
 ;;
 
 let empty = MapRef.empty ;;
@@ -73,9 +70,7 @@ let error ?env:(env = empty) ?map:(map = MapRef.empty) code message =
     print_endline "\n---- Type Map ----";
     print_endline (string_of_map map)
   end;
-  let msg = if message = "" then message
-            else (" " ^ message)
-  in
+  let msg = if message = "" then message else (" " ^ message) in
   raise (Error (code, "[typeErr" ^ (string_of_int code) ^ "]" ^ msg))
 ;;
 

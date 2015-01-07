@@ -126,10 +126,8 @@ let json_of_parallel_action action before after =
   buffer <. '{';
   json_of_elements buffer action;
   buffer << ",\"before\":[";
-  join buffer "," string_of_int before;
-  buffer << "],\"after\":[";
-  join buffer "," string_of_int after;
-  buffer <<$ "]}"
+  (join "," string_of_int before buffer) << "],\"after\":[";
+  (join "," string_of_int after buffer) <<$ "]}"
 ;;
 
 let json_of_actions actions =
