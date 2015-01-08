@@ -44,11 +44,15 @@ exception Error of int * string
     @param message the error's message
     @raise Error
 *)
-let error ?env:(env = empty) code message =
-  if !verbose then begin
-    print_endline "---- Type Environment ----";
-    print_endline (string_of_environment env);
-    print_endline "---- Enf of Type Environment ----";
+let error ?env code message =
+  begin match env with
+  | Some e when !verbose ->
+    begin
+      print_endline "---- Type Environment ----";
+      print_endline (string_of_environment e);
+      print_endline "---- Enf of Type Environment ----";
+    end
+  | _ -> ()
   end;
   let msg = if message = "" then message else (" " ^ message) in
   raise (Error (code, "[typeErr" ^ (string_of_int code) ^ "]" ^ msg))
