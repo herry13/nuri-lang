@@ -96,7 +96,8 @@ let (@:) = find ;;
     @return bool
 *)
 let rec (<:) type1 type2 = match type1, type2 with
-  | T_Undefined, _ | _, T_Undefined           -> false
+  | T_Undefined, _ | _, T_Undefined
+  | T_Forward _, _ | _, T_Forward _           -> false
   | _, _ when type1 = type2                   -> true
   | T_Any, _ when type2 <> T_Undefined        -> true
   | T_Int, T_Float                            -> true
