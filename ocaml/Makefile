@@ -12,7 +12,7 @@ BIN = nuric
 STACK_TRACE = 0
 
 # !!! NO TRAILING WHITESPACE
-PACKAGES = str unix
+PACKAGES = str unix oUnit
 
 # List modules (order is important!)
 MODULES = \
@@ -90,6 +90,11 @@ domain: common syntax domain.mli domain.ml
 	$(COMPILER) -c domain.mli
 	$(COMPILER) -c domain.ml
 
+domain_test: domain test/domain_test.ml
+	$(COMPILER) -g -c test/domain_test.ml
+	$(COMPILER) -g -o domain_test common.cmo domain.cmo test/domain_test.cmo
+	./domain_test -verbose true -no-cache-filename -no-output-file -output-html-dir test
+
 valuation: valuation.mli valuation.ml domain
 	$(COMPILER) -c valuation.mli
 	$(COMPILER) -c valuation.ml
@@ -127,7 +132,10 @@ plan: domain plan.mli plan.ml
 	$(COMPILER) -c plan.ml
 
 clean:
-	@rm -f *.s *.cmo parser.mli lexer.mli *.cmi *.o *.cmx parser.ml lexer.ml parser.output ocamlprof.dump
+	@rm -f *.s *.cm{i,o,x} *.o
+	@rm -f test/*.cm{i,o} test/index.html test/oUnit.{css,js}
+	@rm -f parser.mli lexer.mli parser.ml lexer.ml parser.output ocamlprof.dump
+	@rm -f oUnit-anon.cache domain_test
 
 clean-all: clean
 	@rm -f $(BIN)
@@ -138,8 +146,7 @@ clean-build: clean-all build
 
 travis: dist
 
-test:
-	@bash ../test/test-ocaml.sh
+test: domain_test
 
 DOC_OPTIONS=-html
 
