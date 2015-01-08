@@ -118,10 +118,11 @@ let rec (!-) = function
   | head :: tail -> head :: (!- tail)
 ;;
 
-(** Add an identifier to the last position of the reference. *)
+(** Concat the second reference to the last position of the first
+    reference. *)
 let (@+) = List.append ;;
 
-(** Remove a common (of both references) prefix from the first reference. *)
+(** Add an identifier to the last position of the reference. *)
 let (@+.) reference identifier = reference @+ [identifier] ;;
 
 (** Remove a common (of both references) prefix from the first reference. *)
