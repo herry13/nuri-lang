@@ -50,10 +50,6 @@ and store = cell list
 (** Reference domain *)
 and reference = ident list
 
-(** Lifted-reference domain *)
-and reference_ = Valid of reference
-               | Invalid
-
 (** Identifier domain *)
 and ident = string
 
@@ -144,18 +140,21 @@ let (@<) reference1 reference2 =
   (reference1 @<= reference2) && not (reference1 = reference2)
 ;;
 
+let rec pack root parent this namespace reference =
+  match namespace, reference with
+  | _, [] -> Some namespace
+  | _, id :: tail when id = this -> pack root parent this namespace tail
+  | _, id :: tail when id = root -> pack root parent this [] tail
+  | [], id :: _ when id = parent -> None
+  | _, id :: tail when id = parent -> pack root parent this !-namespace tail
+  | _, id :: tail -> pack root parent this (namespace @ [id]) tail
+;;
+
 (** Given a namespace (first), remove keyword 'root', 'parent',
     and 'this' from a reference (second). Note that any keyword
     should not be exist in the namespace.
 *)
-let rec (@<<) namespace reference = match namespace, reference with
-  | _, []                -> Valid namespace
-  | _, "this" :: tail    -> namespace @<< tail
-  | _, "root" :: tail    -> [] @<< tail
-  | [], "parent" :: tail -> Invalid
-  | _, "parent" :: tail  -> !-namespace @<< tail
-  | _, id :: tail        -> (namespace @+. id) @<< tail
-;;
+let rec (@<<) = pack "root" "parent" "this" ;;
 
 (** Similar with '@<<' but the namespace is root. *)
 let (!<<) reference = [] @<< reference ;;
@@ -222,10 +221,10 @@ let rec resolve ?follow:(ff=false) store namespace reference =
 
 let rec resolve reference namespace store =
   match namespace, namespace @<< reference with
-  | [], Invalid   -> ([], Undefined)
-  | _, Invalid    -> resolve reference !-namespace store
-  | [], Valid ref -> ([], find ref store)
-  | _, Valid ref  ->
+  | [], None     -> ([], Undefined)
+  | _, None      -> resolve reference !-namespace store
+  | [], Some ref -> ([], find ref store)
+  | _, Some ref  ->
     begin match find ref store with
     | Undefined -> resolve reference !-namespace store
     | value     -> (namespace, value)
@@ -298,17 +297,17 @@ and resolve_follow ?visited:(accumulator=SetRef.empty) reference
     | (_, Undefined) as value -> value
     | ns, Val Link nextRef | ns, Val Basic Reference nextRef ->
       begin match ns @<< reference with
-      | Invalid -> error 510 ("Invalid reference: " ^ !^(ns @+ reference))
-      | Valid ref -> resolve_follow ~visited:(SetRef.add ref accumulator)
+      | None -> error 510 ("Invalid reference: " ^ !^(ns @+ reference))
+      | Some ref -> resolve_follow ~visited:(SetRef.add ref accumulator)
                                     nextRef destReference !-ref store
       end
     | ns, value ->
       begin match ns @<< reference with
-      | Invalid -> error 511 ("Invalid reference: " ^ !^(ns @+ reference))
-      | Valid ref when ref @<= destReference ->
+      | None -> error 511 ("Invalid reference: " ^ !^(ns @+ reference))
+      | Some ref when ref @<= destReference ->
         error 512 "Inner-cyclic reference is detected."
 
-      | Valid ref -> (ref, value)
+      | Some ref -> (ref, value)
       end
 
 (*
@@ -634,8 +633,8 @@ let substitute_parameter_of_reference reference groundParameters =
   in
   (* normalize the reference *)
   match !<<ref with
-  | Valid r -> r
-  | Invalid -> error 514 ("Invalid left-hand side reference: " ^ !^ref)
+  | Some r -> r
+  | None -> error 514 ("Invalid left-hand side reference: " ^ !^ref)
 ;;
 
 (** Substitute each right-hand side reference of basic value
@@ -649,7 +648,7 @@ let substitute_parameter_of_basic_value basic_value groundParameters =
       begin match MapStr.find id groundParameters with
       | Reference r ->
         begin match r @<< tail with
-        | Valid rp -> Reference rp
+        | Some rp -> Reference rp
         | _ -> error 515 ("Invalid right-hand side reference: " ^ !^r)
         end
       | _ -> error 514 "Cannot append a reference to a non-reference value"

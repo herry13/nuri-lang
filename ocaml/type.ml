@@ -395,11 +395,11 @@ let rec prevail_of ref environment = match ref with
 
 let rec resolve reference namespace environment =
   match namespace @<< reference with
-  | Domain.Invalid ->
+  | None ->
     if namespace = [] then None
     else resolve reference !-namespace environment
 
-  | Domain.Valid ref ->
+  | Some ref ->
     begin match find_ ref environment with
     | None ->
       begin match namespace, prevail_of ref environment with

@@ -477,12 +477,12 @@ and nuri_assign_type_value destRef t value namespace data : data =
     begin
       let t_explicit = nuri_type_explicit t data.env in
       match namespace @<< destRef with
-      | Domain.Invalid ->
+      | None ->
         error ~env:data.env
               1760
               ("Invalid reference: " ^ !^(namespace @+ destRef))
   
-      | Domain.Valid ref ->
+      | Some ref ->
         nuri_value value T_Undefined t_explicit ref namespace data
     end
 

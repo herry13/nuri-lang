@@ -50,9 +50,6 @@ and store = cell list
 (** Reference domain *)
 and reference = ident list
 
-and reference_ = Valid of reference
-               | Invalid
-
 (** Identifier domain *)
 and ident = string
 
@@ -119,12 +116,14 @@ val (@<=) : 'a list -> 'a list -> bool
     the second one, otherwise 'false'. *)
 val (@<) : 'a list -> 'a list -> bool
 
+val pack : 'a -> 'a -> 'a -> 'a list -> 'a list -> 'a list option
+
 (** Given a namespace (first), remove keyword 'root', 'parent',
     and 'this' from a reference (second). *)
-val (@<<) : reference -> reference -> reference_
+val (@<<) : reference -> reference -> reference option
 
 (** Similar with '@<<' but the namespace is root ([]). *)
-val (!<<) : reference -> reference_
+val (!<<) : reference -> reference option
 
 
 (*******************************************************************
