@@ -35,7 +35,6 @@ and value = Basic  of basic
           | Action of action
           | TBD
           | Unknown
-          | None
           | Lazy of func
 
 (** Lifted-Value domain *)

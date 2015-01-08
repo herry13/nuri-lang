@@ -275,7 +275,6 @@ let rec of_value ?no_lazy:(no_lazy=true) value =
     | Link r -> buf <<| "\"§" <<| !^r <. '"'
     | TBD -> buf << "\"$TBD\""
     | Unknown -> buf << "\"$unknown\""
-    | None -> buf << "\"$none\""
     | Store child -> buf << "{}"
     | Global c -> json_constraint buf c
     | Action a -> json_action buf a
@@ -348,11 +347,6 @@ let of_store typeEnv store =
             begin
                 add_ident ~_type:(json_variable_type ns id) buf id;
                 buf << "\"$unknown\""
-            end
-        | None ->
-            begin
-                add_ident ~_type:(json_variable_type ns id) buf id;
-                buf << "\"$none\""
             end
         | Store child ->
             begin

@@ -17,7 +17,7 @@ open Syntax
 %token <string> STRING
 %token <string> ISTRING
 %token <string> ID
-%token NULL TOK_TBD TOK_UNKNOWN TOK_NONE
+%token NULL TOK_TBD TOK_UNKNOWN
 %token <string> INCLUDE_FILE
 %token <string> IMPORT_FILE
 %token EXTENDS COMMA DATA BEGIN END SEP
@@ -98,7 +98,6 @@ value
 simple_value
   : TOK_TBD     { TBD }
   | TOK_UNKNOWN { Unknown }
-  | TOK_NONE    { None }
   | exp         { Expression $1 }
 
 exp

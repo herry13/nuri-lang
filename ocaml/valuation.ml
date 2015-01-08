@@ -196,7 +196,6 @@ and sfValue v ns r s =
     | Action a -> nuriAction a ns r s
     | TBD      -> Domain.bind s r Domain.TBD
     | Unknown  -> Domain.bind s r Domain.Unknown
-    | None     -> Domain.bind s r Domain.None
 
 (** the type is ignored since this function only evaluates the value **)
 and sfAssignment (reference, _, value) ns s =

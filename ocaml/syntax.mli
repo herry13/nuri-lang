@@ -78,7 +78,6 @@ and  value         = Expression of expression
                    | TBD        (** To Be Defined *)
                    | Unknown    (** Unknown : used when the variable's value
                                     is indeterminate *)
-                   | None       (** None : the variable is not exist *)
 
 and  prototype     = ReferencePrototype of reference * prototype 
                      (** Reference prototype *)

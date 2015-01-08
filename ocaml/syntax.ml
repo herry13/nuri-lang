@@ -49,7 +49,6 @@ and  value         = Expression of expression
                    | Action     of action
                    | TBD
                    | Unknown
-                   | None
 and  prototype     = ReferencePrototype of reference * prototype
                    | BlockPrototype     of block * prototype
                    | EmptyPrototype
@@ -396,7 +395,6 @@ let rec string_of nuri =
     | Action a -> action a
     | TBD      -> buf << " TBD"
     | Unknown  -> buf << " Unknown"
-    | None     -> buf << " None"
 
   and prototype proto = match proto with
     | ReferencePrototype (r, p) ->

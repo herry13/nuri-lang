@@ -405,7 +405,7 @@ and nuri_action name (_, _, _, _) =
 
 and nuri_value value t_variable t_explicit destRef namespace data : data =
   match value with
-  | TBD | Unknown | None ->
+  | TBD | Unknown ->
     set (bind data.env destRef ~t_variable:t_variable t_explicit T_Any) data
 
   | Action a ->
