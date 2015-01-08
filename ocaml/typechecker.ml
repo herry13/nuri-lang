@@ -69,33 +69,33 @@ and nuri_data_reference dataRef t_explicit namespace typeEnv : t =
     begin
       let ref = nuri_reference dataRef in
       match resolve ref namespace typeEnv with
-      | _, T_Undefined -> T_Forward (T_Ref ref)
-      | _, T_Schema _ ->
+      | None | Some (_, T_Undefined) -> T_Forward (T_Ref ref)
+      | Some (_, T_Schema _) ->
         error ~env:typeEnv 1700 ("Cannot refer to a schema: " ^ !^ref)
     
-      | _, T_Action ->
+      | Some (_, T_Action) ->
         error ~env:typeEnv 1701 ("Cannot refer to an action: " ^ !^ref)
     
-      | _, T_Constraint ->
+      | Some (_, T_Constraint) ->
         error ~env:typeEnv 1702 ("Cannot refer to a constraint: " ^ !^ref)
     
-      | _, T_Enum _ ->
+      | Some (_, T_Enum _) ->
         error ~env:typeEnv 1703 ("Cannot refer to an enum: " ^ !^ref)
     
-      | _, T_Object (_ as t_object) -> T_Reference t_object
-      | _, t -> t
+      | Some (_, T_Object (_ as t_object)) -> T_Reference t_object
+      | Some (_, t) -> t
     end
 
 and nuri_link_reference linkReference destReference namespace typeEnv =
   let ref = nuri_reference linkReference in
   match resolve ref namespace typeEnv with
-  | _, T_Undefined -> (!-destReference, T_Forward (T_Link ref))
-  | srcRef, _ when srcRef @<= destReference ->
+  | None | Some (_, T_Undefined) -> (!-destReference, T_Forward (T_Link ref))
+  | Some (srcRef, _) when srcRef @<= destReference ->
     error ~env:typeEnv
           1705
           ("Inner-cyclic reference: " ^ !^srcRef ^ " <= " ^ !^destReference)
 
-  | result -> result
+  | Some result -> result
 
 and nuri_array _array t_explicit namespace typeEnv : t =
   let t = match t_explicit with
@@ -162,12 +162,12 @@ and nuri_prototype ?isFirst:(isFirst=true) prototype t_explicit destRef
     begin
       let protoRef = nuri_reference reference in
       match resolve protoRef namespace data.env with
-      | _, T_Undefined ->
+      | None | Some (_, T_Undefined) ->
         error ~env:data.env
               1715
               ("Forward prototype is not supported: " ^ !^protoRef)
 
-      | _, t ->
+      | Some (_, t) ->
         begin
           let env = bind data.env destRef t_explicit t in
           let data1 = set (inherit_ protoRef destRef namespace env) data in
