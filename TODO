@@ -1,0 +1,23 @@
+# OCaml
+- Type-checking for action's preconditions and effects.
+- Refactor valuation functions (use type-environment to infer the value
+  of expression, etc).
+- Replace Str regexp with PCRE (or Perl-regexp) library for string pattern
+  matching.
+- Replace OCaml std-lib with Batteries Included -- although there is no
+  changes required in our codes, but we can do refactoring to make them
+  better.
+- Allow functions in constraints (this also affects action's preconditions).
+- Schema/enum in another schema -- when an object inherits a schema, it only
+  inherits non-schema and non-enum attributes.
+
+# Portability
+- Try to compile in Windows.
+
+# Protobuf
+- Compile a schema to protobuf message (*.proto).
+
+# Agent
+- The agent receives a Nuri specification through HTTP POST, and then
+  compile it locally. The compilation results can be queried with HTTP GET.
+- An alternative version can be implemented using ZeroMQ + Protobuf.
