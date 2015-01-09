@@ -98,28 +98,21 @@ and nuri_link_reference linkReference destReference namespace typeEnv =
   | Some result -> result
 
 and nuri_array _array t_explicit namespace typeEnv : t =
-  let t = match t_explicit with
-    | T_List tl -> tl
-    | _         -> t_explicit
+  let t_exp = match t_explicit with
+    | T_List t -> t
+    | _ -> t_explicit
   in
-  let rec eval = function
-    | [] -> T_Undefined
-    | head :: [] -> nuri_basic_value head t namespace typeEnv
-    | head :: tail ->
-      begin match nuri_basic_value head t namespace typeEnv, eval tail with
-      | T_Forward _, _ | _, T_Forward _ -> T_Undefined
-      | t_head, t_tail when t_head =:= t_tail -> t_head
-      | t_head, t_tail ->
-        error ~env:typeEnv
-              1710
-              ("Type of array elements are different e.g. " ^
-                (string_of_type t_head) ^ " and " ^
-                (string_of_type t_tail) ^ ".")
-      end
+  let foreach_element t_accu element =
+    let t = nuri_basic_value element t_accu namespace typeEnv in
+    if t_accu = T_Undefined then t
+    else if t <: t_accu then t_accu
+    else if t_accu <: t then t
+    else error ~env:typeEnv
+               1710
+               ("Types of array elements are incompatible: " ^
+                 (string_of_type t_accu) ^ " :: " ^ (string_of_type t))
   in
-  match eval _array with
-  | T_Undefined -> T_Undefined
-  | t           -> T_List t
+  T_List (List.fold_left foreach_element t_exp _array)
 
 and nuri_basic_value basicValue t_explicit namespace typeEnv : t =
   match basicValue with
