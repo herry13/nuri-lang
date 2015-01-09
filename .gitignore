@@ -3,3 +3,6 @@
 
 # Documentation files
 /doc
+
+
+modules/*.nuri
