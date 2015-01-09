@@ -87,14 +87,6 @@ let rec find variable environment = match variable with
   | _ -> T_Undefined
 ;;
 
-let find_ variable environment = match variable with
-  | [] -> Some (T_Object T_Plain)
-  | _ when MapRef.mem variable environment ->
-    Some (List.hd (MapRef.find variable environment))
-
-  | _ -> None
-;;
-
 let (@:) = find ;;
 
 (** Return true of the first (left) type is a subtype of the second (right)
@@ -153,40 +145,12 @@ let rec has t environment = match t with
     has (T_Schema t_object) environment
 ;;
 
-let rec has_ t environment = match t with
-  | T_Undefined | T_Forward _ -> false
-
-  | T_Bool | T_Int | T_Float | T_String
-  | T_Null | T_Any | T_Action | T_Constraint -> true
-
-  | T_Symbol id -> has (T_Enum (id, [])) environment
-
-  | T_Enum (id, _) ->
-    begin match find_ [id] environment with
-    | Some (T_Enum (idx, _)) -> id = idx
-    | _ -> false
-    end
-
-  | T_List t_list -> has t_list environment
-
-  | T_Schema T_Plain | T_Object T_Plain | T_Reference T_Plain -> true
-
-  | T_Schema T_User (id, _) ->
-    begin match find_ [id] environment with
-    | None -> false
-    | Some t -> t <: T_Schema T_Plain
-    end
-
-  | T_Object t_object | T_Reference t_object ->
-    has (T_Schema t_object) environment
-;;
-
 let well_formed completeEnv mainEnv =
   let each_var_type var = function
     | [] -> error ~env:completeEnv 490 ("Type of " ^ !^var ^ " is undefined.")
     | t :: _ when has t completeEnv -> ()
     | t :: _ -> error ~env:completeEnv
-                      490
+                      491
                       ("Type '" ^ (string_of_type t) ^ "' (" ^ !^var ^
                         ") is not exists.")
   in
@@ -197,14 +161,6 @@ let well_formed completeEnv mainEnv =
 let symbol_of_enum symbol enumID environment =
   match find [enumID] environment with
   | T_Enum (id, symbols) when enumID = id -> List.exists ((=) symbol) symbols
-  | _ -> false
-;;
-
-let symbol_of_enum_ symbol enumID environment =
-  match find_ [enumID] environment with
-  | Some T_Enum (id, symbols) when enumID = id ->
-    List.exists ((=) symbol) symbols
-
   | _ -> false
 ;;
 
@@ -289,85 +245,6 @@ let bind environment variable ?t_variable:(t_variable = T_Undefined) =
     error 401 ("Prefix of " ^ !^variable ^ " is not an object or schema.")
 ;;
 
-
-let rec bind_ environment variable ?t_variable =
-  match find_ !-variable environment with
-  | Some T_Object _ | Some T_Schema _ ->
-    begin match t_variable with
-    | None -> bind_type_ environment variable (find_ variable environment)
-    | Some t -> bind_type_ environment variable t
-    end
-  | _ -> error 401 ("Prefix of " ^ !^variable ^ " is not an object or schema.")
-
-and bind_type_ environment variable (t_var : t option)
-               (t_explicit : t option) (t_value : t) =
-  match t_var, t_explicit, t_value with
-  | None, None, T_Any ->
-    error ~env:environment
-          402
-          ("You need to explicitly define the type of '" ^ !^variable ^ "'.")
-
-  | None, None, _ -> MapRef.add variable [t_value] environment
-
-  | None, Some t, _ when t_value <: t ->
-    MapRef.add variable [t] environment
-
-  | Some T_Forward _, None, _ ->
-    MapRef.add variable
-               (t_value :: (MapRef.find variable environment))
-               environment
-
-  | Some T_Forward _, Some ((T_Forward _) as t), _ ->
-    MapRef.add variable
-               (t_value :: t :: (MapRef.find variable environment))
-               environment
-
-  | Some T_Forward _, Some t, _ | None, Some t, T_Forward _ ->
-    MapRef.add variable
-               (t :: t_value :: (MapRef.find variable environment))
-               environment
-
-  | None, Some t, _ ->
-    error ~env:environment
-          403
-          ((string_of_type t_value) ^ " (value) is not a subtype of " ^
-            (string_of_type t) ^ " (explicit) -- " ^ !^variable ^ ".")
-
-  | Some T_Schema _, _, _ ->
-    error ~env:environment 404 "Re-defining a schema is not allowed."
-
-  | Some T_Enum _, _, _ ->
-    error ~env:environment 405 "Re-defining an enum is not allowed."
-
-  | Some t, None, _ when t_value <: t -> environment
-
-  | Some t, None, T_Forward _ ->
-    MapRef.add variable
-               (List.append (MapRef.find variable environment) [t_value])
-               environment
-
-  | _, None, _ ->
-    error ~env:environment
-          406
-          ("The value's type is not subtype of the variable's " ^ "type: " ^
-            !^variable ^ ".")
-
-  | Some t_var, Some t_exp, _
-    when (t_value <: t_exp) && (t_exp <: t_var) -> environment
-
-  | _, Some t, _ when not (t_value <: t) ->
-    error ~env:environment
-          407
-          ((string_of_type t_value) ^ " (value) is not a subtype of " ^
-            (string_of_type t) ^ " (explicit) at variable '" ^
-            !^variable ^ "'.")
-
-  | _ -> error ~env:environment
-               408
-               ("The explicit type is not subtype of the variable's type: " ^
-                 !^variable ^ ".")
-;;
-
 let copy srcPrefix destPrefix environment =
   MapRef.fold (fun variable ts accu ->
     if srcPrefix @< variable then
@@ -386,9 +263,9 @@ let copy srcPrefix destPrefix environment =
 let rec prevail_of ref environment = match ref with
   | [] -> None
   | ref ->
-    begin match find_ ref environment with
-    | None -> prevail_of !-ref environment
-    | Some T_Reference T_User (id, _) -> Some ([id], ref)
+    begin match find ref environment with
+    | T_Undefined -> prevail_of !-ref environment
+    | T_Reference T_User (id, _) -> Some ([id], ref)
     | _ -> None
     end
 ;;
@@ -400,15 +277,15 @@ let rec resolve reference namespace environment =
     else resolve reference !-namespace environment
 
   | Some ref ->
-    begin match find_ ref environment with
-    | None ->
+    begin match find ref environment with
+    | T_Undefined ->
       begin match namespace, prevail_of ref environment with
       | [], None -> None
       | _, None -> resolve reference !-namespace environment
       | _, Some (schemaRef, srcRef) ->
         resolve (schemaRef @+ (ref @- srcRef)) [] environment
       end
-    | Some t -> Some (ref, t)
+    | t -> Some (ref, t)
     end
 ;;
 

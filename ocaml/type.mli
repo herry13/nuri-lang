@@ -26,8 +26,6 @@ val empty : environment
 
 val find : Domain.reference -> environment -> t
 
-val find_ : Domain.reference -> environment -> t option
-
 val (@:) : Domain.reference -> environment -> t
 
 val subtype : t -> t -> bool
@@ -47,7 +45,7 @@ val resolve : Domain.reference -> Domain.reference -> environment ->
 val inherit_ : Domain.reference -> Domain.reference -> Domain.reference ->
                environment -> environment
 
-val at : ?env:environment -> string list -> t -> t
+val at : ?env:environment -> Domain.reference -> t -> t
 
 
 val main_of : Domain.reference -> environment -> environment
