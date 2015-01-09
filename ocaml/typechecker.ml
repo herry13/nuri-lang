@@ -129,7 +129,6 @@ and nuri_basic_value basicValue t_explicit namespace typeEnv : t =
       at ~env:typeEnv indexes t_ref
     end
 
-(* TODO: refactor (try to remove 'isFirst') *)
 and nuri_prototype ?isFirst:(isFirst=true) prototype t_explicit destRef
                   namespace data : data =
   match prototype with
@@ -176,30 +175,30 @@ and nuri_trajectory constraints namespace data : data =
   | Global global ->
     {
       env         = data.env;
-      constraints = (namespace, (nuri_constraint global namespace)) ::
+      constraints = (namespace, (nuri_constraint global [] namespace)) ::
                       data.constraints;
       actions     = data.actions
     }
 
-and nuri_constraint constraint_ namespace : environment -> t =
+and nuri_constraint constraint_ (parameters : parameter list) namespace : environment -> t =
   match constraint_ with
   | C_Equal (left, right) ->
-    eval_c_binary (nuri_compare "eq") left right namespace
+    eval_c_binary (nuri_compare "eq") left right parameters namespace
 
   | C_NotEqual (left, right) ->
-    eval_c_binary (nuri_compare "ne") left right namespace
+    eval_c_binary (nuri_compare "ne") left right parameters namespace
 
   | C_Greater (left, right) ->
-    eval_c_binary (nuri_num_compare "gt") left right namespace
+    eval_c_binary (nuri_num_compare "gt") left right parameters namespace
 
   | C_GreaterEqual (left, right) ->
-    eval_c_binary (nuri_num_compare "ge") left right namespace
+    eval_c_binary (nuri_num_compare "ge") left right parameters namespace
 
   | C_Less (left, right) ->
-    eval_c_binary (nuri_num_compare "lt") left right namespace
+    eval_c_binary (nuri_num_compare "lt") left right parameters namespace
 
   | C_LessEqual (left, right) ->
-    eval_c_binary (nuri_num_compare "le") left right namespace
+    eval_c_binary (nuri_num_compare "le") left right parameters namespace
 
   | C_In (left, right) ->
     let comparator t_left = function
@@ -209,29 +208,31 @@ and nuri_constraint constraint_ namespace : environment -> t =
 
       | _ -> error 1718 "Right operand (in) is not an array."
     in
-    eval_c_binary comparator left right namespace
+    eval_c_binary comparator left right parameters namespace
 
   | C_Not c ->
-    fun env -> eval_c_clauses "not" [c] namespace env
+    fun env -> eval_c_clauses "not" [c] parameters namespace env
 
   | C_Imply (premise, conclusion) ->
-    fun env -> eval_c_clauses "imply" [premise; conclusion] namespace env
+    fun env -> eval_c_clauses "imply" [premise; conclusion] parameters namespace env
 
   | C_And [] | C_Or [] -> fun _ -> T_Bool
 
   | C_And clauses ->
-    fun env -> eval_c_clauses "and" clauses namespace env
+    fun env -> eval_c_clauses "and" clauses parameters namespace env
 
   | C_Or clauses ->
-    fun env -> eval_c_clauses "or" clauses namespace env
+    fun env -> eval_c_clauses "or" clauses parameters namespace env
 
-and eval_c_binary comparator left right namespace typeEnv =
-  let t_left : t = nuri_basic_value left T_Undefined namespace typeEnv in
-  let t_right : t = nuri_basic_value right T_Undefined namespace typeEnv in
+and eval_c_binary comparator left right parameters namespace typeEnv =
+  let left_x = sub_free_variable parameters left in
+  let right_x = sub_free_variable parameters right in
+  let t_left : t = nuri_basic_value left_x T_Undefined namespace typeEnv in
+  let t_right : t = nuri_basic_value right_x T_Undefined namespace typeEnv in
   comparator t_left t_right
 
-and eval_c_clauses operator clauses namespace typeEnv =
-  if List.for_all (fun c -> (nuri_constraint c namespace typeEnv) <: T_Bool)
+and eval_c_clauses operator clauses parameters namespace typeEnv =
+  if List.for_all (fun c -> (nuri_constraint c parameters namespace typeEnv) <: T_Bool)
                   clauses
   then
     T_Bool
@@ -392,9 +393,57 @@ and nuri_expression expression t_explicit namespace typeEnv : t =
     | _ -> error ~env:typeEnv 1750 "Type of 'if' expression is not a boolean."
     end
 
-and nuri_action name (_, _, _, _) =
-  (* TODO: implement type-checker for action. *)
-  fun typeEnv -> T_Action
+and nuri_action name (params, _, conditions, effects) =
+  fun typeEnv ->
+    begin match conditions with
+    | EmptyCondition -> ()
+    | Condition cond ->
+      if not ((nuri_constraint cond params !-name typeEnv) <: T_Bool) then (
+        error ~env:typeEnv
+              1751
+              ("Invalid conditions of action '" ^ !^name ^ "': not a boolean.")
+      )
+    end;
+    List.iter (nuri_effect typeEnv name params) effects;
+    T_Action
+
+and nuri_effect typeEnv name params (r, v) =
+  let namespace = !-name in
+  let rx = sub_reference_free_variable params r in
+  let vx = sub_free_variable params v in
+  match resolve rx namespace typeEnv with
+  | None -> error ~env:typeEnv
+                  1752
+                  ("Invalid effect of action '" ^ !^name ^ "': variable '" ^
+                    !^r ^ "' is not exist.")
+  | Some (_, t_rx) ->
+    begin
+      let t_vx = nuri_basic_value vx t_rx namespace typeEnv in
+      if not (t_vx <: t_rx) then
+        error ~env:typeEnv
+              1753
+              ("Invalid effect of action '" ^ !^name ^ "': variable '" ^ !^r ^
+                "' is expecting '" ^ (string_of_type t_rx) ^ "', but given '" ^
+                (string_of_type t_vx) ^ "'.")
+    end
+
+and sub_free_variable params = function
+  | Reference r -> Reference (sub_reference_free_variable params r)
+  | RefIndex (r, ids) -> RefIndex ((sub_reference_free_variable params r), ids)
+  | v -> v
+
+and sub_reference_free_variable params = function
+  | [] -> []
+  | (id :: rs) as ref ->
+    begin
+      let rec iter = function
+        | [] -> ref
+        | (idp, T_Object T_User (name, _)) :: _ when idp = id -> name :: rs
+        | (idp, T_Object T_Plain) :: _ when idp = id -> "object" :: rs
+        | _ :: tail -> iter tail
+      in
+      iter params
+    end
 
 and nuri_value value t_variable t_explicit destRef namespace data : data =
   match value with
